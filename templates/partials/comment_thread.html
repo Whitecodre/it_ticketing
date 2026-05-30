@@ -1,0 +1,29 @@
+{% load lucide %}
+
+{% for comment in comments %}
+    <div class="flex {% if comment.author == request.user %}justify-end{% else %}justify-start{% endif %} mb-3">
+        <div class="max-w-[70%] rounded-lg px-4 py-2 text-sm text-white
+                    {% if comment.author == request.user %}
+                        bg-primary
+                    {% else %}
+                        bg-gray-700
+                    {% endif %}">
+            <div class="text-xs font-semibold mb-1 opacity-80">
+                {{ comment.author.get_full_name }}
+            </div>
+            <div>{{ comment.body|linebreaksbr }}</div>
+            <div class="text-[0.6rem] mt-1 opacity-60">
+                {{ comment.created_at|date:"h:i A" }}
+            </div>
+        </div>
+    </div>
+{% empty %}
+    <div class="text-center py-8 text-xs text-text-secondary">
+        No messages yet. Start the conversation.
+    </div>
+{% endfor %}
+
+{# OOB status update #}
+<div id="ticketStatusChip" hx-swap-oob="true">
+    <span class="status-chip {{ ticket.status|lower }} text-xs">{{ ticket.get_status_display }}</span>
+</div>

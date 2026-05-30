@@ -1,0 +1,85 @@
+{% load lucide %}
+
+<div class="overflow-x-auto">
+    <table class="data-table w-full">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Title</th>
+                <th>Status</th>
+                <th>Priority</th>
+                <th>SLA Due</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for ticket in tickets %}
+            <tr>
+                <td><span class="font-mono text-xs" style="color: var(--color-primary);">{{ ticket.number }}</span></td>
+                <td>{{ ticket.title }}</td>
+                <td><span class="status-chip {{ ticket.status|lower }}">{{ ticket.get_status_display }}</span></td>
+                <td><span class="priority-chip {% if ticket.priority == 'P1' %}critical{% elif ticket.priority == 'P2' %}high{% elif ticket.priority == 'P3' %}medium{% else %}low{% endif %}">{{ ticket.get_priority_display }}</span></td>
+                <td>
+                    {% if ticket.status == 'RESOLVED' or ticket.status == 'CLOSED' %}
+                        <span class="sla-timer safe">Resolved</span>
+                    {% else %}
+                        <div class="sla-bar w-24 mb-1">
+                            {% if ticket.resolution_due_at %}
+                                {% with remaining=ticket.resolution_due_at|timeuntil %}
+                                    {% if '0 minutes' in remaining %}
+                                        <div class="sla-bar-fill danger" style="width: 100%;"></div>
+                                    {% elif 'hour' in remaining or 'minute' in remaining %}
+                                        <div class="sla-bar-fill warning" style="width: 70%;"></div>
+                                    {% else %}
+                                        <div class="sla-bar-fill safe" style="width: 45%;"></div>
+                                    {% endif %}
+                                {% endwith %}
+                            {% else %}
+                                <div class="sla-bar-fill safe" style="width: 0%;"></div>
+                            {% endif %}
+                        </div>
+                        <span class="sla-timer safe">{{ ticket.resolution_due_at|timeuntil }}</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <div class="flex gap-2">
+                        <a href="{% url 'tickets:detail' ticket.pk %}" class="btn-ghost text-xs">{% lucide "eye" size=14 class="h-3.5 w-3.5" %} View</a>
+                        {% if ticket.status == 'NEW' or ticket.status == 'TRIAGED' %}
+                        <button class="btn-ghost text-xs">{% lucide "circle-x" size=14 class="h-3.5 w-3.5" %} Cancel</button>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6" class="text-center py-8 text-sm text-text-secondary">
+                    {% if current_status %}No tickets with this status.{% else %}No tickets yet.{% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{# Pagination (HTMX) #}
+{% if tickets.has_other_pages %}
+<div class="flex items-center justify-between mt-4 pt-4 border-t" style="border-color: var(--color-border);">
+    <p class="text-sm" style="color: var(--color-text-secondary);">
+        Page {{ tickets.number }} of {{ tickets.paginator.num_pages }}
+    </p>
+    <div class="flex gap-2">
+        {% if tickets.has_previous %}
+            <button class="btn-ghost text-xs px-3 py-1 rounded-md"
+                    hx-get="{% url 'tickets:my_list' %}?page={{ tickets.previous_page_number }}&status={{ current_status }}"
+                    hx-target="#ticketTableContainer"
+                    hx-swap="innerHTML">← Prev</button>
+        {% endif %}
+        {% if tickets.has_next %}
+            <button class="btn-ghost text-xs px-3 py-1 rounded-md"
+                    hx-get="{% url 'tickets:my_list' %}?page={{ tickets.next_page_number }}&status={{ current_status }}"
+                    hx-target="#ticketTableContainer"
+                    hx-swap="innerHTML">Next →</button>
+        {% endif %}
+    </div>
+</div>
+{% endif %}

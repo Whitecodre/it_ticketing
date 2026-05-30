@@ -1,0 +1,89 @@
+{% extends "base_registration.html" %}
+{% load static %}
+{% load lucide %}
+
+{% block title %}Login - IT Ticketing{% endblock %}
+
+{% block content %}
+<div class="flex min-h-screen items-center justify-center px-4 py-12 sm:px-6 lg:px-8">
+    <div class="w-80 max-w-md space-y-8">
+        
+        <!-- Logo and Heading -->
+        <div class="text-center">
+            <img src="{% static 'img/gemz-logo.png' %}" alt="Gemz Software Logo" class="mx-auto h-10 w-auto">
+            <h2 class="mt-3 text-center text-3xl font-bold tracking-wide text-primary">
+                Gemz.Software
+            </h2>
+        </div>
+
+        <!-- Login Card -->
+        <form class="space-y-4" method="post">
+            {% csrf_token %}
+
+            {% if form.errors %}
+            <div class="rounded-md bg-red-50 p-4">
+                <p class="text-sm text-red-800">
+                    Your username and password didn't match. Please try again.
+                </p>
+            </div>
+            {% endif %}
+            
+            <!-- Email/Username Input -->
+            <div>
+                <label for="username" class="sr-only">Email address</label>
+                <div class="relative">
+                    <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-text-secondary">
+                        {% lucide "mail" size=18 class="h-5 w-5" %}
+                    </div>
+                    <input id="username" name="username" type="text" autocomplete="email" required 
+                           class="block w-full rounded-full border py-3 pl-11 pr-4 placeholder-gray-400 transition duration-200 focus:outline-none focus:ring-2 sm:text-sm bg-background border-border text-text-primary ring-primary"
+                           placeholder="Username/Email address">
+                </div>
+            </div>
+
+            <!-- Password Input -->
+            <div>
+                <label for="password" class="sr-only">Password</label>
+                <div class="relative">
+                    <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-text-secondary">
+                        {% lucide "lock" size=18 class="h-5 w-5" %}
+                    </div>
+                    <input id="password" name="password" type="password" autocomplete="current-password" required 
+                           class="block w-full rounded-full border py-3 pl-11 pr-4 placeholder-gray-400 transition duration-200 focus:outline-none focus:ring-2 sm:text-sm bg-background border-border text-text-primary ring-primary"
+                           placeholder="Password">
+                </div>
+            </div>
+
+            <!-- Terms and Policy Consent -->
+            <div class="text-xs text-start text-text-secondary">
+                <p>By logging in, you consent to Gemz's 
+                   <a href="#" class="underline transition text-primary hover:opacity-80">Terms of Use</a> and 
+                   <a href="#" class="underline transition text-primary hover:opacity-80">Privacy Policy</a>
+                </p>
+            </div>
+
+            <div class="flex justify-between">
+                <!-- Forgot Password Link -->
+                <div class="text-left">
+                    <a href="{% url 'accounts:password_reset' %}" class="text-sm font-medium transition hover:opacity-80 text-primary">
+                        Forgot password?
+                    </a>
+                </div>
+
+                <!-- Sign up Link -->
+                <div class="text-right">
+                    <a href="{% url 'accounts:register' %}" class="text-sm font-medium transition hover:opacity-80 text-primary">
+                        Sign up
+                    </a>
+                </div>
+            </div>
+
+            <!-- Submit Button (now uses pure CSS hover) -->
+            <button type="submit" 
+                    class="flex w-full justify-center rounded-full px-4 py-3 text-sm font-semibold text-white shadow-sm transition duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 btn-login cursor-pointer ring-primary ring-offset-surface">
+                Log in
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

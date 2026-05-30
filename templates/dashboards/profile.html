@@ -1,0 +1,159 @@
+{% extends "base_dashboard.html" %}
+{% load static %}
+{% load lucide %}
+
+{% block dashboard_title %}My Profile{% endblock %}
+{% block page_title %}My Profile{% endblock %}
+{% block page_title_area %}{% endblock %}   {# <-- suppress the base h1 #}
+
+{% block role_label %}{{ user.get_role_display }}{% endblock %}
+{% block role_badge %}{{ user.get_role_display|upper }}{% endblock %}
+
+{# Hide the search bar in the top bar #}
+{% block topbar_search %}{% endblock %}
+
+{# Use the same sidebar as the role's dashboard #}
+{% block sidebar_nav %}
+    {% include sidebar_template %}
+{% endblock %}
+
+{% block dashboard_content %}
+<div class="max-w-2xl mx-auto">
+    <div class="dashboard-card">
+        <h2 class="dashboard-card-header" style="font-size: 1.125rem;">Edit Your Profile</h2>
+
+        <form method="post" enctype="multipart/form-data" class="space-y-6" id="profileForm">
+            {% csrf_token %}
+
+            {% if form.errors %}
+            <div class="rounded-lg bg-red-50 p-4 border border-red-200">
+                <ul class="text-sm text-red-800 list-disc list-inside">
+                    {% for field in form %}
+                        {% for error in field.errors %}
+                            <li>{{ error }}</li>
+                        {% endfor %}
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+
+            {# Avatar section #}
+            <div class="flex items-start gap-4">
+                <div class="shrink-0">
+                    {% if user.avatar %}
+                        <img src="{{ user.avatar.url }}" alt="Current avatar" class="h-16 w-16 rounded-full object-cover">
+                    {% else %}
+                        <div class="h-16 w-16 rounded-full flex items-center justify-center text-white text-lg font-semibold"
+                             style="background-color: var(--color-primary);">
+                            {{ user.email.0|upper }}
+                        </div>
+                    {% endif %}
+                </div>
+                <div class="flex-1">
+                    <label for="id_avatar" class="block text-sm font-semibold mb-1" style="color: var(--color-text-primary);">Avatar</label>
+                    {{ form.avatar }}
+                    <p class="text-xs mt-1" style="color: var(--color-text-secondary);">Optional – JPG or PNG, max 2MB</p>
+                </div>
+            </div>
+
+            {# First Name #}
+            <div>
+                <label for="id_first_name" class="block text-sm font-semibold mb-1" style="color: var(--color-text-primary);">First Name</label>
+                <input type="text" name="first_name" value="{{ form.first_name.value|default:'' }}" id="id_first_name"
+                       class="block w-full rounded-lg border py-2.5 px-4 text-sm transition focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary"
+                       data-initial="{{ form.first_name.value|default:'' }}">
+            </div>
+
+            {# Last Name #}
+            <div>
+                <label for="id_last_name" class="block text-sm font-semibold mb-1" style="color: var(--color-text-primary);">Last Name</label>
+                <input type="text" name="last_name" value="{{ form.last_name.value|default:'' }}" id="id_last_name"
+                       class="block w-full rounded-lg border py-2.5 px-4 text-sm transition focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary"
+                       data-initial="{{ form.last_name.value|default:'' }}">
+            </div>
+
+            {# Department #}
+            <div>
+                <label for="id_department" class="block text-sm font-semibold mb-1" style="color: var(--color-text-primary);">Department</label>
+                <select name="department" id="id_department"
+                        class="block w-full rounded-lg border py-2.5 px-4 text-sm transition focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary"
+                        data-initial="{{ form.department.value|default:'' }}">
+                    <option value="">Select Department</option>
+                    {% for value, label in form.department.field.choices %}
+                        <option value="{{ value }}" {% if form.department.value == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            {# Email (read-only) #}
+            <div>
+                <label class="block text-sm font-semibold mb-1" style="color: var(--color-text-primary);">Email</label>
+                <div class="relative">
+                    <input type="email" value="{{ user.email }}" disabled
+                           class="block w-full rounded-lg border py-2.5 px-4 text-sm bg-gray-100 text-gray-500 cursor-not-allowed">
+                </div>
+                <p class="text-xs mt-1" style="color: var(--color-text-secondary);">Email cannot be changed here. Contact support if needed.</p>
+            </div>
+
+            {# Buttons #}
+            <div class="flex items-center justify-between pt-4 border-t" style="border-color: var(--color-border);">
+                <a href="{% url 'dashboard' %}" class="btn-ghost">← Back to Dashboard</a>
+                <button type="submit" id="saveBtn" disabled
+                        class="btn-login inline-flex items-center rounded-lg px-6 py-2.5 text-white font-medium opacity-50 cursor-not-allowed transition"
+                        style="transition: opacity 0.2s;">
+                    Save Changes
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ block.super }}
+<script>
+    (function() {
+        const form = document.getElementById('profileForm');
+        const saveBtn = document.getElementById('saveBtn');
+        const fields = form.querySelectorAll('[data-initial]');
+        const avatarField = document.getElementById('id_avatar');
+
+        function checkForChanges() {
+            let changed = false;
+
+            // Check text/select fields against their initial values
+            fields.forEach(field => {
+                const initial = field.getAttribute('data-initial') || '';
+                if (field.tagName === 'SELECT') {
+                    if (field.value !== initial) changed = true;
+                } else {
+                    if (field.value !== initial) changed = true;
+                }
+            });
+
+            // Check if a file has been selected for avatar
+            if (avatarField && avatarField.files.length > 0) changed = true;
+
+            // Toggle button state
+            if (changed) {
+                saveBtn.disabled = false;
+                saveBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                saveBtn.classList.add('cursor-pointer');
+            } else {
+                saveBtn.disabled = true;
+                saveBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            }
+        }
+
+        // Listen to input changes on all monitored fields
+        form.addEventListener('input', checkForChanges);
+        // For avatar file selection
+        if (avatarField) {
+            avatarField.addEventListener('change', checkForChanges);
+        }
+
+        // Initial state
+        checkForChanges();
+    })();
+</script>
+{% endblock %}

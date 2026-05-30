@@ -1,0 +1,38 @@
+{% extends "base_dashboard.html" %}
+{% load static %}
+{% load lucide %}
+
+{% block page_title_area %}{% endblock %}   {# <-- suppress the base h1 #}
+
+{% block dashboard_title %}Assigned to Me{% endblock %}
+
+{% block page_title %}My Tickets{% endblock %}
+{% block role_label %}Agent{% endblock %}
+{% block role_badge %}AGENT{% endblock %}
+
+{% block sidebar_nav %}
+    {% include "partials/sidebar_agent.html" %}
+{% endblock %}
+
+{% block dashboard_content %}
+<script>window.bulkSource = "assigned";</script>
+<div class="w-full">
+    <div class="flex items-center justify-between mb-4">
+        <h2 class="text-base font-semibold" style="color: var(--color-text-primary);">Assigned to Me</h2>
+        <span class="text-xs" style="color: var(--color-text-secondary);">{{ tickets|length }} ticket(s)</span>
+    </div>
+
+    <div class="dashboard-card p-0 overflow-hidden">
+        <div class="overflow-x-auto" id="ticketTable">
+            {% include "partials/agent_ticket_table.html" %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts%}
+<script src="{% static 'js/bulk_actions.js' %}"></script>
+<script>
+    window.bulkActionUrl = "{% url 'tickets:bulk_action' %}";
+</script>
+{% endblock %}

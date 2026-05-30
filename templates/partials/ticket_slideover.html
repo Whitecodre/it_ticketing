@@ -1,0 +1,54 @@
+{% load lucide %}
+
+<div class="flex items-center justify-between mb-4">
+    <h2 class="text-base font-semibold" style="color: var(--color-text-primary);">{{ ticket.title }}</h2>
+    <button onclick="closeSlideover()" class="btn-ghost p-1">
+        {% lucide "x" size=18 %}
+    </button>
+</div>
+
+<div class="flex items-center gap-2 mb-4">
+    <span class="status-chip {{ ticket.status|lower }} text-xs">{{ ticket.get_status_display }}</span>
+    <span class="priority-chip {% if ticket.priority == 'P1' %}critical{% elif ticket.priority == 'P2' %}high{% elif ticket.priority == 'P3' %}medium{% else %}low{% endif %} text-xs">{{ ticket.get_priority_display }}</span>
+    {% if not ticket.assigned_to %}
+    <button class="btn-primary text-xs ml-auto flex items-center gap-1"
+            hx-post="{% url 'tickets:claim_ticket' ticket.pk %}"
+            hx-on::after-request="closeSlideover()"
+            hx-on::after-request="location.reload()">
+        {% lucide "user-plus" size=14 %} Claim
+    </button>
+    {% endif %}
+</div>
+
+<div class="space-y-3 text-sm" style="color: var(--color-text-primary);">
+    <div><strong>Requester:</strong> {{ ticket.requester.get_full_name|default:ticket.requester.email }}</div>
+    <div><strong>Assigned to:</strong> {{ ticket.assigned_to.get_full_name|default:"Unassigned" }}</div>
+    <div><strong>Created:</strong> {{ ticket.created_at|date:"M d, Y, P" }}</div>
+    <div>
+        <strong>Description:</strong>
+        <p class="mt-1">{{ ticket.description|linebreaks }}</p>
+    </div>
+</div>
+
+<hr class="my-4" style="border-color: var(--color-border);">
+
+<h3 class="text-sm font-semibold mb-2" style="color: var(--color-text-primary);">Comments</h3>
+<div class="space-y-3">
+    {% for comment in comments %}
+    <div class="rounded-lg p-3 {% if comment.visibility == 'INTERNAL' %}border-l-2{% endif %}"
+         style="{% if comment.visibility == 'INTERNAL' %}border-color: var(--color-warning); background-color: var(--color-background);{% else %}background-color: var(--color-background);{% endif %}">
+        <div class="flex items-center gap-2 mb-1">
+            <span class="text-xs font-medium" style="color: {% if comment.visibility == 'INTERNAL' %}var(--color-warning){% else %}var(--color-primary){% endif %};">
+                {{ comment.author.get_full_name }}
+            </span>
+            <span class="text-[0.65rem]" style="color: var(--color-text-secondary);">{{ comment.created_at|timesince }} ago</span>
+            {% if comment.visibility == 'INTERNAL' %}
+            <span class="text-[0.6rem] font-semibold uppercase text-warning">Internal</span>
+            {% endif %}
+        </div>
+        <p class="text-xs" style="color: var(--color-text-primary);">{{ comment.body|linebreaks }}</p>
+    </div>
+    {% empty %}
+    <p class="text-xs text-text-secondary">No comments yet.</p>
+    {% endfor %}
+</div>

@@ -1,0 +1,27 @@
+{% load lucide %}
+<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/20" onclick="this.remove()">
+    <div class="bg-surface border rounded-lg shadow-xl p-4 w-64" onclick="event.stopPropagation()" style="background-color: var(--color-surface); border-color: var(--color-border);">
+        <h4 class="text-xs font-semibold mb-2">Assign</h4>
+        <button class="w-full btn-outline text-xs mb-2"
+                hx-post="{% url 'tickets:assign_to_me' ticket.pk %}"
+                hx-target="#assigneeBlock"
+                hx-swap="innerHTML"
+                hx-on::after-request="this.closest('.fixed').remove()">
+            {% lucide "user-plus" size=14 %} Assign to me
+        </button>
+        <div class="text-xs text-text-secondary mb-1">Search agents</div>
+        <input type="text" class="w-full border rounded px-2 py-1 text-xs" placeholder="Type name…">
+        <div class="mt-2 max-h-32 overflow-y-auto">
+            {% for agent in agents %}
+            <button class="w-full text-left text-xs px-2 py-1 hover:bg-black/5 rounded flex items-center gap-2"
+                    hx-post="{% url 'tickets:assign_specific' ticket.pk agent.pk %}"
+                    hx-target="#assigneeBlock"
+                    hx-swap="innerHTML"
+                    hx-on::after-request="this.closest('.fixed').remove()">
+                <span class="h-6 w-6 rounded-full bg-primary text-white flex items-center justify-center text-[0.6rem]">{{ agent.email.0|upper }}</span>
+                {{ agent.get_full_name }}
+            </button>
+            {% endfor %}
+        </div>
+    </div>
+</div>

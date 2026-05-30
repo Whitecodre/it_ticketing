@@ -1,0 +1,24 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+
+# Virtual environment
+venv/
+env/
+
+# Environment variables
+.env
+
+# Media & Static (collected)
+media/
+staticfiles/
+
+# Database
+*.sqlite3
+
+# Node modules (if using local Tailwind)
+node_modules/
+
+# IDE
+.vscode/
+.idea/

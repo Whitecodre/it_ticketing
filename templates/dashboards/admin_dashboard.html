@@ -1,0 +1,285 @@
+{% extends "base_dashboard.html" %}
+{% load static %}
+{% load lucide %}
+
+{% block dashboard_title %}Admin Dashboard{% endblock %}
+{% block page_title %}System Administration{% endblock %}
+{% block role_label %}Admin{% endblock %}
+{% block role_badge %}ADMIN{% endblock %}
+
+{% block sidebar_nav %}
+<a href="#" class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition"
+   style="background-color: var(--color-primary); color: white;">
+    {% lucide "layout-dashboard" size=20 class="h-5 w-5 shrink-0" %}
+    Dashboard
+</a>
+<a href="#" class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition"
+   style="color: var(--color-text-secondary);">
+    {% lucide "sliders-horizontal" size=20 class="h-5 w-5 shrink-0" %}
+    SLA Config
+</a>
+<a href="#" class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition"
+   style="color: var(--color-text-secondary);">
+    {% lucide "file-text" size=20 class="h-5 w-5 shrink-0" %}
+    Catalogue
+</a>
+<a href="#" class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition"
+   style="color: var(--color-text-secondary);">
+    {% lucide "shield" size=20 class="h-5 w-5 shrink-0" %}
+    RBAC
+</a>
+<a href="#" class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition"
+   style="color: var(--color-text-secondary);">
+    {% lucide "monitor" size=20 class="h-5 w-5 shrink-0" %}
+    Connectors
+</a>
+<a href="#" class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition"
+   style="color: var(--color-text-secondary);">
+    {% lucide "file-search" size=20 class="h-5 w-5 shrink-0" %}
+    Audit
+</a>
+{% endblock %}
+
+{% block dashboard_content %}
+
+{# Admin Quick Overview #}
+<div class="grid grid-cols-3 gap-6 mb-8">
+    <div class="kpi-card">
+        <p class="kpi-label">Total Tickets (This Month)</p>
+        <p class="kpi-value">1,247</p>
+        <p class="kpi-trend up">↑ 8% from last month</p>
+    </div>
+    <div class="kpi-card">
+        <p class="kpi-label">SLA Compliance</p>
+        <p class="kpi-value" style="color: var(--color-success);">94.2%</p>
+        <p class="kpi-trend up">↑ Target: 95%</p>
+    </div>
+    <div class="kpi-card">
+        <p class="kpi-label">Active Connectors</p>
+        <p class="kpi-value">5</p>
+        <p class="kpi-trend up">All operational</p>
+    </div>
+</div>
+
+{# Main Two-Column Content #}
+<div class="flex gap-6">
+    
+    {# Left Major Column (60%) #}
+    <div class="flex-3 space-y-6">
+        
+        {# Catalogue Builder #}
+        <div class="dashboard-card">
+            <h3 class="dashboard-card-header">Service Catalogue Builder</h3>
+            <div class="space-y-2">
+                <div class="flex items-center gap-3 rounded-lg border p-3" style="border-color: var(--color-border);">
+                    {% lucide "grip-vertical" size=16 class="h-4 w-4" style="color: var(--color-text-secondary);" %}
+                    <div class="flex-1">
+                        <p class="text-sm font-medium" style="color: var(--color-text-primary);">Incident Report Form</p>
+                        <p class="text-xs" style="color: var(--color-text-secondary);">Fields: Title, Description, Impact, Urgency</p>
+                    </div>
+                    <button class="btn-ghost text-xs">Edit</button>
+                </div>
+                <div class="flex items-center gap-3 rounded-lg border p-3" style="border-color: var(--color-border);">
+                    {% lucide "grip-vertical" size=16 class="h-4 w-4" style="color: var(--color-text-secondary);" %}
+                    <div class="flex-1">
+                        <p class="text-sm font-medium" style="color: var(--color-text-primary);">Service Request Form</p>
+                        <p class="text-xs" style="color: var(--color-text-secondary);">Fields: Category, Subcategory, Details</p>
+                    </div>
+                    <button class="btn-ghost text-xs">Edit</button>
+                </div>
+                <button class="btn-outline w-full text-xs mt-2">{% lucide "plus" size=14 class="h-3.5 w-3.5" %} Add New Form</button>
+            </div>
+        </div>
+
+        {# SLA Config Card #}
+        <div class="dashboard-card">
+            <h3 class="dashboard-card-header">SLA Configuration</h3>
+            <div class="grid grid-cols-2 gap-6">
+                {# First Response #}
+                <div class="rounded-lg border p-4" style="border-color: var(--color-border);">
+                    <p class="text-sm font-semibold mb-3" style="color: var(--color-text-primary);">First Response</p>
+                    <div class="space-y-3">
+                        <div>
+                            <label class="text-xs font-medium" style="color: var(--color-text-secondary);">Target Time</label>
+                            <select class="priority-dropdown w-full mt-1">
+                                <option>15 minutes</option>
+                                <option>30 minutes</option>
+                                <option>1 hour</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-xs font-medium" style="color: var(--color-text-secondary);">Breach Action</label>
+                            <select class="priority-dropdown w-full mt-1">
+                                <option>Notify Team Lead</option>
+                                <option>Escalate to L2</option>
+                                <option>Send email alert</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                {# Resolution #}
+                <div class="rounded-lg border p-4" style="border-color: var(--color-border);">
+                    <p class="text-sm font-semibold mb-3" style="color: var(--color-text-primary);">Resolution</p>
+                    <div class="space-y-3">
+                        <div>
+                            <label class="text-xs font-medium" style="color: var(--color-text-secondary);">Target Time</label>
+                            <select class="priority-dropdown w-full mt-1">
+                                <option>4 hours</option>
+                                <option>8 hours</option>
+                                <option>24 hours</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-xs font-medium" style="color: var(--color-text-secondary);">Breach Action</label>
+                            <select class="priority-dropdown w-full mt-1">
+                                <option>Escalate to L3</option>
+                                <option>Notify Manager</option>
+                                <option>Major Incident trigger</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {# Business Hours #}
+            <div class="mt-4 rounded-lg border p-4" style="border-color: var(--color-border);">
+                <p class="text-sm font-semibold mb-3" style="color: var(--color-text-primary);">Business Hours Calendar</p>
+                <div class="flex gap-4 text-sm">
+                    <div>
+                        <span style="color: var(--color-text-secondary);">Days:</span>
+                        <span style="color: var(--color-text-primary);">Mon–Fri</span>
+                    </div>
+                    <div>
+                        <span style="color: var(--color-text-secondary);">Hours:</span>
+                        <span style="color: var(--color-text-primary);">8:00 AM – 6:00 PM</span>
+                    </div>
+                    <div>
+                        <span style="color: var(--color-text-secondary);">Timezone:</span>
+                        <span style="color: var(--color-text-primary);">UTC-5 (EST)</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-4 flex gap-2">
+                <button class="btn-primary text-sm">Save Changes</button>
+                <button class="text-xs font-medium px-3 py-1.5 rounded" style="color: var(--color-warning); background-color: rgba(245, 158, 11, 0.1);">⏸ Pause Rules</button>
+            </div>
+        </div>
+
+        {# Escalation Rules Table #}
+        <div class="dashboard-card">
+            <h3 class="dashboard-card-header">Escalation Rules</h3>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Condition</th>
+                        <th>Threshold</th>
+                        <th>Action</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>First Response overdue</td>
+                        <td>> 15 min</td>
+                        <td>Notify Team Lead + Escalate to L2</td>
+                        <td><button class="btn-ghost text-xs">Edit</button></td>
+                    </tr>
+                    <tr>
+                        <td>Resolution overdue</td>
+                        <td>> 4 hours</td>
+                        <td>Escalate to L3 + Trigger Major Incident</td>
+                        <td><button class="btn-ghost text-xs">Edit</button></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    {# Right Rail (40%) #}
+    <div class="w-80 shrink-0 space-y-6">
+        
+        {# RBAC Matrix #}
+        <div class="context-rail">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-sm font-semibold" style="color: var(--color-text-primary);">RBAC Matrix</h3>
+                <button class="btn-ghost text-xs">Export</button>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="text-xs w-full">
+                    <thead>
+                        <tr>
+                            <th class="text-left py-2" style="color: var(--color-text-secondary);">Role</th>
+                            <th class="text-center py-2" style="color: var(--color-text-secondary);">View</th>
+                            <th class="text-center py-2" style="color: var(--color-text-secondary);">Edit</th>
+                            <th class="text-center py-2" style="color: var(--color-text-secondary);">Delete</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="py-1.5" style="color: var(--color-text-primary);">End User</td>
+                            <td class="text-center">✓</td>
+                            <td class="text-center">—</td>
+                            <td class="text-center">—</td>
+                        </tr>
+                        <tr>
+                            <td class="py-1.5" style="color: var(--color-text-primary);">L1 Agent</td>
+                            <td class="text-center">✓</td>
+                            <td class="text-center">✓</td>
+                            <td class="text-center">—</td>
+                        </tr>
+                        <tr>
+                            <td class="py-1.5" style="color: var(--color-text-primary);">Admin</td>
+                            <td class="text-center">✓</td>
+                            <td class="text-center">✓</td>
+                            <td class="text-center">✓</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        {# Remote Connector Config #}
+        <div class="context-rail">
+            <h3 class="text-sm font-semibold mb-3" style="color: var(--color-text-primary);">Remote Connector Config</h3>
+            <select class="priority-dropdown w-full mb-2">
+                <option>Intune Remote Help</option>
+                <option>Quick Assist</option>
+            </select>
+            <div class="flex items-center gap-2 text-sm">
+                <span class="flex h-2 w-2 rounded-full" style="background-color: var(--color-success);"></span>
+                <span style="color: var(--color-text-primary);">Connected</span>
+            </div>
+        </div>
+
+        {# Audit Log Preview #}
+        <div class="context-rail">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-sm font-semibold" style="color: var(--color-text-primary);">Audit Log Preview</h3>
+                <span class="audit-badge">Immutable</span>
+            </div>
+            <div class="space-y-2 text-xs">
+                <div class="flex justify-between">
+                    <span style="color: var(--color-text-primary);">User created</span>
+                    <span style="color: var(--color-text-secondary);">2m ago</span>
+                </div>
+                <div class="flex justify-between">
+                    <span style="color: var(--color-text-primary);">SLA rule modified</span>
+                    <span style="color: var(--color-text-secondary);">15m ago</span>
+                </div>
+                <div class="flex justify-between">
+                    <span style="color: var(--color-text-primary);">Role updated</span>
+                    <span style="color: var(--color-text-secondary);">1h ago</span>
+                </div>
+            </div>
+            <div class="flex gap-2 mt-3">
+                <button class="btn-outline flex-1 text-xs">CSV</button>
+                <button class="btn-outline flex-1 text-xs">JSON</button>
+                <button class="btn-outline flex-1 text-xs">PDF</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,584 @@
+/* ---------- THEME VARIABLES ---------- */
+    /* Light mode (Palette 2 – Modern Tech) – default */
+    :root {
+        --color-primary: #0D9488;        /* teal-600 */
+        --color-primary-dark: #0F766E;   /* teal-700 */
+        --color-primary-light: #14B8A6;  /* teal-500 */
+        --color-secondary: #3B82F6;      /* blue-500 */
+        --color-background: #F8FAFC;     /* slate-50 */
+        --color-surface: #FFFFFF;        /* white */
+        --color-text-primary: #0F172A;   /* slate-900 */
+        --color-text-secondary: #475569; /* slate-600 */
+        --color-accent: #8B5CF6;         /* violet-500 */
+        --color-border: #E2E8F0;         /* slate-200 */
+        --color-success: #10B981;        /* emerald-500 */
+        --color-warning: #F59E0B;        /* amber-500 */
+        --color-error: #EF4444;          /* red-500 */
+        --color-info: #3B82F6;           /* blue-500 */
+  }
+  html{
+    font-size: 90%;
+  }
+    /* Dark mode (Palette 3 – Premium Enterprise) */
+    :root.dark {
+        --color-primary: #059669;        /* emerald-600 */
+        --color-primary-dark: #022C22;   /* emerald-950 */
+        --color-primary-light: #34D399;  /* emerald-400 */
+        --color-secondary: #F59E0B;      /* amber-500 */
+        --color-background: #0F172A;     /* slate-900 */
+        --color-surface: #1E293B;        /* slate-800 */
+        --color-text-primary: #F8FAFC;   /* slate-50 */
+        --color-text-secondary: #94A3B8; /* slate-400 */
+        --color-accent: #EC4899;         /* pink-500 */
+        --color-border: #334155;         /* slate-700 */
+        --color-success: #10B981;        /* emerald-500 */
+        --color-warning: #F59E0B;        /* amber-500 */
+        --color-error: #EF4444;          /* red-500 */
+        --color-info: #3B82F6;           /* blue-500 */
+  }
+
+    /* ---------- GLOBAL STYLES ---------- */
+    /* google-sans-regular - latin */
+    @font-face {
+      font-display: swap; /* Check https://developer.mozilla.org/en-US/docs/Web/CSS/@font-face/font-display for other options. */
+      font-family: 'Google Sans';
+      font-style: normal;
+      font-weight: 400;
+      src: url('/static/fonts/google-sans-regular.woff2') format('woff2'); /* Chrome 36+, Opera 23+, Firefox 39+, Safari 12+, iOS 10+ */
+    }
+    /* noto-sans-regular - latin */
+    @font-face {
+      font-display: swap; /* Check https://developer.mozilla.org/en-US/docs/Web/CSS/@font-face/font-display for other options. */
+      font-family: 'Noto Sans';
+      font-style: normal;
+      font-weight: 400;
+      src: url('/static/fonts/noto-sans-regular.woff2') format('woff2'); /* Chrome 36+, Opera 23+, Firefox 39+, Safari 12+, iOS 10+ */
+    }
+    /* poppins-regular - latin */
+    @font-face {
+      font-display: swap; /* Check https://developer.mozilla.org/en-US/docs/Web/CSS/@font-face/font-display for other options. */
+      font-family: 'Poppins';
+      font-style: normal;
+      font-weight: 400;
+      src: url('../fonts/poppins-regular.woff2') format('woff2'); /* Chrome 36+, Opera 23+, Firefox 39+, Safari 12+, iOS 10+ */
+    }
+    /* Fix font fallback */
+    .font-google {
+        font-family: 'Google Sans', sans-serif;   
+    }
+    .font-poppins {
+        font-family: 'Poppins', sans-serif;   
+    }
+
+    body {
+        background-color: var(--color-background);
+        color: var(--color-text-primary);
+        font-family: 'Noto Sans', -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        line-height: 1.5;
+        transition: background-color 0.3s ease, color 0.2s ease;
+  }
+
+    /* Example button classes using CSS variables */
+    .btn-primary {
+        background-color: var(--color-primary);
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 0.375rem;
+        border: none;
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+    }
+    .btn-primary:hover {
+        background-color: var(--color-primary-light);
+  }
+
+    .btn-secondary {
+        background-color: var(--color-secondary);
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 0.375rem;
+        border: none;
+        cursor: pointer;
+  }
+
+    /* Radio switcher styling (clean & minimal) */
+    .theme-radio-group {
+        display: flex;
+        gap: 0.25rem;
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-radius: 9999px;
+        padding: 0.15rem;
+    }
+    .theme-radio {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.375rem;
+        background: transparent;
+        padding: 0.35rem 0.575rem;
+        border-radius: 9999px;
+        font-size: 0.875rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        color: var(--color-text-secondary);
+    }
+    .theme-radio input {
+        display: none;
+    }
+    .theme-radio.active {
+        background: var(--color-primary);
+        color: white;
+    }
+    .theme-radio.active svg {
+        color: white;
+    }
+    /* For browsers that don't support :has() we handle active class via JS */
+
+    /* ---------- UTILITY CLASSES (using design tokens) ---------- */
+    /* Text colors */
+    .text-primary        { color: var(--color-primary); }
+    .text-primary-dark   { color: var(--color-primary-dark); }
+    .text-primary-light  { color: var(--color-primary-light); }
+    .text-secondary      { color: var(--color-secondary); }
+    .text-text-primary   { color: var(--color-text-primary); }
+    .text-text-secondary { color: var(--color-text-secondary); }
+    .text-accent         { color: var(--color-accent); }
+    .text-success        { color: var(--color-success); }
+    .text-warning        { color: var(--color-warning); }
+    .text-error          { color: var(--color-error); }
+    .text-info           { color: var(--color-info); }
+
+    /* Background colors */
+    .bg-primary       { background-color: var(--color-primary); }
+    .bg-primary-dark  { background-color: var(--color-primary-dark); }
+    .bg-primary-light { background-color: var(--color-primary-light); }
+    .bg-secondary     { background-color: var(--color-secondary); }
+    .bg-background    { background-color: var(--color-background); }
+    .bg-surface       { background-color: var(--color-surface); }
+    .bg-accent        { background-color: var(--color-accent); }
+
+    /* Border colors */
+    .border-primary { border-color: var(--color-primary); }
+    .border-border  { border-color: var(--color-border); }
+
+    /* Ring color (Tailwind’s focus ring) */
+    .ring-primary { --tw-ring-color: var(--color-primary); }
+    .ring-offset-surface { --tw-ring-offset-color: var(--color-surface); }
+
+    /* ---------- SPECIFIC LOGIN BUTTON (replaces inline JS) ---------- */
+    .btn-login {
+        background-color: var(--color-primary);
+        transition: background-color 0.2s ease;
+    }
+    .btn-login:hover {
+        background-color: var(--color-primary-light);
+    }
+
+
+    /* ========== DASHBOARD COMPONENTS ========== */
+
+/* KPI Cards */
+.kpi-card {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 0.75rem;
+    padding: 1.25rem 1.5rem;
+    transition: box-shadow 0.2s ease;
+}
+.kpi-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+.kpi-value {
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--color-text-primary);
+}
+.kpi-label {
+    font-size: 0.8125rem;
+    color: var(--color-text-secondary);
+    margin-top: 0.25rem;
+}
+.kpi-trend {
+    font-size: 0.75rem;
+    margin-top: 0.5rem;
+}
+.kpi-trend.up { color: var(--color-success); }
+.kpi-trend.down { color: var(--color-error); }
+
+/* Status Chips */
+.status-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.4;
+    white-space: nowrap;
+}
+.status-chip.open {
+    background-color: rgba(59, 130, 246, 0.1);
+    color: var(--color-info);
+}
+.status-chip.in-progress {
+    background-color: rgba(245, 158, 11, 0.1);
+    color: var(--color-warning);
+}
+.status-chip.resolved {
+    background-color: rgba(16, 185, 129, 0.1);
+    color: var(--color-success);
+}
+.status-chip.escalated {
+    background-color: rgba(139, 92, 246, 0.1);
+    color: var(--color-accent);
+}
+.status-chip.breached {
+    background-color: rgba(239, 68, 68, 0.1);
+    color: var(--color-error);
+}
+
+/* Priority Chips */
+.priority-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.125rem 0.625rem;
+    border-radius: 9999px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+.priority-chip.critical {
+    background-color: rgba(239, 68, 68, 0.15);
+    color: var(--color-error);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+.priority-chip.high {
+    background-color: rgba(245, 158, 11, 0.15);
+    color: var(--color-warning);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+.priority-chip.medium {
+    background-color: rgba(59, 130, 246, 0.15);
+    color: var(--color-info);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+.priority-chip.low {
+    background-color: rgba(16, 185, 129, 0.1);
+    color: var(--color-success);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+/* SLA Progress Bar */
+.sla-bar {
+    height: 6px;
+    border-radius: 9999px;
+    background-color: var(--color-border);
+    overflow: hidden;
+}
+.sla-bar-fill {
+    height: 100%;
+    border-radius: 9999px;
+    transition: width 0.5s ease;
+}
+.sla-bar-fill.safe { background-color: var(--color-success); }
+.sla-bar-fill.warning { background-color: var(--color-warning); }
+.sla-bar-fill.danger { background-color: var(--color-error); }
+
+/* SLA Timer Text */
+.sla-timer {
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+.sla-timer.safe { color: var(--color-success); }
+.sla-timer.warning { color: var(--color-warning); }
+.sla-timer.danger { color: var(--color-error); }
+
+/* Dashboard Cards */
+.dashboard-card {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 0.75rem;
+    padding: 1.25rem;
+}
+.dashboard-card-header {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--color-border);
+}
+
+/* Welcome Banner */
+.welcome-banner {
+    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+    border-radius: 1rem;
+    padding: 1.5rem 2rem;
+    color: white;
+}
+
+/* Table Styles */
+.data-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+.data-table th {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-secondary);
+    padding: 0.75rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid var(--color-border);
+}
+.data-table td {
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+    color: var(--color-text-primary);
+    border-bottom: 1px solid var(--color-border);
+}
+.data-table tr:hover td {
+    background-color: rgba(13, 148, 136, 0.03);
+}
+
+/* Action Buttons */
+.btn-outline {
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    border: 1px solid var(--color-border);
+    background: transparent;
+    color: var(--color-text-primary);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.btn-outline:hover {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+}
+.btn-ghost {
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.5rem;
+    border: none;
+    background: transparent;
+    color: var(--color-text-secondary);
+    font-size: 0.8125rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.btn-ghost:hover {
+    background-color: var(--color-background);
+    color: var(--color-text-primary);
+}
+.btn-danger {
+    background-color: var(--color-error);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    border: none;
+    cursor: pointer;
+    font-size: 0.8125rem;
+    font-weight: 500;
+}
+.btn-danger:hover {
+    opacity: 0.9;
+}
+.btn-success {
+    background-color: var(--color-success);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    border: none;
+    cursor: pointer;
+    font-size: 0.8125rem;
+    font-weight: 500;
+}
+.btn-success:hover {
+    opacity: 0.9;
+}
+
+/* Immutable Audit Badge */
+.audit-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.375rem 0.875rem;
+    border-radius: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    background-color: rgba(239, 68, 68, 0.08);
+    color: var(--color-error);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+/* Quick Action Buttons (End User) */
+.quick-action-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 1.5rem 2rem;
+    border-radius: 0.75rem;
+    border: 1px solid var(--color-border);
+    background-color: var(--color-surface);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+}
+.quick-action-btn:hover {
+    border-color: var(--color-primary);
+    box-shadow: 0 4px 12px rgba(13, 148, 136, 0.1);
+}
+.quick-action-btn .icon-circle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 3rem;
+    height: 3rem;
+    border-radius: 50%;
+    background-color: rgba(13, 148, 136, 0.1);
+    color: var(--color-primary);
+}
+
+/* Remote Session Card */
+.session-card {
+    border-left: 3px solid var(--color-primary);
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-left: 3px solid var(--color-primary);
+    border-radius: 0.5rem;
+    padding: 0.75rem 1rem;
+}
+
+/* Approval Buttons Group */
+.approval-group {
+    display: flex;
+    gap: 0.5rem;
+}
+
+/* CSAT Stars */
+.csat-stars {
+    display: flex;
+    gap: 0.25rem;
+    color: var(--color-warning);
+}
+.csat-stars .star-empty {
+    color: var(--color-border);
+}
+
+/* Override priority dropdown */
+.priority-dropdown {
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.5rem;
+    border: 1px solid var(--color-border);
+    background-color: var(--color-surface);
+    color: var(--color-text-primary);
+    font-size: 0.8125rem;
+}
+
+/* Responsive rail */
+.context-rail {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 0.75rem;
+    padding: 1.25rem;
+}
+
+/* Read-only overlay indicator */
+.readonly-indicator {
+    position: relative;
+}
+.readonly-indicator::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+        45deg,
+        transparent,
+        transparent 5px,
+        rgba(239, 68, 68, 0.02) 5px,
+        rgba(239, 68, 68, 0.02) 10px
+    );
+    pointer-events: none;
+    border-radius: inherit;
+}
+
+.filter-chip {
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    color: var(--color-text-secondary);
+    font-size: 0.8125rem;
+    transition: all 0.2s;
+}
+.filter-chip.active, .filter-chip:hover {
+    background: var(--color-primary);
+    color: white;
+    border-color: var(--color-primary);
+}
+
+/* Sidebar Floating Tooltip */
+.floating-tooltip {
+        position: fixed;
+        z-index: 9999;
+        background: var(--color-text-primary);
+        color: var(--color-surface);
+        font-size: 0.7rem;
+        font-weight: 500;
+        white-space: nowrap;
+        padding: 0.35rem 0.65rem;
+        border-radius: 0.375rem;
+        pointer-events: none;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+        opacity: 0;
+        transition: opacity 0.15s ease;
+    }
+    .floating-tooltip::before {
+        content: '';
+        position: absolute;
+        right: 100%;
+        top: 50%;
+        transform: translateY(-50%);
+        border-width: 4px 5px 4px 0;
+        border-style: solid;
+        border-color: transparent var(--color-text-primary) transparent transparent;
+    }
+
+    /* Bottom tooltip for other elements */
+    .floating-tooltip-extended {
+        position: fixed;
+        z-index: 9999;
+        background: var(--color-text-primary);
+        color: var(--color-surface);
+        font-size: 0.7rem;
+        font-weight: 500;
+        white-space: nowrap;
+        padding: 0.35rem 0.65rem;
+        border-radius: 0.375rem;
+        pointer-events: none;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+        opacity: 0;
+        transition: opacity 0.15s ease;
+        /* We'll position with JS */
+    }
+    .floating-tooltip-extended::before {
+        content: '';
+        position: absolute;
+        top: -5px;                /* arrow pointing up */
+        left: 50%;
+        transform: translateX(-50%);
+        border-width: 0 5px 5px 5px;
+        border-style: solid;
+        border-color: transparent transparent var(--color-text-primary) transparent;
+    }
+    

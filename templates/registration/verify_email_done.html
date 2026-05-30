@@ -1,0 +1,11 @@
+{% extends "base_registration.html" %}
+{% block title %}Email Verified{% endblock %}
+{% block content %}
+<div class="flex min-h-screen items-center justify-center px-4 py-12">
+    <div class="w-80 max-w-md text-center space-y-4">
+        <h2 class="text-3xl font-bold text-success">Email Verified!</h2>
+        <p class="text-text-secondary">Your account has been activated. You can now log in.</p>
+        <a href="{% url 'accounts:login' %}" class="btn-login inline-block rounded-full px-6 py-3 text-white">Go to Login</a>
+    </div>
+</div>
+{% endblock %}

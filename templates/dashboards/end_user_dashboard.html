@@ -1,0 +1,102 @@
+{% extends "base_dashboard.html" %}
+{% load static %}
+{% load lucide %}
+
+{% block dashboard_title %}My Dashboard{% endblock %}
+{% block page_title_area %}{% endblock %}
+{% block role_label %}End User{% endblock %}
+{% block role_badge %}END USER{% endblock %}
+
+{% block sidebar_nav %}
+    {% include "partials/sidebar_end_user.html" %}
+{% endblock %}
+
+{% block dashboard_content %}
+<div class="max-w-6xl mx-auto">
+    <h1 class="text-xl font-semibold truncate mb-4" style="color: var(--color-text-primary);">
+        {% block page_title %}Dashboard{% endblock %}
+    </h1>
+    {# Welcome Banner #}
+    <div class="welcome-banner mb-5 p-4">
+        <h2 class="text-lg font-bold">Welcome back, {{ user.first_name|default:"User" }}</h2>
+        <p class="text-xs opacity-90 mt-1">You have {{ open_tickets_count }} open ticket(s).</p>
+    </div>
+
+    {# Quick action buttons #}
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+        <a href="{% url 'tickets:create' %}" class="quick-action-btn">
+            <div class="icon-circle">{% lucide "circle-plus" size=20 %}</div>
+            <span class="text-xs font-semibold">New Incident</span>
+            <span class="text-[0.65rem] text-text-secondary">Report something broken</span>
+        </a>
+        <a href="{% url 'tickets:create' %}?type=SERVICE_REQUEST" class="quick-action-btn">
+            <div class="icon-circle">{% lucide "file-text" size=20 %}</div>
+            <span class="text-xs font-semibold">Service Request</span>
+            <span class="text-[0.65rem] text-text-secondary">Need access or help</span>
+        </a>
+        <a href="#" class="quick-action-btn">
+            <div class="icon-circle">{% lucide "book-open" size=20 %}</div>
+            <span class="text-xs font-semibold">Knowledge Base</span>
+            <span class="text-[0.65rem] text-text-secondary">Find answers fast</span>
+        </a>
+    </div>
+
+    {# Filter chips #}
+    <div class="flex flex-wrap gap-1.5 mb-4">
+        <button class="filter-chip active text-xs cursor-pointer">All</button>
+        <button class="filter-chip text-xs cursor-pointer">Open</button>
+        <button class="filter-chip text-xs cursor-pointer">In Progress</button>
+        <button class="filter-chip text-xs cursor-pointer">Resolved</button>
+        <button class="filter-chip text-xs cursor-pointer">Closed</button>
+    </div>
+
+    {# Ticket table #}
+    <div class="dashboard-card p-0 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="data-table w-full text-xs">
+                <thead>
+                    <tr>
+                        <th class="w-8"><input type="checkbox" class="rounded"></th>
+                        <th>Ticket</th>
+                        <th>Subject</th>
+                        <th>Status</th>
+                        <th>Priority</th>
+                        <th>Updated</th>
+                        <th class="w-16">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ticket in recent_tickets %}
+                    <tr class="group hover:bg-black/2">
+                        <td><input type="checkbox" class="rounded"></td>
+                        <td><span class="font-mono text-[0.7rem]" style="color: var(--color-primary);">{{ ticket.number }}</span></td>
+                        <td class="max-w-xs truncate">{{ ticket.title }}</td>
+                        <td><span class="status-chip {{ ticket.status|lower }} text-[0.65rem]">{{ ticket.get_status_display }}</span></td>
+                        <td><span class="priority-chip {% if ticket.priority == 'P1' %}critical{% elif ticket.priority == 'P2' %}high{% elif ticket.priority == 'P3' %}medium{% else %}low{% endif %} text-[0.65rem]">{{ ticket.get_priority_display }}</span></td>
+                        <td class="text-text-secondary">{{ ticket.updated_at|timesince }} ago</td>
+                        <td>
+                            <div class="flex gap-1.5 opacity-0 group-hover:opacity-100 transition">
+                                <a href="{% url 'tickets:detail' ticket.pk %}" class="btn-ghost p-1" title="Continue conversation">{% lucide "message-square" size=14 %}</a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center py-10 text-text-secondary text-xs">
+                            No tickets yet. <a href="{% url 'tickets:create' %}" class="text-primary font-medium">Create your first ticket →</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="flex items-center justify-between p-3 border-t text-xs" style="border-color: var(--color-border);">
+            <span class="text-text-secondary">Showing 1-{{ recent_tickets|length }} of {{ recent_tickets|length }}</span>
+            <div class="flex gap-1.5">
+                <button class="btn-ghost px-2.5 py-1 rounded text-xs">Previous</button>
+                <button class="btn-ghost px-2.5 py-1 rounded text-xs">Next</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,89 @@
+{% extends "base_dashboard.html" %}
+{% load static %}
+{% load lucide %}
+
+{% block dashboard_title %}Agent Dashboard{% endblock %}
+{% block page_title %}Agent Dashboard{% endblock %}
+{% block role_label %}Agent{% endblock %}
+{% block role_badge %}AGENT{% endblock %}
+
+{% block sidebar_nav %}
+    {% include "partials/sidebar_agent.html" %}
+{% endblock %}
+
+{% block dashboard_content %}
+
+{# KPI Row – live data #}
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    <div class="kpi-card">
+        <p class="kpi-label">Open Tickets</p>
+        <p class="kpi-value">{{ total_open_tickets }}</p>
+        <p class="kpi-trend up">system wide</p>
+    </div>
+    <div class="kpi-card">
+        <p class="kpi-label">SLA Breaches</p>
+        <p class="kpi-value" style="color: var(--color-error);">{{ sla_breaches }}</p>
+        <p class="kpi-trend down">none</p>
+    </div>
+    <div class="kpi-card">
+        <p class="kpi-label">Avg Response Time</p>
+        <p class="kpi-value">{% if avg_response_time %}{{ avg_response_time }}{% else %}—{% endif %}</p>
+        <p class="kpi-trend up">coming soon</p>
+    </div>
+    <div class="kpi-card">
+        <p class="kpi-label">My Open Tickets</p>
+        <p class="kpi-value">{{ my_open_tickets }}</p>
+        <p class="kpi-trend down">assigned to you</p>
+    </div>
+</div>
+
+{# Main Two-Column Area #}
+<div class="flex flex-col lg:flex-row gap-6">
+
+    {# Left column – unassigned queue preview #}
+    <div class="flex-1 space-y-6 min-w-0">
+        <div class="dashboard-card">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="dashboard-card-header" style="border-bottom: none; margin-bottom: 0; padding-bottom: 0;">Unassigned Queue</h3>
+                <a href="{% url 'tickets:unassigned' %}" class="text-xs font-medium" style="color: var(--color-primary);">
+                    View all ({{ unassigned_count }}) →
+                </a>
+            </div>
+            {% if recent_unassigned %}
+                {% include "partials/agent_ticket_table.html" with tickets=recent_unassigned %}
+            {% else %}
+                <div class="text-center py-6 text-xs" style="color: var(--color-text-secondary);">
+                    No unassigned tickets. Great job!
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {# Right column – quick links & SLA info (placeholder for future) #}
+    <div class="w-full lg:w-80 shrink-0 space-y-4">
+        <div class="context-rail">
+            <h3 class="text-sm font-semibold mb-2" style="color: var(--color-text-primary);">Quick Actions</h3>
+            <div class="space-y-2">
+                <a href="{% url 'tickets:unassigned' %}" class="btn-outline w-full text-xs flex items-center justify-center gap-2">
+                    {% lucide "inbox" size=14 %} Unassigned Queue
+                </a>
+                <a href="{% url 'tickets:assigned_to_me' %}" class="btn-outline w-full text-xs flex items-center justify-center gap-2">
+                    {% lucide "user-check" size=14 %} My Tickets
+                </a>
+            </div>
+        </div>
+        <div class="context-rail">
+            <h3 class="text-sm font-semibold mb-2" style="color: var(--color-text-primary);">Knowledge Base</h3>
+            <p class="text-xs" style="color: var(--color-text-secondary);">Search for solutions or create a new article.</p>
+            <button class="btn-outline w-full text-xs mt-2">Browse KB</button>
+        </div>
+    </div>
+</div>
+
+{% comment %} {# Footer #}
+<div class="mt-6 pt-4 border-t text-xs flex flex-col sm:flex-row justify-between gap-2" style="border-color: var(--color-border); color: var(--color-text-secondary);">
+    <span>🟢 All systems operational</span>
+    <span>Gemz IT Ticketing v1.0</span>
+</div> {% endcomment %}
+
+{% endblock %}

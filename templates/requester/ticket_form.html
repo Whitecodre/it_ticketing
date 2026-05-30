@@ -1,0 +1,100 @@
+{% extends "base_dashboard.html" %}
+{% load static %}
+{% load lucide %}
+
+{% block dashboard_title %}New Ticket{% endblock %}
+{% block page_title %}Create New Ticket{% endblock %}
+{% block role_label %}{{ user.get_role_display }}{% endblock %}
+{% block role_badge %}{{ user.get_role_display|upper }}{% endblock %}
+
+{# Use the requester sidebar (same as end-user dashboard) #}
+{% block sidebar_nav %}
+    {% include "partials/sidebar_end_user.html" %}
+{% endblock %}
+
+{# Hide search bar #}
+{% block topbar_search %}{% endblock %}
+
+{% block dashboard_content %}
+<div class="w-full">
+    <div class="dashboard-card">
+        <h2 class="dashboard-card-header">New Ticket</h2>
+
+        <form method="post" enctype="multipart/form-data" class="space-y-6">
+            {% csrf_token %}
+
+            {% if form.errors %}
+            <div class="rounded-lg bg-red-50 p-4 border border-red-200">
+                <ul class="text-sm text-red-800 list-disc list-inside">
+                    {% for field in form %}
+                        {% for error in field.errors %}
+                            <li>{{ error }}</li>
+                        {% endfor %}
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+
+            {# Type #}
+            <div>
+                <label for="id_type" class="block text-sm font-semibold mb-1" style="color: var(--color-text-primary);">Type</label>
+                {{ form.type }}
+            </div>
+
+            {# Category (with HTMX for KB suggestions) #}
+            <div>
+                <label for="id_category" class="block text-sm font-semibold mb-1" style="color: var(--color-text-primary);">Category</label>
+                <select name="category" id="id_category"
+                        class="block w-full rounded-lg border py-2.5 px-4 text-sm transition focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary"
+                        hx-get="{% url 'tickets:kb_suggestions' %}"
+                        hx-target="#kb-suggestions"
+                        hx-trigger="change">
+                    <option value="">---------</option>
+                    {% for value, label in form.category.field.choices %}
+                        <option value="{{ value }}" {% if form.category.value == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+                <div id="kb-suggestions" class="mt-3"></div>
+            </div>
+
+            {# Title #}
+            <div>
+                <label for="id_title" class="block text-sm font-semibold mb-1" style="color: var(--color-text-primary);">Title</label>
+                {{ form.title }}
+            </div>
+
+            {# Description #}
+            <div>
+                <label for="id_description" class="block text-sm font-semibold mb-1" style="color: var(--color-text-primary);">Description</label>
+                {{ form.description }}
+            </div>
+
+            {# Impact & Urgency #}
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label for="id_impact" class="block text-sm font-semibold mb-1" style="color: var(--color-text-primary);">Impact</label>
+                    {{ form.impact }}
+                </div>
+                <div>
+                    <label for="id_urgency" class="block text-sm font-semibold mb-1" style="color: var(--color-text-primary);">Urgency</label>
+                    {{ form.urgency }}
+                </div>
+            </div>
+
+            {# Attachments placeholder (we'll add later) #}
+            <div>
+                <label class="block text-sm font-semibold mb-1" style="color: var(--color-text-primary);">Attachments</label>
+                <input type="file" multiple class="block w-full text-sm text-text-secondary file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white hover:file:bg-primary-light">
+            </div>
+
+            {# Buttons #}
+            <div class="flex items-center justify-between pt-4 border-t" style="border-color: var(--color-border);">
+                <a href="{% url 'dashboard' %}" class="btn-ghost">Cancel</a>
+                <button type="submit" class="btn-login inline-flex items-center rounded-lg px-6 py-2.5 text-white font-medium">
+                    Submit Ticket
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

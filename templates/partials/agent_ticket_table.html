@@ -1,0 +1,115 @@
+{% load lucide %}
+
+{# Bulk Action Bar – hidden by default #}
+<div id="bulkActionBar" class="hidden items-center justify-between px-4 py-2 border-b mb-2 gap-2"
+     style="background-color: var(--color-primary); color: white; border-radius: 0.5rem 0.5rem 0 0; display: flex;">
+    <div class="flex items-center gap-3">
+        <span class="text-xs font-semibold">Selected: <span id="selectedCount">0</span></span>
+        <button class="text-xs bg-white text-primary px-3 py-1 rounded hover:bg-gray-100 cursor-pointer"
+                onclick="clearSelection()">Clear</button>
+    </div>
+    <div class="flex items-center gap-2">
+        {# Bulk Assign – only for Team Leads / Admins #}
+        {% if user.role == 'TEAM_LEAD' or user.role == 'ADMIN' or user.role == 'SUPERADMIN' %}
+        <div class="relative">
+            <button id="bulkAssignBtn" class="text-xs bg-white text-primary px-3 py-1 rounded hover:bg-gray-100 "
+                    onclick="document.getElementById('bulkAssignDropdown').classList.toggle('hidden')">
+                Assign <span class="ml-1">▾</span>
+            </button>
+            <div id="bulkAssignDropdown" class="absolute left-0 top-full mt-1 w-30 bg-surface border rounded shadow-lg hidden p-1 z-50"
+                 style="background-color: var(--color-surface); border-color: var(--color-border);">
+                {% for agent in assignable_agents %}
+                <button class="block w-full text-left text-xs px-3 py-1.5 rounded hover:bg-black/5"
+                        onclick="submitBulkAction('assign', {{ agent.pk }})">
+                    {{ agent.get_full_name|default:agent.email }}
+                </button>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        {# Bulk Status Change #}
+        <div class="relative">
+            <button id="bulkStatusBtn" class="text-xs bg-white text-primary px-3 py-1 rounded hover:bg-gray-100"
+                    onclick="document.getElementById('bulkStatusDropdown').classList.toggle('hidden')">
+                Status <span class="ml-1">▾</span>
+            </button>
+            <div id="bulkStatusDropdown" class="absolute -left-3 top-full mt-1 bg-surface border rounded shadow-lg hidden p-1 z-50"
+                 style="background-color: var(--color-surface); border-color: var(--color-border);">
+                {% for value, label in status_choices %}
+                <button class="block w-full text-left text-xs px-3 py-1.5 rounded hover:bg-black/5"
+                        onclick="submitBulkAction('status', '{{ value }}')"
+                        style="color: var(--color-text-primary);">
+                    {{ label }}
+                </button>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{# Ticket Table #}
+<table class="data-table w-full text-xs">
+    <thead>
+        <tr>
+            <th class="w-8">
+                <input type="checkbox" id="selectAll" class="rounded" onchange="toggleSelectAll(this)">
+            </th>
+            <th>Ticket</th>
+            <th>Subject</th>
+            <th>Requester</th>
+            <th>Status</th>
+            <th>Priority</th>
+            <th>Updated</th>
+            <th class="w-16">Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for ticket in tickets %}
+        <tr class="group hover:bg-black/2">
+            <td>
+                <input type="checkbox" value="{{ ticket.pk }}" class="ticket-checkbox rounded" onchange="updateBulkBar()">
+            </td>
+            <td><span class="font-mono text-[0.7rem]" style="color: var(--color-primary);">{{ ticket.number }}</span></td>
+            <td class="max-w-xs truncate">{{ ticket.title }}</td>
+            <td>{{ ticket.requester.get_full_name|default:ticket.requester.email }}</td>
+            <td><span class="status-chip {{ ticket.status|lower }} text-[0.65rem]">{{ ticket.get_status_display }}</span></td>
+            <td><span class="priority-chip {% if ticket.priority == 'P1' %}critical{% elif ticket.priority == 'P2' %}high{% elif ticket.priority == 'P3' %}medium{% else %}low{% endif %} text-[0.65rem]">{{ ticket.get_priority_display }}</span></td>
+            <td class="text-text-secondary">{{ ticket.updated_at|timesince }} ago</td>
+            <td>
+                <div class="flex gap-1.5">
+                    <a href="#"
+                        class="btn-ghost p-1"
+                        hx-get="{% url 'tickets:slideover' ticket.pk %}"
+                        hx-target="#slideoverContent"
+                        hx-swap="innerHTML"
+                        hx-on::after-request="openSlideover()">
+                            {% lucide "eye" size=14 %}
+                    </a>
+                    {% if not ticket.assigned_to %}
+                    <button class="btn-ghost p-1"
+                            hx-post="{% url 'tickets:claim_ticket' ticket.pk %}"
+                            hx-target="#ticketTable"
+                            hx-swap="innerHTML"
+                            title="Claim">
+                        {% lucide "user-plus" size=14 %}
+                    </button>
+                    {% else %}
+                        <a href="{% url 'tickets:conversation' ticket.pk %}"
+                            class="btn-ghost p-1"
+                            title="Open Conversation">
+                                {% lucide "message-square" size=14 %}
+                        </a>
+                    {% endif %}
+                </div>
+            </td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="8" class="text-center py-10 text-text-secondary text-xs">
+                No tickets here.
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>

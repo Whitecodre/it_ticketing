@@ -1,0 +1,97 @@
+{% extends "base_dashboard.html" %}
+{% load static %}
+{% load lucide %}
+
+{% block dashboard_title %}Ticket {{ ticket.number }}{% endblock %}
+{% block page_title_area %}{% endblock %}
+{% block role_label %}{{ user.get_role_display }}{% endblock %}
+{% block role_badge %}{{ user.get_role_display|upper }}{% endblock %}
+
+{% block sidebar_nav %}
+    {% include "partials/sidebar_end_user.html" %}
+{% endblock %}
+
+{% block topbar_search %}{% endblock %}
+
+{% block dashboard_content %}
+<div class="flex flex-col h-full -m-4 md:-m-5">
+    {# Compact header #}
+    <div class="px-4 py-3 border-b flex items-center justify-between"
+         style="background-color: var(--color-surface); border-color: var(--color-border);">
+        <div class="flex-1 min-w-0">
+            <h2 class="text-sm font-semibold truncate" style="color: var(--color-text-primary);">{{ ticket.title }}</h2>
+            <div class="flex items-center gap-2 text-xs mt-0.5" style="color: var(--color-text-secondary);">
+                <span>{{ ticket.number }}</span>
+                <span>•</span>
+                <span id="ticketStatusChip">
+                    <span class="status-chip {{ ticket.status|lower }} text-xs">{{ ticket.get_status_display }}</span>
+                </span>
+                <span>•</span>
+                <span>{{ ticket.get_priority_display }}</span>
+            </div>
+        </div>
+        <a href="{% url 'tickets:my_list' %}" class="btn-ghost text-xs flex items-center gap-1 ml-3">
+            {% lucide "arrow-left" size=14 %} Back
+        </a>
+    </div>
+
+    {# Message Timeline (scrollable) #}
+    <div class="flex-1 overflow-y-auto px-4 py-3 space-y-1" id="commentThread"
+         style="background-color: var(--color-background);">
+        {% include "partials/comment_thread.html" %}
+    </div>
+
+    {# Composer (fixed at bottom) #}
+    <div class="px-4 py-3 border-t" style="background-color: var(--color-surface); border-color: var(--color-border);">
+        <form hx-post="{% url 'tickets:detail' ticket.pk %}"
+              hx-target="#commentThread"
+              hx-swap="innerHTML"
+              hx-on::after-request="this.reset()">
+            {% csrf_token %}
+
+            {# Comment Area #}
+            <div>
+                <textarea name="body" rows="2" placeholder="Write a reply…"
+                class="w-full rounded-lg border p-3 text-xs resize-none focus:outline-none focus:ring-2"
+                style="background-color: var(--color-background); border-color: var(--color-border); color: var(--color-text-primary); --tw-ring-color: var(--color-primary);"
+                required></textarea>
+            </div>
+            {# End of Comment Area #}
+            <div class="flex gap-2">
+                <div class="flex-1">
+                    <div class="flex items-center gap-1 mt-1">
+                        <button type="button" class="btn-ghost p-1 text-xs element-link" data-tooltip="Bold">
+                            {% lucide "bold" size=14 %}
+                        </button>
+                        <button type="button" class="btn-ghost p-1 text-xs element-link" data-tooltip="Italic">
+                            {% lucide "italic" size=14 %}
+                        </button>
+                        <button type="button" class="btn-ghost p-1 text-xs element-link" data-tooltip="Attach file">
+                            {% lucide "paperclip" size=14 %}
+                        </button>
+                    </div>
+                </div>
+                <button type="submit" class="btn-primary text-xs flex items-center gap-1 self-end px-4 py-2">
+                    {% lucide "send" size=14 %} Send
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ block.super }}
+<script>
+    function scrollTimelineToBottom() {
+        const el = document.getElementById('commentThread');
+        if (el) el.scrollTop = el.scrollHeight;
+    }
+    document.addEventListener('DOMContentLoaded', scrollTimelineToBottom);
+    document.body.addEventListener('htmx:afterSwap', function(evt) {
+        if (evt.detail.target.id === 'commentThread') {
+            scrollTimelineToBottom();
+        }
+    });
+</script>
+{% endblock %}

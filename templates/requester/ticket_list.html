@@ -1,0 +1,50 @@
+{% extends "base_dashboard.html" %}
+{% load static %}
+{% load lucide %}
+
+{% block dashboard_title %}My Tickets{% endblock %}
+{% block page_title %}My Tickets{% endblock %}
+{% block role_label %}{{ user.get_role_display }}{% endblock %}
+{% block role_badge %}{{ user.get_role_display|upper }}{% endblock %}
+
+{% block sidebar_nav %}
+    {% include "partials/sidebar_end_user.html" %}
+{% endblock %}
+
+{% block topbar_search %}{% endblock %}
+
+{% block dashboard_content %}
+<div class="w-full">
+    <div class="dashboard-card">
+        <div class="flex items-center justify-end mb-6">
+            {% comment %} <h2 class="dashboard-card-header" style="border-bottom: none; margin-bottom: 0; padding-bottom: 0;">My Tickets</h2> {% endcomment %}
+            <a href="{% url 'tickets:create' %}" class="text-sm font-medium" style="color: var(--color-primary);">+ New Ticket</a>
+        </div>
+
+        {# Filter buttons (HTMX) #}
+        <div class="flex flex-wrap gap-2 mb-4">
+            <button class="btn-ghost text-xs rounded-full px-4 py-1.5 border"
+                    hx-get="{% url 'tickets:my_list' %}"
+                    hx-target="#ticketTableContainer"
+                    hx-swap="innerHTML"
+                    style="{% if not current_status %}background-color: var(--color-primary); color: white; border-color: var(--color-primary);{% else %}border-color: var(--color-border);{% endif %}">
+                All
+            </button>
+            {% for value, label in status_choices %}
+                <button class="btn-ghost text-xs rounded-full px-4 py-1.5 border"
+                        hx-get="{% url 'tickets:my_list' %}?status={{ value }}"
+                        hx-target="#ticketTableContainer"
+                        hx-swap="innerHTML"
+                        style="{% if current_status == value %}background-color: var(--color-primary); color: white; border-color: var(--color-primary);{% else %}border-color: var(--color-border);{% endif %}">
+                    {{ label }}
+                </button>
+            {% endfor %}
+        </div>
+
+        {# Table container (replaced by HTMX) #}
+        <div id="ticketTableContainer">
+            {% include "partials/ticket_table.html" %}
+        </div>
+    </div>
+</div>
+{% endblock %}

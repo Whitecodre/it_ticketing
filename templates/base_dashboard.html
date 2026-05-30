@@ -1,0 +1,217 @@
+{% extends "base_registration.html" %}
+{% load static %}
+{% load lucide %}
+
+{% block title %}{% block dashboard_title %}Dashboard{% endblock %} - Gemz Ticketing{% endblock %}
+
+{% block navigation %}
+
+<div class="flex h-screen overflow-hidden" style="background-color: var(--color-background);">
+
+    {# Mobile backdrop #}
+    <div id="sidebarBackdrop" class="fixed inset-0 z-40 bg-black/50 hidden md:hidden" onclick="closeSidebar()"></div>
+
+    {# ========== LEFT SIDEBAR (icon‑only, 64px) ========== #}
+    <aside id="sidebar"
+           class="fixed inset-y-0 left-0 z-50 flex flex-col border-r transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out
+                  w-20 md:w-16 overflow-hidden"
+           style="background-color: var(--color-surface); border-color: var(--color-border);">
+
+        {# Logo #}
+        <div class="flex flex-col items-center py-3 border-b" style="border-color: var(--color-border);">
+            <img src="{% static 'img/gemz-logo.png' %}" alt="Gemz" class="h-8 w-auto">
+        </div>
+
+        {# Navigation icons #}
+        <nav class="flex-1 min-h-0 overflow-y-auto py-3 space-y-4">
+            {% block sidebar_nav %}
+            <div class="flex flex-col items-center space-y-2">
+                <a href="{% url 'dashboard' %}" class="flex items-center justify-center rounded-md p-2 transition sidebar-link"
+                   style="{% if request.path == '/' %}background-color: var(--color-primary); color: white;{% else %}color: var(--color-text-secondary);{% endif %}">
+                    {% lucide "layout-dashboard" size=20 class="h-5 w-5" %}
+                    <span class="sidebar-tooltip">Dashboard</span>
+                </a>
+                <a href="{% url 'tickets:my_list' %}" class="flex items-center justify-center rounded-md p-2 transition sidebar-link"
+                   style="{% if '/tickets/my/' in request.path %}background-color: var(--color-primary); color: white;{% else %}color: var(--color-text-secondary);{% endif %}">
+                    {% lucide "inbox" size=20 class="h-5 w-5" %}
+                    <span class="sidebar-tooltip">All Tickets</span>
+                </a>
+                <a href="{% url 'tickets:my_list' %}?status=OPEN" class="flex items-center justify-center rounded-md p-2 transition sidebar-link"
+                   style="color: var(--color-text-secondary);">
+                    {% lucide "circle-alert" size=20 class="h-5 w-5" %}
+                    <span class="sidebar-tooltip">Unsolved</span>
+                </a>
+            </div>
+            <div class="flex flex-col items-center space-y-2">
+                <a href="#" class="flex items-center justify-center rounded-md p-2 transition sidebar-link"
+                   style="color: var(--color-text-secondary);">
+                    {% lucide "book-open" size=20 class="h-5 w-5" %}
+                    <span class="sidebar-tooltip">Knowledge Base</span>
+                </a>
+                <a href="#" class="flex items-center justify-center rounded-md p-2 transition sidebar-link"
+                   style="color: var(--color-text-secondary);">
+                    {% lucide "monitor" size=20 class="h-5 w-5" %}
+                    <span class="sidebar-tooltip">Remote Session</span>
+                </a>
+            </div>
+            {% endblock %}
+        </nav>
+
+        {# Footer help button #}
+        <div class="border-t py-2 flex justify-center" style="border-color: var(--color-border);">
+            <button class="rounded-full p-2 transition hover:bg-black/5 sidebar-link" data-tooltip="Contact Support"
+                    style="color: var(--color-text-secondary);">
+                {% lucide "circle-help" size=20 class="h-5 w-5" %}
+            </button>
+        </div>
+    </aside>
+
+    {# ========== MAIN CONTENT AREA ========== #}
+    <div class="flex flex-1 flex-col ml-0 md:ml-16 transition-all duration-300">
+        {# Hidden form to ensure CSRF token is set and available for HTMX #}
+        <form style="display:none;">
+            {% csrf_token %}
+        </form>
+        {# Top bar #}
+        <header class="sticky top-0 z-40 flex h-14 items-center justify-between border-b px-4 md:px-6"
+                style="background-color: var(--color-surface); border-color: var(--color-border);">
+
+            {# Left: hamburger + title #}
+            <div class="flex items-center gap-3">
+                <button onclick="toggleSidebar()"
+                        class="inline-flex items-center justify-center rounded-md p-1.5 text-text-secondary hover:bg-black/5 focus:outline-none md:hidden">
+                    {% lucide "menu" size=20 class="h-5 w-5" %}
+                </button>
+            </div>
+
+            {# Center: search #}
+            <div class="hidden md:flex flex-1 max-w-lg mx-4">
+                <div class="relative w-full">
+                    {% lucide "search" size=16 class="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4" style="color: var(--color-text-secondary);" %}
+                    <input type="search"
+                           class="w-full rounded-md border py-1.5 pl-8 pr-12 text-xs focus:outline-none focus:ring-2"
+                           style="background-color: var(--color-background); border-color: var(--color-border); color: var(--color-text-primary); --tw-ring-color: var(--color-primary);"
+                           placeholder="Search tickets, KB, users...">
+                    <kbd class="absolute right-2 top-1/2 -translate-y-1/2 text-[0.6rem] px-1 py-0.5 rounded font-mono"
+                         style="color: var(--color-text-secondary); background-color: var(--color-border);">⌘K</kbd>
+                </div>
+            </div>
+
+            {# Right: utilities #}
+            <div class="flex items-center gap-1.5 md:gap-2">
+                {# Notifications #}
+                <div class="relative">
+                    <button id="notificationBell"
+                            class="relative rounded-full p-1.5 transition cursor-pointer hover:bg-black/5"
+                            style="color: var(--color-text-secondary);"
+                            onclick="toggleNotificationDropdown()">
+                        {% lucide "bell" size=18 class="h-4.5 w-4.5" %}
+                        <div id="notificationBadgeContainer"
+                            hx-get="{% url 'notifications:unread_count' %}"
+                            hx-trigger="every 30s"
+                            hx-swap="innerHTML">
+                            {% include "partials/notification_badge.html" with count=0 %}
+                        </div>
+                    </button>
+                    <div id="notificationDropdown"
+                        class="absolute right-0 mt-2 w-64 rounded-md shadow-lg border hidden"
+                        style="background-color: var(--color-surface); border-color: var(--color-border); z-index: 50;"
+                        onclick="event.stopPropagation()">
+                    </div>
+                </div>
+                {# End of Notifications #}
+
+                {# User menu (now in top bar) #}
+                <div class="relative">
+                    <button id="userMenuButton"
+                            class="flex items-center gap-2.5 p-1.5 rounded-full hover:bg-black/5 transition"
+                            style="background: transparent; border: none; cursor: pointer;"
+                            onclick="toggleUserMenu()">
+                        <div class="shrink-0">
+                            {% if user.avatar %}
+                                <img src="{{ user.avatar.url }}" alt="Avatar" class="h-7 w-7 rounded-full object-cover">
+                            {% else %}
+                                <div class="flex h-7 w-7 items-center justify-center rounded-full text-white text-xs font-medium"
+                                     style="background-color: var(--color-primary);">
+                                    {{ user.email.0|upper }}
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="hidden sm:block text-left">
+                            <p class="text-xs font-medium truncate" style="color: var(--color-text-primary); max-width: 120px;">
+                                {{ user.get_full_name|default:user.email }}
+                            </p>
+                            <p class="text-[0.65rem] truncate" style="color: var(--color-text-secondary);">
+                                {% block role_label %}{% endblock %}
+                            </p>
+                        </div>
+                        {% lucide "chevron-down" size=14 class="h-3.5 w-3.5 transition-transform duration-200" id="userMenuChevron" style="color: var(--color-text-secondary);" %}
+                    </button>
+
+                    {# Dropdown #}
+                    <div id="userMenuDropdown"
+                         class="absolute top-full right-0 mt-1 w-40 rounded-md shadow-lg border overflow-hidden"
+                         style="background-color: var(--color-surface); border-color: var(--color-border); display: none; z-index: 50;">
+                        <form action="{% url 'accounts:logout' %}" method="post" class="m-0">
+                            {% csrf_token %}
+                            <button type="submit"
+                                    class="flex w-full items-center gap-2.5 px-4 py-2.5 text-xs transition hover:bg-black/5"
+                                    style="color: var(--color-text-primary); background: none; border: none; cursor: pointer;">
+                                {% lucide "log-out" size=14 class="h-3.5 w-3.5" style="color: var(--color-text-secondary);" %}
+                                Log Out
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                {# Theme toggle #}
+                <div class="theme-radio-group" id="themeRadioGroup">
+                    <label class="theme-radio" id="themeRadioLight">
+                        {% lucide "sun" size=14 class="w-3.5 h-3.5" %}
+                        <input type="radio" name="theme" value="light">
+                    </label>
+                    <label class="theme-radio" id="themeRadioDark">
+                        {% lucide "moon" size=14 class="w-3.5 h-3.5" %}
+                        <input type="radio" name="theme" value="dark">
+                    </label>
+                </div>
+            </div>
+        </header>
+
+        {# Main content #}
+        <main class="flex-1 overflow-y-auto p-4 md:p-5">
+            {% block page_title_area %}
+            <h1 class="text-xl font-semibold truncate mb-4" style="color: var(--color-text-primary);">
+                {% block page_title %}Dashboard{% endblock %}
+            </h1>
+            {% endblock page_title_area %}
+            {% block dashboard_content %}{% endblock %}
+        </main>
+        {# ========== SLIDE-OVER PANEL (right) ========== #}
+        <div id="slideoverBackdrop"
+            class="fixed inset-0 z-50 bg-black/50 hidden transition-opacity duration-300"
+            onclick="closeSlideover()"></div>
+
+        <div id="ticketSlideover"
+            class="fixed top-0 right-0 z-50 h-full w-full max-w-lg bg-surface border-l shadow-2xl transform translate-x-full transition-transform duration-300 ease-in-out overflow-y-auto"
+            style="background-color: var(--color-surface); border-color: var(--color-border);">
+            <div id="slideoverContent" class="p-6">
+                {# Content loaded via HTMX #}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock navigation %}
+
+{% block content %}{% endblock %}
+
+
+{% block scripts %}
+{{ block.super }}
+<script src="{% static 'js/global.js' %}"></script>
+<script>
+    // Provide the notifications list URL (used by global.js)
+    window.notificationsUrl = "{% url 'notifications:list' %}";
+</script>
+{% endblock %}
+{% block extra_scripts %}{% endblock %}

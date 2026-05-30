@@ -1,0 +1,17 @@
+{% load lucide %}
+<div class="p-2">
+    <p class="text-[0.65rem] text-text-secondary mb-1">Select a macro:</p>
+    {% for macro in macros %}
+    <button type="button"
+            class="flex items-center justify-between w-full text-xs px-2 py-1.5 rounded hover:bg-black/5 mb-0.5"
+            onclick="insertMacro('{{ macro.body|escapejs }}', '{{ macro.visibility }}'); document.getElementById('macroDropdown').classList.add('hidden')">
+        <span>{{ macro.title }}</span>
+        <span class="text-[0.6rem] px-1.5 py-0.5 rounded-full border ml-2
+                     {% if macro.visibility == 'INTERNAL' %}border-warning text-warning{% else %}border-border text-text-secondary{% endif %}">
+            {{ macro.get_visibility_display }}
+        </span>
+    </button>
+    {% empty %}
+    <p class="text-xs text-text-secondary px-2">No macros yet.</p>
+    {% endfor %}
+</div>

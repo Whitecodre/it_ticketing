@@ -1,0 +1,63 @@
+{% load static %}
+{% load lucide %}
+
+<div class="p-2">
+    <div class="flex items-center justify-between px-3 py-2">
+        <h3 class="text-xs font-semibold" style="color: var(--color-text-primary);">Notifications</h3>
+        {% if unread > 0 %}
+        <button class="text-[0.65rem] font-medium hover:underline"
+                style="color: var(--color-primary); background: none; border: none; cursor: pointer;"
+                hx-post="{% url 'notifications:mark_all_read' %}"
+                hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+                hx-target="#notificationBadgeContainer"
+                hx-swap="innerHTML"
+                hx-on::after-request="htmx.ajax('GET', '{% url 'notifications:list' %}', {target:'#notificationDropdown', swap:'innerHTML'})">
+            Mark all read
+        </button>
+        {% endif %}
+    </div>
+    <div class="max-h-64 overflow-y-auto">
+        {% for notification in notifications %}
+        <div class="flex items-start gap-3 px-3 py-2.5 rounded-md transition hover:bg-black/5 cursor-pointer
+                    {% if not notification.is_read %}bg-black/2{% endif %}"
+             onclick="markReadAndGo('{{ notification.url }}', {{ notification.pk }})">
+            <div class="shrink-0 mt-0.5">
+                {% if not notification.is_read %}
+                <span class="flex h-2 w-2 rounded-full" style="background-color: var(--color-primary);"></span>
+                {% else %}
+                <span class="flex h-2 w-2 rounded-full border" style="border-color: var(--color-border);"></span>
+                {% endif %}
+            </div>
+            <div class="flex-1 min-w-0">
+                <p class="text-xs" style="color: var(--color-text-primary);">{{ notification.message }}</p>
+                <p class="text-[0.65rem] mt-0.5" style="color: var(--color-text-secondary);">
+                    {{ notification.created_at|timesince }} ago
+                </p>
+            </div>
+        </div>
+        {% empty %}
+        <div class="px-3 py-4 text-center text-xs" style="color: var(--color-text-secondary);">
+            No notifications yet.
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+    function markReadAndGo(url, notificationId) {
+        fetch('{% url "notifications:mark_read" 999 %}'.replace('999', notificationId), {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        }).then(() => {
+            // Refresh badge – will hide if count becomes 0
+            htmx.ajax('GET', '{% url "notifications:unread_count" %}', {target:'#notificationBadgeContainer', swap:'innerHTML'});
+            // Refresh dropdown
+            htmx.ajax('GET', '{% url "notifications:list" %}', {target:'#notificationDropdown', swap:'innerHTML'});
+        });
+        if (url) {
+            window.location.href = url;
+        }
+    }
+</script>
