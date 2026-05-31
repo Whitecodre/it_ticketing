@@ -9,3 +9,4 @@ gunicorn>=21.2
 dj-database-url>=2.1
 pytest-cov>=4.1
 factory-boy>=3.3
+django-lucide>=0.3
