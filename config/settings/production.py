@@ -2,17 +2,22 @@ import os
 import dj_database_url
 from .base import *
 
-DEBUG = False
+# Allow DEBUG to be controlled via environment variable
+DEBUG = env.bool('DEBUG', default=False)
 
-ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['.onrender.com'])
+# Use * for now to ensure host is accepted; we'll lock it down later
+ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['*'])
 
-# Security
+# Security – redirect HTTP to HTTPS
 SECURE_SSL_REDIRECT = True
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 SECURE_HSTS_SECONDS = 31536000
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
+
+# Required for correct protocol detection behind Render’s proxy
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # Database – fallback to SQLite for build, Render will override with DATABASE_URL
 DATABASES = {
