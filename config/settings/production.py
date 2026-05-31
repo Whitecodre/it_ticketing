@@ -4,7 +4,7 @@ from .base import *
 
 DEBUG = False
 
-ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['.railway.app'])
+ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['.onrender.com'])
 
 # Security
 SECURE_SSL_REDIRECT = True
@@ -14,7 +14,7 @@ SECURE_HSTS_SECONDS = 31536000
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
 
-# Database – fallback to SQLite so build works, Render will override with real DATABASE_URL
+# Database – fallback to SQLite for build, Render will override with DATABASE_URL
 DATABASES = {
     'default': dj_database_url.config(
         default=env('DATABASE_URL', default='sqlite:///db.sqlite3')
@@ -30,4 +30,4 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
 # CSRF trusted origins
-CSRF_TRUSTED_ORIGINS = env.list('CSRF_TRUSTED_ORIGINS', default=['https://*.railway.app'])
+CSRF_TRUSTED_ORIGINS = env.list('CSRF_TRUSTED_ORIGINS', default=['https://*.onrender.com'])
