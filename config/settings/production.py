@@ -14,9 +14,11 @@ SECURE_HSTS_SECONDS = 31536000
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
 
-# Database
+# Database – fallback to SQLite so build works, Render will override with real DATABASE_URL
 DATABASES = {
-    'default': dj_database_url.config(default=env('DATABASE_URL'))
+    'default': dj_database_url.config(
+        default=env('DATABASE_URL', default='sqlite:///db.sqlite3')
+    )
 }
 
 # Static files
@@ -24,7 +26,7 @@ MIDDLEWARE.insert(1, 'whitenoise.middleware.WhiteNoiseMiddleware')
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-# Email (use console for now; replace with real backend later)
+# Email (console for now)
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
 # CSRF trusted origins
