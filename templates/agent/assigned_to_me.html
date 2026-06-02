@@ -30,7 +30,7 @@
 </div>
 {% endblock %}
 
-{% block extra_scripts%}
+{% block extra_scripts %}
 <script src="{% static 'js/bulk_actions.js' %}"></script>
 <script>
     window.bulkActionUrl = "{% url 'tickets:bulk_action' %}";

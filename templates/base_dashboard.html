@@ -209,9 +209,10 @@
 {% block scripts %}
 {{ block.super }}
 <script src="{% static 'js/global.js' %}"></script>
+<script src="{% static 'js/keyboard_shortcuts.js' %}"></script>
 <script>
     // Provide the notifications list URL (used by global.js)
     window.notificationsUrl = "{% url 'notifications:list' %}";
 </script>
-{% endblock %}
 {% block extra_scripts %}{% endblock %}
+{% endblock %}

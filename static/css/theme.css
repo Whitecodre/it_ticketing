@@ -581,4 +581,8 @@
         border-style: solid;
         border-color: transparent transparent var(--color-text-primary) transparent;
     }
+    /* Highlighted Row */
+    tr.highlighted-row td {
+    background-color: rgba(13, 148, 136, 0.08);
+}
     

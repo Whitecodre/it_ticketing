@@ -7,7 +7,13 @@ function updateBulkBar() {
     const count = checked.length;
     const bar = document.getElementById('bulkActionBar');
     if (bar) {
-        bar.classList.toggle('hidden', count === 0);
+        if (count === 0) {
+            bar.classList.add('hidden');
+            bar.classList.remove('flex');
+        } else {
+            bar.classList.remove('hidden');
+            bar.classList.add('flex');
+        }
         const selectedCount = document.getElementById('selectedCount');
         if (selectedCount) selectedCount.innerText = count;
         const selectAll = document.getElementById('selectAll');
