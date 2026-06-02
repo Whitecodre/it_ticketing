@@ -36,7 +36,7 @@
     <div class="dashboard-card p-0 overflow-hidden mb-6">
         <div class="px-4 py-3 border-b flex items-center justify-between" style="border-color: var(--color-border);">
             <h3 class="text-xs font-semibold" style="color: var(--color-text-primary);">Recent Team Tickets</h3>
-            <a href="{% url 'team_queue' %}" class="text-xs font-medium" style="color: var(--color-primary);">View all →</a>
+            <a href="{% url 'tickets:team_queue' %}" class="text-xs font-medium" style="color: var(--color-primary);">View all →</a>
         </div>
         {% if recent_team_tickets %}
         <table class="data-table w-full text-xs">

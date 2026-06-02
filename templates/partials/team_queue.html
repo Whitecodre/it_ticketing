@@ -4,6 +4,7 @@
 
 {% block dashboard_title %}Team Queue{% endblock %}
 {% block page_title %}Team Queue{% endblock %}
+{% block page_title_area %}{% endblock %}
 {% block role_label %}Team Lead{% endblock %}
 {% block role_badge %}TEAM LEAD{% endblock %}
 
@@ -14,7 +15,7 @@
 {% block dashboard_content %}
 <div class="w-full">
     <div class="flex flex-wrap gap-4 mb-4 items-center">
-        <h2 class="text-base font-semibold" style="color: var(--color-text-primary);">Team Tickets</h2>
+        <h2 class="text-xl font-semibold" style="color: var(--color-text-primary);">Team Tickets</h2>
         <select name="agent" class="text-xs rounded-lg border py-1.5 px-3 focus:outline-none focus:ring-2"
                 style="background-color: var(--color-background); border-color: var(--color-border); color: var(--color-text-primary); --tw-ring-color: var(--color-primary);"
                 onchange="window.location.href='?agent=' + this.value">
@@ -76,7 +77,7 @@
 <script>
     function reassignTicket(ticketId, agentId) {
         if (!agentId) return;
-        fetch("{% url 'team_reassign' 0 %}".replace('0', ticketId), {
+        fetch("{% url 'tickets:team_reassign' 0 %}".replace('0', ticketId), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',

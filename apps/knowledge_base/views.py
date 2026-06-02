@@ -21,10 +21,20 @@ def kb_management(request):
     pending_review = Article.objects.filter(status=Article.Status.PENDING_REVIEW) if user.role in ['TEAM_LEAD', 'ADMIN', 'SUPERADMIN'] else []
     published = Article.objects.filter(status=Article.Status.PUBLISHED)
 
+    # Choose sidebar based on role
+    sidebar_map = {
+        'AGENT': 'partials/sidebar_agent.html',
+        'TEAM_LEAD': 'partials/sidebar_team_lead.html',
+        'ADMIN': 'partials/sidebar_admin.html',
+        'SUPERADMIN': 'partials/sidebar_superadmin.html',  
+    }
+    sidebar_template = sidebar_map.get(user.role, 'partials/sidebar_agent.html')
+
     context = {
         'drafts': drafts,
         'pending_review': pending_review,
         'published': published,
+        'sidebar_template': sidebar_template,
     }
     return render(request, 'knowledge_base/management.html', context)
 

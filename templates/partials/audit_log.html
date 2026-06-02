@@ -4,6 +4,7 @@
 
 {% block dashboard_title %}Audit Log{% endblock %}
 {% block page_title %}Audit Log{% endblock %}
+{% block page_title_area %}{% endblock %}
 {% block role_label %}{{ user.get_role_display }}{% endblock %}
 {% block role_badge %}{{ user.get_role_display|upper }}{% endblock %}
 
@@ -13,7 +14,7 @@
 
 {% block dashboard_content %}
 <div class="w-full">
-    <h2 class="text-base font-semibold mb-4" style="color: var(--color-text-primary);">Audit Trail</h2>
+    <h2 class="text-xl font-semibold mb-4" style="color: var(--color-text-primary);">Audit Log</h2>
 
     <div class="flex flex-wrap gap-2 mb-4">
         <select id="actionFilter" class="text-xs rounded-lg border py-1.5 px-3 focus:outline-none focus:ring-2"
@@ -73,7 +74,7 @@
         const params = new URLSearchParams();
         if (action) params.set('action', action);
         if (ticket) params.set('ticket', ticket);
-        window.location.href = "{% url 'audit_log' %}?" + params.toString();
+        window.location.href = "{% url 'tickets:audit_log' %}?" + params.toString();
     }
 </script>
 {% endblock %}
