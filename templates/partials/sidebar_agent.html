@@ -47,9 +47,9 @@
     <div class="border-t mx-2 my-1" style="border-color: var(--color-border);"></div>
 
     <div class="px-3">
-        <a href="#"
+        <a href="{% url "kb:management" %}"
         class="flex items-center justify-center p-1.5 rounded-sm transition sidebar-link" data-tooltip="Knowledge Base"
-        style="color: var(--color-text-secondary);">
+        style="{% if '/kb/manage' in request.path %}background-color: var(--color-primary); color: white;{% else %}color: var(--color-text-secondary);{% endif %}">
             {% lucide "book-open" size=18 class="h-4.5 w-4.5" %}
         </a>
     </div>

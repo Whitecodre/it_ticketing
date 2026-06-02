@@ -1,0 +1,58 @@
+{% extends "base_dashboard.html" %}
+{% load static %}
+{% load lucide %}
+
+{% block dashboard_title %}Knowledge Base{% endblock %}
+{% block page_title %}Knowledge Base{% endblock %}
+{% block role_label %}{{ user.get_role_display }}{% endblock %}
+{% block role_badge %}{{ user.get_role_display|upper }}{% endblock %}
+
+{% block sidebar_nav %}
+    {% include "partials/sidebar_end_user.html" %}
+{% endblock %}
+
+{% block dashboard_content %}
+<div class="w-full">
+    {# Search Bar #}
+    <form method="get" class="mb-6">
+        <div class="relative max-w-xl">
+            {% lucide "search" size=18 class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style="color: var(--color-text-secondary);" %}
+            <input type="text" name="q" value="{{ query }}" placeholder="Search articles…"
+                   class="w-full rounded-lg border py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2"
+                   style="background-color: var(--color-background); border-color: var(--color-border); color: var(--color-text-primary); --tw-ring-color: var(--color-primary);">
+        </div>
+    </form>
+
+    {# Category Chips #}
+    <div class="flex flex-wrap gap-2 mb-6">
+        <a href="{% url 'kb:portal' %}" class="filter-chip {% if not selected_category %}active{% endif %}">All</a>
+        {% for cat in categories %}
+        <a href="{% url 'kb:portal' %}?category={{ cat.pk }}{% if query %}&q={{ query }}{% endif %}" 
+           class="filter-chip {% if selected_category == cat.pk|stringformat:'s' %}active{% endif %}">
+            {{ cat.name }} ({{ cat.article_count }})
+        </a>
+        {% endfor %}
+    </div>
+
+    {# Article List #}
+    {% if articles %}
+    <div class="space-y-3">
+        {% for article in articles %}
+        <a href="{% url 'kb:article_detail' article.slug %}" class="dashboard-card p-4 block hover:border-primary transition">
+            <h3 class="text-sm font-semibold" style="color: var(--color-text-primary);">{{ article.title }}</h3>
+            <p class="text-xs mt-1 line-clamp-2" style="color: var(--color-text-secondary);">{{ article.content|truncatechars:200 }}</p>
+            <div class="flex items-center gap-3 mt-2 text-xs" style="color: var(--color-text-secondary);">
+                <span>{{ article.category.name|default:"Uncategorized" }}</span>
+                <span>·</span>
+                <span>Updated {{ article.updated_at|timesince }} ago</span>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-12 text-xs text-text-secondary">
+        No articles found.
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

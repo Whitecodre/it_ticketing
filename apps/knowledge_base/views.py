@@ -3,7 +3,11 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseForbidden
 from django.utils.text import slugify
-from .models import Article, ArticleVersion, Category
+from .models import Article, ArticleVersion, Category, ArticleFeedback
+from django.db.models import Count, Q
+from django.views.decorators.http import require_POST
+from django.http import JsonResponse
+from apps.tickets.models import Ticket
 
 
 @login_required
@@ -102,3 +106,81 @@ def article_archive(request, pk):
     article.status = Article.Status.ARCHIVED
     article.save()
     return redirect('kb:management')
+
+@login_required
+def kb_portal(request):
+    query = request.GET.get('q', '')
+    category_id = request.GET.get('category', '')
+    articles = Article.objects.filter(status=Article.Status.PUBLISHED, visibility='PUBLIC')
+
+    if query:
+        articles = articles.filter(Q(title__icontains=query) | Q(content__icontains=query))
+    if category_id:
+        articles = articles.filter(category_id=category_id)
+
+    categories = Category.objects.annotate(article_count=Count('articles', filter=Q(articles__status=Article.Status.PUBLISHED, articles__visibility='PUBLIC')))
+
+    context = {
+        'articles': articles,
+        'categories': categories,
+        'query': query,
+        'selected_category': category_id,
+    }
+    return render(request, 'knowledge_base/portal.html', context)
+
+@login_required
+def kb_article_detail(request, slug):
+    article = get_object_or_404(Article, slug=slug, status=Article.Status.PUBLISHED, visibility='PUBLIC')
+    # Check if user already gave feedback
+    user_feedback = None
+    if request.user.is_authenticated:
+        try:
+            user_feedback = ArticleFeedback.objects.get(article=article, user=request.user)
+        except ArticleFeedback.DoesNotExist:
+            pass
+    context = {
+        'article': article,
+        'user_feedback': user_feedback,
+    }
+    return render(request, 'knowledge_base/article_detail.html', context)
+
+@login_required
+@require_POST
+def kb_feedback(request, pk):
+    article = get_object_or_404(Article, pk=pk)
+    helpful = request.POST.get('helpful') == 'true'
+    feedback, created = ArticleFeedback.objects.update_or_create(
+        article=article,
+        user=request.user,
+        defaults={'helpful': helpful}
+    )
+    helpful_count = article.feedback.filter(helpful=True).count()
+    not_helpful_count = article.feedback.filter(helpful=False).count()
+    return JsonResponse({
+        'status': 'ok',
+        'helpful_count': helpful_count,
+        'not_helpful_count': not_helpful_count,
+    })
+
+@login_required
+def convert_ticket_to_kb(request, ticket_pk):
+    ticket = get_object_or_404(Ticket, pk=ticket_pk)
+    if request.user.role not in ['AGENT', 'TEAM_LEAD', 'ADMIN', 'SUPERADMIN']:
+        return HttpResponseForbidden()
+
+    # Create draft article from ticket
+    title = ticket.title
+    content = ticket.description
+    slug = slugify(title) + '-' + str(int(time.time()))
+
+    article = Article.objects.create(
+        title=title,
+        slug=slug,
+        content=content,
+        visibility='INTERNAL',   # default internal – agent can change
+        author=request.user,
+        status=Article.Status.DRAFT
+    )
+    ArticleVersion.objects.create(article=article, content=content, edited_by=request.user)
+
+    return redirect('kb:edit', pk=article.pk)

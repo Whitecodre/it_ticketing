@@ -585,4 +585,32 @@
     tr.highlighted-row td {
     background-color: rgba(13, 148, 136, 0.08);
 }
-    
+ 
+/* Toast container – slides in from bottom right */
+    .toast-container {
+        position: fixed;
+        bottom: 1.5rem;
+        right: 1.5rem;
+        z-index: 100;
+        display: flex;
+        flex-direction: column-reverse;
+        gap: 0.5rem;
+    }
+    .toast-item {
+        padding: 0.75rem 1.25rem;
+        border-radius: 0.5rem;
+        color: white;
+        font-size: 0.8125rem;
+        font-weight: 500;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        transform: translateX(120%);
+        opacity: 0;
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+        max-width: 20rem;
+    }
+    .toast-item.show {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    .toast-success { background-color: var(--color-success, #10B981); }
+    .toast-error { background-color: var(--color-error, #EF4444); }

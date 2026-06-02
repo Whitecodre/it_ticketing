@@ -39,3 +39,12 @@ class ArticleVersion(models.Model):
 
     def __str__(self):
         return f"Version {self.id} of {self.article}"
+    
+class ArticleFeedback(models.Model):
+    article = models.ForeignKey(Article, on_delete=models.CASCADE, related_name='feedback')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    helpful = models.BooleanField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('article', 'user')

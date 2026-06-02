@@ -2,6 +2,9 @@ from django.urls import path
 from django.contrib.auth import views as auth_views
 from apps.accounts.forms import EmailAuthenticationForm
 from . import views
+from .views.admin_users import (
+    admin_user_list, admin_user_create, admin_user_edit, admin_user_toggle_active
+)
 
 app_name = 'accounts'
 
@@ -40,4 +43,8 @@ urlpatterns = [
         ),
         name='password_reset_complete'),
     path('profile/', views.profile, name='profile'),
+    path('admin/users/', admin_user_list, name='admin_users'),
+    path('admin/users/create/', admin_user_create, name='admin_user_create'),
+    path('admin/users/<int:pk>/edit/', admin_user_edit, name='admin_user_edit'),
+    path('admin/users/<int:pk>/toggle-active/', admin_user_toggle_active, name='admin_user_toggle_active'),
 ]

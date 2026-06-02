@@ -7,8 +7,9 @@ from django.utils.encoding import force_bytes, force_str
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
 from django.conf import settings
-from .forms import RegistrationForm, ProfileForm
-from .models import User
+from django.utils import timezone
+from ..forms import RegistrationForm, ProfileForm
+from ..models import User
 from apps.tickets.models import Ticket
 
 @login_required
@@ -48,6 +49,10 @@ def dashboard(request):
         # Placeholder for future SLA data
         context['sla_breaches'] = 0
         context['avg_response_time'] = None   # you can compute later
+    elif role in ['ADMIN', 'SUPERADMIN']:
+        context['total_tickets_month'] = Ticket.objects.filter(created_at__month=timezone.now().month).count()
+        context['sla_compliance'] = 94.2   # placeholder — will be replaced with real calculation later
+        context['active_connectors'] = 5   # placeholder
         
     return render(request, template, context)
 
@@ -105,7 +110,7 @@ def profile(request):
         'AGENT': 'partials/sidebar_agent.html',      # will be replaced later
         'TEAM_LEAD': 'partials/sidebar_generic.html',
         'APPROVER': 'partials/sidebar_generic.html',
-        'ADMIN': 'partials/sidebar_generic.html',
+        'ADMIN': 'partials/sidebar_admin.html',
         'SUPERADMIN': 'partials/sidebar_superadmin.html',
     }
     sidebar_template = sidebar_map.get(request.user.role, 'partials/sidebar_generic.html')

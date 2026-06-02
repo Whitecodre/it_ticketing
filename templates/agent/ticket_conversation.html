@@ -59,6 +59,26 @@
                 </div>
             </div>
 
+            {# Quick Actions Bar #}
+            <div class="px-4 py-2 border-b flex items-center gap-2"
+                 style="background-color: var(--color-surface); border-color: var(--color-border);">
+                <button class="btn-outline text-xs flex items-center gap-1" onclick="alert('Assign feature coming soon')">
+                    {% lucide "user-plus" size=14 %} Assign
+                </button>
+                <button class="btn-ghost text-xs flex items-center gap-1">
+                    {% lucide "paperclip" size=14 %} Attach
+                </button>
+                <button class="btn-ghost text-xs flex items-center gap-1" onclick="toggleDetailsPanel()">
+                    {% lucide "panel-right" size=14 %} Toggle Details
+                </button>
+                <form method="post" action="{% url 'kb:convert_ticket' ticket.pk %}" class="inline">
+                    {% csrf_token %}
+                    <button type="submit" class="btn-ghost text-xs flex items-center gap-1">
+                        {% lucide "file-plus" size=14 %} Convert to KB
+                    </button>
+                </form>
+            </div>
+
             {# Message Timeline (scrollable) #}
             <div class="flex-1 overflow-y-auto px-4 py-3 space-y-3" id="commentTimeline"
                  style="background-color: var(--color-background);">

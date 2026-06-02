@@ -1,0 +1,67 @@
+{% extends "base_dashboard.html" %}
+{% load static %}
+{% load lucide %}
+
+{% block dashboard_title %}{{ article.title }}{% endblock %}
+{% block page_title %}{{ article.title }}{% endblock %}
+{% block role_label %}{{ user.get_role_display }}{% endblock %}
+{% block role_badge %}{{ user.get_role_display|upper }}{% endblock %}
+
+{% block sidebar_nav %}
+    {% include "partials/sidebar_end_user.html" %}
+{% endblock %}
+
+{% block dashboard_content %}
+<div class="max-w-3xl mx-auto">
+    <a href="{% url 'kb:portal' %}" class="text-xs font-medium mb-4 inline-flex items-center gap-1" style="color: var(--color-primary);">
+        {% lucide "arrow-left" size=14 %} Back to Knowledge Base
+    </a>
+
+    <div class="dashboard-card">
+        <h1 class="text-lg font-bold" style="color: var(--color-text-primary);">{{ article.title }}</h1>
+        <div class="flex items-center gap-3 mt-2 text-xs" style="color: var(--color-text-secondary);">
+            <span>{{ article.category.name|default:"Uncategorized" }}</span>
+            <span>·</span>
+            <span>Updated {{ article.updated_at|timesince }} ago</span>
+        </div>
+        <div class="mt-6 prose max-w-none text-sm" style="color: var(--color-text-primary);">
+            {{ article.content|linebreaks }}
+        </div>
+
+        {# Feedback #}
+        <div class="mt-6 pt-4 border-t flex items-center gap-4" style="border-color: var(--color-border);">
+            <span class="text-xs" style="color: var(--color-text-secondary);">Was this article helpful?</span>
+            <button id="btnHelpful" class="btn-ghost text-xs flex items-center gap-1"
+                    onclick="submitFeedback(true)">
+                {% lucide "thumbs-up" size=14 %} Yes
+            </button>
+            <button id="btnNotHelpful" class="btn-ghost text-xs flex items-center gap-1"
+                    onclick="submitFeedback(false)">
+                {% lucide "thumbs-down" size=14 %} No
+            </button>
+            <span id="feedbackResult" class="text-xs hidden" style="color: var(--color-success);">Thank you!</span>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ block.super }}
+<script>
+    function submitFeedback(helpful) {
+        fetch('{% url "kb:feedback" article.pk %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            },
+            body: new URLSearchParams({'helpful': helpful})
+        }).then(response => response.json())
+          .then(data => {
+              document.getElementById('btnHelpful').classList.add('hidden');
+              document.getElementById('btnNotHelpful').classList.add('hidden');
+              document.getElementById('feedbackResult').classList.remove('hidden');
+          });
+    }
+</script>
+{% endblock %}

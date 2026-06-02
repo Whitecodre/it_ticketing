@@ -10,4 +10,8 @@ urlpatterns = [
     path('<int:pk>/submit-review/', views.article_submit_review, name='submit_review'),
     path('<int:pk>/publish/', views.article_publish, name='publish'),
     path('<int:pk>/archive/', views.article_archive, name='archive'),
+    path('', views.kb_portal, name='portal'),
+    path('article/<slug:slug>/', views.kb_article_detail, name='article_detail'),
+    path('<int:pk>/feedback/', views.kb_feedback, name='feedback'),
+    path('convert/<int:ticket_pk>/', views.convert_ticket_to_kb, name='convert_ticket'),
 ]
