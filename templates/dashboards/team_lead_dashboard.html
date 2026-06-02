@@ -1,0 +1,69 @@
+{% extends "base_dashboard.html" %}
+{% load static %}
+{% load lucide %}
+
+{% block dashboard_title %}Team Lead Dashboard{% endblock %}
+{% block page_title %}Team Dashboard{% endblock %}
+{% block role_label %}Team Lead{% endblock %}
+{% block role_badge %}TEAM LEAD{% endblock %}
+
+{% block sidebar_nav %}
+    {% include "partials/sidebar_team_lead.html" %}
+{% endblock %}
+
+{% block dashboard_content %}
+<div class="w-full">
+    {# KPI Row #}
+    <div class="grid grid-cols-3 gap-6 mb-8">
+        <div class="kpi-card">
+            <p class="kpi-label">Team Open Tickets</p>
+            <p class="kpi-value">{{ team_open_tickets }}</p>
+            <p class="kpi-trend up">Across {{ team_members|length }} agents</p>
+        </div>
+        <div class="kpi-card">
+            <p class="kpi-label">Unassigned Queue</p>
+            <p class="kpi-value">{{ unassigned_count }}</p>
+            <p class="kpi-trend up">Needs assignment</p>
+        </div>
+        <div class="kpi-card">
+            <p class="kpi-label">SLA Breaches</p>
+            <p class="kpi-value" style="color: var(--color-error);">{{ sla_breaches }}</p>
+            <p class="kpi-trend down">Requires attention</p>
+        </div>
+    </div>
+
+    {# Team Queue Preview #}
+    <div class="dashboard-card p-0 overflow-hidden mb-6">
+        <div class="px-4 py-3 border-b flex items-center justify-between" style="border-color: var(--color-border);">
+            <h3 class="text-xs font-semibold" style="color: var(--color-text-primary);">Recent Team Tickets</h3>
+            <a href="{% url 'team_queue' %}" class="text-xs font-medium" style="color: var(--color-primary);">View all →</a>
+        </div>
+        {% if recent_team_tickets %}
+        <table class="data-table w-full text-xs">
+            <thead>
+                <tr>
+                    <th>Ticket</th>
+                    <th>Subject</th>
+                    <th>Assignee</th>
+                    <th>Status</th>
+                    <th>Updated</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ticket in recent_team_tickets %}
+                <tr class="hover:bg-black/2">
+                    <td><span class="font-mono text-[0.7rem]" style="color: var(--color-primary);">{{ ticket.number }}</span></td>
+                    <td class="max-w-xs truncate">{{ ticket.title }}</td>
+                    <td>{{ ticket.assigned_to.get_full_name|default:"Unassigned" }}</td>
+                    <td><span class="status-chip {{ ticket.status|lower }} text-[0.65rem]">{{ ticket.get_status_display }}</span></td>
+                    <td class="text-text-secondary">{{ ticket.updated_at|timesince }} ago</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="text-center py-6 text-xs text-text-secondary">No team tickets.</div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

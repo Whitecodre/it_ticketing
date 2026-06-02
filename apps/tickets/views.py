@@ -4,8 +4,9 @@ from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_POST
+from django.db.models import Q
 from .forms import TicketForm, CommentForm
-from .models import Ticket, TicketComment, Macro
+from .models import Ticket, TicketComment, Macro, TicketActivityLog
 from apps.accounts.models import User
 
 @login_required
@@ -88,6 +89,12 @@ def ticket_detail(request, pk):
             if ticket.status == Ticket.Status.PENDING_USER:
                 ticket.status = Ticket.Status.IN_PROGRESS
                 ticket.save()
+            TicketActivityLog.objects.create(
+                ticket=ticket,
+                action='status_changed',
+                actor=request.user,
+                details={'from': Ticket.Status.PENDING_USER, 'to': Ticket.Status.IN_PROGRESS}
+            )
 
             comments = ticket.comments.filter(visibility=TicketComment.Visibility.PUBLIC).order_by('created_at')
             return render(request, 'partials/comment_thread.html', {'ticket': ticket, 'comments': comments})
@@ -145,6 +152,10 @@ def claim_ticket(request, pk):
         ticket.assigned_to = request.user
         ticket.status = Ticket.Status.ASSIGNED   # move to Assigned
         ticket.save()
+        TicketActivityLog.objects.create(
+            ticket=ticket, action='assigned', actor=request.user,
+            details={'to': request.user.get_full_name(), 'status': ticket.status}
+        )
         # Optionally create a notification for the agent? Not necessary, but we can add later.
     # Return the updated row or the whole table fragment (for simplicity return the whole table)
     tickets = Ticket.objects.filter(assigned_to__isnull=True).exclude(
@@ -192,32 +203,53 @@ def add_comment_conversation(request, pk):
             comment.visibility = 'PUBLIC'
         comment.save()
 
+        # Log the comment itself
+        TicketActivityLog.objects.create(
+            ticket=ticket,
+            action='commented',
+            actor=request.user,
+            details={
+                'visibility': comment.visibility,
+                'body': comment.body[:200]      # keep it short
+            }
+        )
+
         # --- AUTOMATION ---
+        old_status = ticket.status
         if comment.visibility == 'PUBLIC':
-            # Agent replied: move to IN_PROGRESS if currently ASSIGNED or IN_PROGRESS or PENDING_USER
-            if ticket.status in [Ticket.Status.ASSIGNED, Ticket.Status.IN_PROGRESS, Ticket.Status.PENDING_USER]:
+            if old_status in [Ticket.Status.ASSIGNED, Ticket.Status.IN_PROGRESS,
+                              Ticket.Status.PENDING_USER, Ticket.Status.NEW,
+                              Ticket.Status.TRIAGED]:
                 ticket.status = Ticket.Status.IN_PROGRESS
                 ticket.save()
-            # If agent replies while NEW/TRIAGED, we could also set to IN_PROGRESS?
-            # We'll also cover that case.
-            elif ticket.status == Ticket.Status.NEW or ticket.status == Ticket.Status.TRIAGED:
-                ticket.status = Ticket.Status.IN_PROGRESS
-                ticket.save()
+                # Log the automatic status change
+                if old_status != ticket.status:
+                    TicketActivityLog.objects.create(
+                        ticket=ticket,
+                        action='status_changed',
+                        actor=request.user,          # agent who replied
+                        details={'from': old_status, 'to': ticket.status}
+                    )
 
     comments = ticket.comments.all().order_by('created_at')
     return render(request, 'partials/conversation_timeline.html', {
-        'ticket': ticket, 
-        'comments': comments
-        })
+        'ticket': ticket,
+        'comments': comments,
+    })
 
 @login_required
 @require_POST
 def update_status(request, pk):
     ticket = get_object_or_404(Ticket, pk=pk)
+    previous_status = ticket.status
     new_status = request.GET.get('status')
     if new_status and new_status in dict(Ticket.Status.choices):
         ticket.status = new_status
         ticket.save()
+        TicketActivityLog.objects.create(
+            ticket=ticket, action='status_changed', actor=request.user,
+            details={'from': previous_status, 'to': new_status}
+        )
     return HttpResponse(status=204)   # No content, just success
 
 @login_required
@@ -316,39 +348,137 @@ def bulk_action(request):
 
     if action == 'status':
         if value in dict(Ticket.Status.choices):
-            tickets.update(status=value)
+            # Log and update each ticket individually
+            for ticket in tickets:
+                old_status = ticket.status
+                ticket.status = value
+                ticket.save()
+                TicketActivityLog.objects.create(
+                    ticket=ticket,
+                    action='status_changed',
+                    actor=request.user,
+                    details={'from': old_status, 'to': value, 'method': 'bulk'}
+                )
     elif action == 'assign':
-        # Only team leads/admins can bulk assign
         if request.user.role not in ['TEAM_LEAD', 'ADMIN', 'SUPERADMIN']:
             return HttpResponse(status=403)
         if value.isdigit():
             agent = get_object_or_404(User, pk=int(value))
-            tickets.update(assigned_to=agent)
+            for ticket in tickets:
+                old_assignee = ticket.assigned_to
+                ticket.assigned_to = agent
+                ticket.save()
+                TicketActivityLog.objects.create(
+                    ticket=ticket,
+                    action='assigned',
+                    actor=request.user,
+                    details={
+                        'from': old_assignee.get_full_name() if old_assignee else 'Unassigned',
+                        'to': agent.get_full_name(),
+                        'method': 'bulk'
+                    }
+                )
 
-    # Return the updated table fragment based on the referer? We'll just return the full table for now.
-    # For simplicity, we'll regenerate the same list as the current view.
-    # Determine which queue: unassigned or assigned based on request? We'll just render the same partial
-    # that the calling page expects. However, since the bulk action may be called from either page,
-    # we'll return a generic agent_ticket_table with tickets from a query matching the original list.
-    # Better approach: we can pass a query param indicating the source, or just return all unassigned (if called from unassigned)
-    # and assigned (if from assigned). But we don't have that info. We'll modify the fetch call in the template
-    # to include a hidden field with the source. Let's do that.
-
-    source = request.POST.get('source', 'unassigned')  # we'll set it in the JS
+    # Return the appropriate table fragment based on source
+    source = request.POST.get('source', 'unassigned')
     if source == 'assigned':
-        tickets = Ticket.objects.filter(assigned_to=request.user).exclude(
-            status__in=[Ticket.Status.RESOLVED, Ticket.Status.CLOSED]).order_by('-created_at')
+        tickets = Ticket.objects.filter(
+            assigned_to=request.user
+        ).exclude(
+            status__in=[Ticket.Status.RESOLVED, Ticket.Status.CLOSED]
+        ).order_by('-created_at')
     else:
-        tickets = Ticket.objects.filter(assigned_to__isnull=True).exclude(
-            status__in=[Ticket.Status.RESOLVED, Ticket.Status.CLOSED]).order_by('-created_at')
+        tickets = Ticket.objects.filter(
+            assigned_to__isnull=True
+        ).exclude(
+            status__in=[Ticket.Status.RESOLVED, Ticket.Status.CLOSED]
+        ).order_by('-created_at')
 
-    assignable_agents = User.objects.filter(role__in=['AGENT', 'TEAM_LEAD']).only('pk', 'first_name', 'last_name', 'email')
+    assignable_agents = User.objects.filter(role__in=['AGENT', 'TEAM_LEAD']).only(
+        'pk', 'first_name', 'last_name', 'email'
+    )
     return render(request, 'partials/agent_ticket_table.html', {
         'tickets': tickets,
         'assignable_agents': assignable_agents,
         'status_choices': Ticket.Status.choices,
     })
 
+@login_required
+def team_queue(request):
+    if request.user.role != 'TEAM_LEAD':
+        return HttpResponse(status=403)
+    team_members = User.objects.filter(department=request.user.department, role='AGENT')
+    tickets = Ticket.objects.filter(
+        assigned_to__in=team_members
+    ).exclude(
+        status__in=[Ticket.Status.RESOLVED, Ticket.Status.CLOSED]
+    ).order_by('-created_at')
+
+    agent_id = request.GET.get('agent')
+    if agent_id:
+        tickets = tickets.filter(assigned_to_id=agent_id)
+
+    context = {
+        'tickets': tickets,
+        'team_members': team_members,
+        'selected_agent': agent_id,
+    }
+    return render(request, 'partials/team_queue.html', context)
+
+
+@login_required
+@require_POST
+def team_reassign(request, pk):
+    if request.user.role != 'TEAM_LEAD':
+        return HttpResponse(status=403)
+    ticket = get_object_or_404(Ticket, pk=pk)
+    new_agent_id = request.POST.get('agent_id')
+    agent = get_object_or_404(User, pk=new_agent_id, role='AGENT')
+    old_assignee = ticket.assigned_to
+    ticket.assigned_to = agent
+    ticket.save()
+    TicketActivityLog.objects.create(
+        ticket=ticket,
+        action='assigned',
+        actor=request.user,
+        details={
+            'from': old_assignee.get_full_name() if old_assignee else 'Unassigned',
+            'to': agent.get_full_name()
+        }
+    )
+    return JsonResponse({'status': 'ok'})
+
+
+@login_required
+def audit_log(request):
+    if request.user.role not in ['TEAM_LEAD', 'ADMIN', 'SUPERADMIN']:
+        return HttpResponse(status=403)
+
+    logs = TicketActivityLog.objects.select_related('ticket', 'actor').all()
+
+    # Team Leads see only their department's agents' tickets
+    if request.user.role == 'TEAM_LEAD':
+        team_members = User.objects.filter(department=request.user.department, role='AGENT')
+        logs = logs.filter(
+            Q(ticket__assigned_to__in=team_members) |
+            Q(ticket__requester__in=team_members)
+        )
+
+    # Filters
+    action = request.GET.get('action')
+    ticket_id = request.GET.get('ticket')
+    if action:
+        logs = logs.filter(action=action)
+    if ticket_id:
+        logs = logs.filter(ticket__number__icontains=ticket_id)
+
+    logs = logs.order_by('-created_at')[:100]
+
+    context = {
+        'logs': logs,
+        'action_choices': ['created', 'status_changed', 'assigned', 'unassigned', 'commented'],
+    }
+    return render(request, 'partials/audit_log.html', context)
 
 def kb_suggestions(request):
     # Will be implemented in Sprint 5

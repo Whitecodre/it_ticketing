@@ -1,0 +1,40 @@
+{% load lucide %}
+
+<div class="px-3">
+    <a href="{% url 'dashboard' %}"
+       class="flex items-center justify-center p-2 rounded-sm transition sidebar-link" data-tooltip="Dashboard"
+       style="{% if request.path == '/' %}background-color: var(--color-primary); color: white;{% else %}color: var(--color-text-secondary);{% endif %}">
+        {% lucide "layout-dashboard" size=18 class="h-4.5 w-4.5" %}
+    </a>
+</div>
+
+<div class="px-3">
+    <a href="{% url 'team_queue' %}"
+       class="flex items-center justify-center p-1.5 rounded-sm transition sidebar-link" data-tooltip="Team Queue"
+       style="{% if '/team/queue/' in request.path %}background-color: var(--color-primary); color: white;{% else %}color: var(--color-text-secondary);{% endif %}">
+        {% lucide "users" size=18 class="h-4.5 w-4.5" %}
+    </a>
+</div>
+
+<div class="px-3">
+    <a href="{% url 'audit_log' %}"
+       class="flex items-center justify-center p-1.5 rounded-sm transition sidebar-link" data-tooltip="Audit Log"
+       style="{% if '/audit/' in request.path %}background-color: var(--color-primary); color: white;{% else %}color: var(--color-text-secondary);{% endif %}">
+        {% lucide "file-search" size=18 class="h-4.5 w-4.5" %}
+    </a>
+</div>
+
+<div class="border-t mx-2 my-1" style="border-color: var(--color-border);"></div>
+
+<a href="{% url 'kb:management' %}" class="flex items-center justify-center p-1.5 rounded-sm transition sidebar-link" data-tooltip="Knowledge Base"
+   style="color: var(--color-text-secondary);">
+    {% lucide "book-open" size=18 class="h-4.5 w-4.5" %}
+</a>
+
+<div class="px-3">
+    <a href="{% url 'accounts:profile' %}"
+       class="flex items-center justify-center p-1.5 rounded-sm transition sidebar-link" data-tooltip="Profile"
+       style="{% if request.path == '/accounts/profile/' %}background-color: var(--color-primary); color: white;{% else %}color: var(--color-text-secondary);{% endif %}">
+        {% lucide "circle-user" size=18 class="h-4.5 w-4.5" %}
+    </a>
+</div>

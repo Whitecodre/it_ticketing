@@ -28,6 +28,9 @@ urlpatterns = [
     path('<int:pk>/remove-tag/<int:tag_pk>/', views.remove_tag, name='remove_tag'),
     path('macros/', views.macro_list, name='macro_list'),
     path('bulk-action/', views.bulk_action, name='bulk_action'),
+    path('team/queue/', views.team_queue, name='team_queue'),
+    path('team/reassign/<int:pk>/', views.team_reassign, name='team_reassign'),
+    path('audit/', views.audit_log, name='audit_log'),
     path('kb-suggestions/', views.kb_suggestions, name='kb_suggestions'),
     # future: detail, list
 ]

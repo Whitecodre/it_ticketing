@@ -526,6 +526,9 @@
   .w-30 {
     width: calc(var(--spacing) * 30);
   }
+  .w-32 {
+    width: calc(var(--spacing) * 32);
+  }
   .w-40 {
     width: calc(var(--spacing) * 40);
   }
@@ -1036,6 +1039,9 @@
   .tracking-wider {
     --tw-tracking: var(--tracking-wider);
     letter-spacing: var(--tracking-wider);
+  }
+  .whitespace-nowrap {
+    white-space: nowrap;
   }
   .text-black {
     color: var(--color-black);

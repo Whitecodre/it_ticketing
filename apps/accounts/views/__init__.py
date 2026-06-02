@@ -53,6 +53,21 @@ def dashboard(request):
         context['total_tickets_month'] = Ticket.objects.filter(created_at__month=timezone.now().month).count()
         context['sla_compliance'] = 94.2   # placeholder — will be replaced with real calculation later
         context['active_connectors'] = 5   # placeholder
+    elif role == 'TEAM_LEAD':
+        open_statuses = ['NEW', 'TRIAGED', 'ASSIGNED', 'IN_PROGRESS', 'PENDING_USER', 'PENDING_VENDOR']
+        team_members = User.objects.filter(department=request.user.department, role='AGENT')
+        context['team_open_tickets'] = Ticket.objects.filter(
+            status__in=open_statuses,
+            assigned_to__in=team_members
+        ).count()
+        context['unassigned_count'] = Ticket.objects.filter(
+            assigned_to__isnull=True
+        ).exclude(status__in=['RESOLVED', 'CLOSED']).count()
+        context['sla_breaches'] = 0          # placeholder
+        context['team_members'] = team_members
+        context['recent_team_tickets'] = Ticket.objects.filter(
+            assigned_to__in=team_members
+        ).exclude(status__in=['RESOLVED', 'CLOSED']).order_by('-created_at')[:5]
         
     return render(request, template, context)
 
@@ -108,7 +123,7 @@ def profile(request):
     sidebar_map = {
         'END_USER': 'partials/sidebar_end_user.html',
         'AGENT': 'partials/sidebar_agent.html',      # will be replaced later
-        'TEAM_LEAD': 'partials/sidebar_generic.html',
+        'TEAM_LEAD': 'partials/sidebar_team_lead.html',
         'APPROVER': 'partials/sidebar_generic.html',
         'ADMIN': 'partials/sidebar_admin.html',
         'SUPERADMIN': 'partials/sidebar_superadmin.html',

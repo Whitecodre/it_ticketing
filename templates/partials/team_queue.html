@@ -1,0 +1,94 @@
+{% extends "base_dashboard.html" %}
+{% load static %}
+{% load lucide %}
+
+{% block dashboard_title %}Team Queue{% endblock %}
+{% block page_title %}Team Queue{% endblock %}
+{% block role_label %}Team Lead{% endblock %}
+{% block role_badge %}TEAM LEAD{% endblock %}
+
+{% block sidebar_nav %}
+    {% include "partials/sidebar_team_lead.html" %}
+{% endblock %}
+
+{% block dashboard_content %}
+<div class="w-full">
+    <div class="flex flex-wrap gap-4 mb-4 items-center">
+        <h2 class="text-base font-semibold" style="color: var(--color-text-primary);">Team Tickets</h2>
+        <select name="agent" class="text-xs rounded-lg border py-1.5 px-3 focus:outline-none focus:ring-2"
+                style="background-color: var(--color-background); border-color: var(--color-border); color: var(--color-text-primary); --tw-ring-color: var(--color-primary);"
+                onchange="window.location.href='?agent=' + this.value">
+            <option value="">All Agents</option>
+            {% for member in team_members %}
+                <option value="{{ member.pk }}" {% if selected_agent == member.pk|stringformat:'s' %}selected{% endif %}>
+                    {{ member.get_full_name }}
+                </option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div class="dashboard-card p-0 overflow-hidden">
+        {% if tickets %}
+        <table class="data-table w-full text-xs">
+            <thead>
+                <tr>
+                    <th>Ticket</th>
+                    <th>Subject</th>
+                    <th>Assignee</th>
+                    <th>Status</th>
+                    <th>Updated</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ticket in tickets %}
+                <tr class="hover:bg-black/2">
+                    <td><span class="font-mono text-[0.7rem]" style="color: var(--color-primary);">{{ ticket.number }}</span></td>
+                    <td class="max-w-xs truncate">{{ ticket.title }}</td>
+                    <td>{{ ticket.assigned_to.get_full_name|default:"Unassigned" }}</td>
+                    <td><span class="status-chip {{ ticket.status|lower }} text-[0.65rem]">{{ ticket.get_status_display }}</span></td>
+                    <td class="text-text-secondary">{{ ticket.updated_at|timesince }} ago</td>
+                    <td>
+                        <select class="text-xs rounded border py-1 px-2 focus:outline-none"
+                                style="background-color: var(--color-background); border-color: var(--color-border); color: var(--color-text-primary);"
+                                onchange="reassignTicket({{ ticket.pk }}, this.value)">
+                            <option value="">Reassign</option>
+                            {% for agent in team_members %}
+                                {% if agent.pk != ticket.assigned_to.pk %}
+                                    <option value="{{ agent.pk }}">{{ agent.get_full_name }}</option>
+                                {% endif %}
+                            {% endfor %}
+                        </select>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="text-center py-10 text-xs text-text-secondary">No tickets in the team queue.</div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ block.super }}
+<script>
+    function reassignTicket(ticketId, agentId) {
+        if (!agentId) return;
+        fetch("{% url 'team_reassign' 0 %}".replace('0', ticketId), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            },
+            body: new URLSearchParams({ agent_id: agentId })
+        }).then(response => response.json())
+          .then(data => {
+              if (data.status === 'ok') {
+                  location.reload();  // simple refresh to show changes
+              }
+          });
+    }
+</script>
+{% endblock %}

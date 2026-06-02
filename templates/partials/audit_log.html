@@ -1,0 +1,79 @@
+{% extends "base_dashboard.html" %}
+{% load static %}
+{% load lucide %}
+
+{% block dashboard_title %}Audit Log{% endblock %}
+{% block page_title %}Audit Log{% endblock %}
+{% block role_label %}{{ user.get_role_display }}{% endblock %}
+{% block role_badge %}{{ user.get_role_display|upper }}{% endblock %}
+
+{% block sidebar_nav %}
+    {% include "partials/sidebar_team_lead.html" %}
+{% endblock %}
+
+{% block dashboard_content %}
+<div class="w-full">
+    <h2 class="text-base font-semibold mb-4" style="color: var(--color-text-primary);">Audit Trail</h2>
+
+    <div class="flex flex-wrap gap-2 mb-4">
+        <select id="actionFilter" class="text-xs rounded-lg border py-1.5 px-3 focus:outline-none focus:ring-2"
+                style="background-color: var(--color-background); border-color: var(--color-border); color: var(--color-text-primary); --tw-ring-color: var(--color-primary);"
+                onchange="filterAudit()">
+            <option value="">All Actions</option>
+            {% for action in action_choices %}
+                <option value="{{ action }}">{{ action }}</option>
+            {% endfor %}
+        </select>
+        <input type="text" id="ticketFilter" placeholder="Ticket number" 
+               class="w-32 rounded-lg border py-1.5 px-3 text-xs focus:outline-none focus:ring-2"
+               style="background-color: var(--color-background); border-color: var(--color-border); color: var(--color-text-primary); --tw-ring-color: var(--color-primary);"
+               onkeyup="filterAudit()">
+    </div>
+
+    <div class="dashboard-card p-0 overflow-hidden">
+        <table class="data-table w-full text-xs">
+            <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>Ticket</th>
+                    <th>Action</th>
+                    <th>Actor</th>
+                    <th>Details</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in logs %}
+                <tr class="hover:bg-black/2">
+                    <td class="text-text-secondary whitespace-nowrap">{{ log.created_at|date:"M d, H:i" }}</td>
+                    <td>
+                        <a href="{% if log.ticket %}{% url 'tickets:detail' log.ticket.pk %}{% endif %}"
+                           class="font-mono text-xs" style="color: var(--color-primary);">{{ log.ticket.number|default:"—" }}</a>
+                    </td>
+                    <td><span class="text-xs px-2 py-0.5 rounded-full border">{{ log.action }}</span></td>
+                    <td>{{ log.actor.get_full_name|default:"System" }}</td>
+                    <td class="max-w-xs truncate">{{ log.details }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="text-center py-10 text-xs text-text-secondary">No audit entries.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ block.super }}
+<script>
+    function filterAudit() {
+        const action = document.getElementById('actionFilter').value;
+        const ticket = document.getElementById('ticketFilter').value;
+        const params = new URLSearchParams();
+        if (action) params.set('action', action);
+        if (ticket) params.set('ticket', ticket);
+        window.location.href = "{% url 'audit_log' %}?" + params.toString();
+    }
+</script>
+{% endblock %}
