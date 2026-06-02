@@ -1,0 +1,147 @@
+{% extends "base_dashboard.html" %}
+{% load static %}
+{% load lucide %}
+
+{% block dashboard_title %}Knowledge Base{% endblock %}
+{% block page_title %}Knowledge Base Management{% endblock %}
+{% block page_title_area %}{% endblock %}
+{% block role_label %}{{ user.get_role_display }}{% endblock %}
+{% block role_badge %}{{ user.get_role_display|upper }}{% endblock %}
+
+{% block sidebar_nav %}
+    {% include "partials/sidebar_agent.html" %}
+{% endblock %}
+
+{% block dashboard_content %}
+<div class="w-full">
+    <div class="flex items-center justify-between mb-4">
+        <h2 class="text-base font-semibold" style="color: var(--color-text-primary);">Knowledge Base Management</h2>
+        <a href="{% url 'kb:create' %}" class="btn-primary text-xs flex items-center gap-1 px-4 py-2 rounded-lg">
+            {% lucide "plus" size=14 %} New Article
+        </a>
+    </div>
+
+    {# Tabs #}
+    <div class="flex border-b mb-4" style="border-color: var(--color-border);">
+        <button class="tab-btn active px-4 py-2 text-xs font-semibold border-b-2" data-tab="drafts"
+                style="border-color: var(--color-primary); color: var(--color-primary); background: none; cursor: pointer;">
+            My Drafts
+        </button>
+        {% if user.role == 'TEAM_LEAD' or user.role == 'ADMIN' or user.role == 'SUPERADMIN' %}
+        <button class="tab-btn px-4 py-2 text-xs font-semibold border-b-2" data-tab="pending"
+                style="border-color: transparent; color: var(--color-text-secondary); background: none; cursor: pointer;">
+            Pending Review
+        </button>
+        {% endif %}
+        <button class="tab-btn px-4 py-2 text-xs font-semibold border-b-2" data-tab="published"
+                style="border-color: transparent; color: var(--color-text-secondary); background: none; cursor: pointer;">
+            Published
+        </button>
+    </div>
+
+    {# Drafts Tab #}
+    <div id="tab-drafts" class="tab-content">
+        {% if drafts %}
+        <div class="space-y-2">
+            {% for article in drafts %}
+            <div class="dashboard-card p-3 flex items-center justify-between">
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-medium truncate" style="color: var(--color-text-primary);">{{ article.title }}</p>
+                    <p class="text-xs mt-0.5" style="color: var(--color-text-secondary);">
+                        {{ article.visibility }} · Updated {{ article.updated_at|timesince }} ago
+                    </p>
+                </div>
+                <div class="flex gap-2 ml-3">
+                    <a href="{% url 'kb:edit' article.pk %}" class="btn-ghost text-xs">Edit</a>
+                    <form method="post" action="{% url 'kb:submit_review' article.pk %}" class="inline">
+                        {% csrf_token %}
+                        <button class="btn-outline text-xs">Submit for Review</button>
+                    </form>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-xs text-text-secondary py-6">No drafts yet.</p>
+        {% endif %}
+    </div>
+
+    {# Pending Review Tab #}
+    {% if user.role == 'TEAM_LEAD' or user.role == 'ADMIN' or user.role == 'SUPERADMIN' %}
+    <div id="tab-pending" class="tab-content hidden">
+        {% if pending_review %}
+        <div class="space-y-2">
+            {% for article in pending_review %}
+            <div class="dashboard-card p-3 flex items-center justify-between">
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-medium truncate" style="color: var(--color-text-primary);">{{ article.title }}</p>
+                    <p class="text-xs mt-0.5" style="color: var(--color-text-secondary);">
+                        By {{ article.author.get_full_name }} · {{ article.visibility }}
+                    </p>
+                </div>
+                <div class="flex gap-2 ml-3">
+                    <a href="{% url 'kb:edit' article.pk %}" class="btn-ghost text-xs">Review</a>
+                    <form method="post" action="{% url 'kb:publish' article.pk %}" class="inline">
+                        {% csrf_token %}
+                        <button class="btn-primary text-xs">Publish</button>
+                    </form>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-xs text-text-secondary py-6">No articles pending review.</p>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {# Published Tab #}
+    <div id="tab-published" class="tab-content hidden">
+        {% if published %}
+        <div class="space-y-2">
+            {% for article in published %}
+            <div class="dashboard-card p-3 flex items-center justify-between">
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-medium truncate" style="color: var(--color-text-primary);">{{ article.title }}</p>
+                    <p class="text-xs mt-0.5" style="color: var(--color-text-secondary);">
+                        {{ article.visibility }} · {{ article.updated_at|timesince }} ago
+                    </p>
+                </div>
+                <div class="flex gap-2 ml-3">
+                    <form method="post" action="{% url 'kb:archive' article.pk %}" class="inline">
+                        {% csrf_token %}
+                        <button class="btn-ghost text-xs">Archive</button>
+                    </form>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-xs text-text-secondary py-6">No published articles.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ block.super }}
+<script>
+    // Tab switching
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            // Deactivate all tabs
+            document.querySelectorAll('.tab-btn').forEach(b => {
+                b.style.borderColor = 'transparent';
+                b.style.color = 'var(--color-text-secondary)';
+            });
+            // Activate clicked
+            this.style.borderColor = 'var(--color-primary)';
+            this.style.color = 'var(--color-primary)';
+            // Hide all content
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+            // Show target
+            document.getElementById('tab-' + this.dataset.tab).classList.remove('hidden');
+        });
+    });
+</script>
+{% endblock %}

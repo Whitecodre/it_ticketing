@@ -9,6 +9,7 @@ class Article(models.Model):
 
     class Status(models.TextChoices):
         DRAFT = 'DRAFT', 'Draft'
+        PENDING_REVIEW = 'PENDING_REVIEW', 'Pending Review',
         PUBLISHED = 'PUBLISHED', 'Published'
         ARCHIVED = 'ARCHIVED', 'Archived'
 
@@ -18,7 +19,7 @@ class Article(models.Model):
     author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
     content = models.TextField()
     visibility = models.CharField(max_length=10, choices=Visibility.choices, default=Visibility.INTERNAL)
-    status = models.CharField(max_length=10, choices=Status.choices, default=Status.DRAFT)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)
     tags = models.ManyToManyField('common.Tag', blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

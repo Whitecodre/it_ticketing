@@ -1,0 +1,62 @@
+{% extends "base_dashboard.html" %}
+{% load static %}
+{% load lucide %}
+
+{% block dashboard_title %}{% if article %}Edit Article{% else %}New Article{% endif %}{% endblock %}
+{% block page_title %}{% if article %}Edit Article{% else %}New Article{% endif %}{% endblock %}
+{% block role_label %}{{ user.get_role_display }}{% endblock %}
+{% block role_badge %}{{ user.get_role_display|upper }}{% endblock %}
+
+{% block sidebar_nav %}
+    {% include "partials/sidebar_agent.html" %}
+{% endblock %}
+
+{% block dashboard_content %}
+<div class="w-full">
+    <div class="dashboard-card">
+        <h2 class="dashboard-card-header">{% if article %}Edit Article{% else %}New Article{% endif %}</h2>
+
+        <form method="post" class="space-y-4">
+            {% csrf_token %}
+            <div>
+                <label class="block text-xs font-semibold mb-1" style="color: var(--color-text-primary);">Title</label>
+                <input type="text" name="title" value="{{ article.title|default:'' }}" required
+                       class="w-full rounded-lg border py-2 px-3 text-xs focus:outline-none focus:ring-2"
+                       style="background-color: var(--color-background); border-color: var(--color-border); color: var(--color-text-primary); --tw-ring-color: var(--color-primary);">
+            </div>
+            <div>
+                <label class="block text-xs font-semibold mb-1" style="color: var(--color-text-primary);">Content</label>
+                <textarea name="content" rows="12" required
+                          class="w-full rounded-lg border py-2 px-3 text-xs focus:outline-none focus:ring-2"
+                          style="background-color: var(--color-background); border-color: var(--color-border); color: var(--color-text-primary); --tw-ring-color: var(--color-primary);">{{ article.content|default:'' }}</textarea>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-semibold mb-1" style="color: var(--color-text-primary);">Category</label>
+                    <select name="category"
+                            class="w-full rounded-lg border py-2 px-3 text-xs focus:outline-none focus:ring-2"
+                            style="background-color: var(--color-background); border-color: var(--color-border); color: var(--color-text-primary); --tw-ring-color: var(--color-primary);">
+                        <option value="">--</option>
+                        {% for cat in categories %}
+                            <option value="{{ cat.pk }}" {% if article and article.category.pk == cat.pk %}selected{% endif %}>{{ cat.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold mb-1" style="color: var(--color-text-primary);">Visibility</label>
+                    <select name="visibility"
+                            class="w-full rounded-lg border py-2 px-3 text-xs focus:outline-none focus:ring-2"
+                            style="background-color: var(--color-background); border-color: var(--color-border); color: var(--color-text-primary); --tw-ring-color: var(--color-primary);">
+                        <option value="INTERNAL" {% if article.visibility == 'INTERNAL' %}selected{% endif %}>Internal</option>
+                        <option value="PUBLIC" {% if article.visibility == 'PUBLIC' %}selected{% endif %}>Public</option>
+                    </select>
+                </div>
+            </div>
+            <div class="flex justify-end gap-3 pt-4 border-t" style="border-color: var(--color-border);">
+                <a href="{% url 'kb:management' %}" class="btn-ghost text-xs">Cancel</a>
+                <button type="submit" class="btn-primary text-xs px-4 py-2 rounded-lg">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -9,6 +9,7 @@ urlpatterns = [
     path('accounts/', include('apps.accounts.urls')),
     path('tickets/', include('apps.tickets.urls')),
     path('notifications/', include('apps.common.urls')),
+    path('kb/', include('apps.knowledge_base.urls')),
     path('', dashboard, name='dashboard'),
 ]
 
