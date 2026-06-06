@@ -1,6 +1,8 @@
+import datetime
 from django.db import models
 from django.conf import settings
 from django.utils import timezone
+from apps.accounts.models import User
 
 class Ticket(models.Model):
     class Type(models.TextChoices):
@@ -14,6 +16,8 @@ class Ticket(models.Model):
         IN_PROGRESS = 'IN_PROGRESS', 'In Progress'
         PENDING_USER = 'PENDING_USER', 'Pending User'
         PENDING_VENDOR = 'PENDING_VENDOR', 'Pending Vendor'
+        PENDING_APPROVAL = 'PENDING_APPROVAL', 'Pending Approval'
+        APPROVED = 'APPROVED', 'Approved'
         RESOLVED = 'RESOLVED', 'Resolved'
         CLOSED = 'CLOSED', 'Closed'
 
@@ -157,6 +161,45 @@ class TicketActivityLog(models.Model):
 
     def __str__(self):
         return f"{self.action} on {self.ticket} by {self.actor}"
+    
+class BusinessCalendar(models.Model):
+    name = models.CharField(max_length=100)
+    workdays = models.JSONField(default=list)   # [0,1,2,3,4] = Mon-Fri
+    work_start = models.TimeField(default=datetime.time(8, 0))
+    work_end = models.TimeField(default=datetime.time(18, 0))
+    holidays = models.JSONField(default=list)   # ["2026-01-01", ...]
+
+    def __str__(self):
+        return self.name
+
+
+class SLA(models.Model):
+    priority = models.CharField(max_length=2, choices=Ticket.Priority.choices, unique=True)
+    response_minutes = models.PositiveIntegerField()
+    resolution_minutes = models.PositiveIntegerField()
+    calendar = models.ForeignKey(BusinessCalendar, on_delete=models.SET_NULL, null=True, blank=True)
+
+    def __str__(self):
+        return f"SLA for {self.get_priority_display()}"
+
+
+class EscalationRule(models.Model):
+    TIMER_CHOICES = [('response', 'Response'), ('resolution', 'Resolution')]
+    ACTION_CHOICES = [
+        ('notify', 'Notify'),
+        ('reassign', 'Reassign'),
+        ('add_watcher', 'Add Watcher'),
+    ]
+
+    priority = models.CharField(max_length=2, choices=Ticket.Priority.choices)
+    timer_type = models.CharField(max_length=20, choices=TIMER_CHOICES)
+    threshold_percent = models.PositiveIntegerField()  # e.g., 75 means at 75% of SLA
+    action_type = models.CharField(max_length=20, choices=ACTION_CHOICES)
+    notify_role = models.CharField(max_length=20, choices=User.Role.choices, null=True, blank=True)
+    reassign_to_role = models.CharField(max_length=20, choices=User.Role.choices, null=True, blank=True)
+
+    def __str__(self):
+        return f"Escalation {self.get_action_type_display()} at {self.threshold_percent}% of {self.get_timer_type_display()} for {self.get_priority_display()}"
     
 class Macro(models.Model):
     class Visibility(models.TextChoices):

@@ -7,10 +7,27 @@ from django.utils.encoding import force_bytes, force_str
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
 from django.conf import settings
+from django.contrib.auth.views import LoginView
 from django.utils import timezone
-from ..forms import RegistrationForm, ProfileForm
+from datetime import timedelta
+from ..forms import RegistrationForm, ProfileForm, EmailAuthenticationForm
 from ..models import User
-from apps.tickets.models import Ticket
+from apps.tickets.models import Ticket, TicketActivityLog
+
+class CustomLoginView(LoginView):
+    template_name = 'registration/login.html'
+    authentication_form = EmailAuthenticationForm
+    redirect_authenticated_user = True
+
+    def form_valid(self, form):
+        remember_me = self.request.POST.get('remember_me')
+        if remember_me:
+            # Set session to expire in 30 days (or whatever you prefer)
+            self.request.session.set_expiry(30 * 24 * 60 * 60)  # 30 days in seconds
+        else:
+            # Session expires when the browser closes
+            self.request.session.set_expiry(0)
+        return super().form_valid(form)
 
 @login_required
 def dashboard(request):
@@ -38,14 +55,15 @@ def dashboard(request):
             assigned_to=request.user,
             status__in=open_statuses
         ).count()
-        # Unassigned queue count
+        # Unassigned queue count (excluding pending approval)
         context['unassigned_count'] = Ticket.objects.filter(
             assigned_to__isnull=True
-        ).exclude(status__in=['RESOLVED', 'CLOSED']).count()
-        # Recent unassigned tickets (top 3)
+        ).exclude(status__in=['RESOLVED', 'CLOSED', 'PENDING_APPROVAL']).count()
+
+        # Recent unassigned tickets (top 3, excluding pending approval)
         context['recent_unassigned'] = Ticket.objects.filter(
             assigned_to__isnull=True
-        ).exclude(status__in=['RESOLVED', 'CLOSED']).order_by('-created_at')[:3]
+        ).exclude(status__in=['RESOLVED', 'CLOSED', 'PENDING_APPROVAL']).order_by('-created_at')[:3]
         # Placeholder for future SLA data
         context['sla_breaches'] = 0
         context['avg_response_time'] = None   # you can compute later
@@ -68,6 +86,15 @@ def dashboard(request):
         context['recent_team_tickets'] = Ticket.objects.filter(
             assigned_to__in=team_members
         ).exclude(status__in=['RESOLVED', 'CLOSED']).order_by('-created_at')[:5]
+    elif role == 'APPROVER':
+        context['pending_count'] = Ticket.objects.filter(status='PENDING_APPROVAL').count()
+        context['overdue_count'] = Ticket.objects.filter(
+            status='PENDING_APPROVAL', created_at__lt=timezone.now() - timedelta(days=2)
+        ).count()
+        context['pending_tickets'] = Ticket.objects.filter(status='PENDING_APPROVAL').order_by('-created_at')[:10]
+        context['recent_logs'] = TicketActivityLog.objects.filter(
+            actor=request.user, action__in=['approved', 'rejected']
+        ).select_related('ticket').order_by('-created_at')[:5]
         
     return render(request, template, context)
 
@@ -122,9 +149,9 @@ def profile(request):
     # Choose sidebar based on role
     sidebar_map = {
         'END_USER': 'partials/sidebar_end_user.html',
-        'AGENT': 'partials/sidebar_agent.html',      # will be replaced later
+        'AGENT': 'partials/sidebar_agent.html',
         'TEAM_LEAD': 'partials/sidebar_team_lead.html',
-        'APPROVER': 'partials/sidebar_generic.html',
+        'APPROVER': 'partials/sidebar_approver.html',
         'ADMIN': 'partials/sidebar_admin.html',
         'SUPERADMIN': 'partials/sidebar_superadmin.html',
     }

@@ -1,13 +1,17 @@
 import random
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_POST
 from django.db.models import Q
+from django.utils import timezone
+from django.urls import reverse
+from datetime import timedelta
 from .forms import TicketForm, CommentForm
-from .models import Ticket, TicketComment, Macro, TicketActivityLog
+from .models import Ticket, TicketComment, Macro, TicketActivityLog, SLA, EscalationRule, BusinessCalendar
 from apps.accounts.models import User
+from apps.common.models import Notification
 
 @login_required
 def create_ticket(request):
@@ -33,6 +37,9 @@ def create_ticket(request):
                 ticket.number = f"{prefix}#{int(time.time()) % 10000:04d}"
 
             ticket.save()
+            if ticket.type == Ticket.Type.SERVICE_REQUEST:
+                ticket.status = Ticket.Status.PENDING_APPROVAL
+                ticket.save(update_fields=['status'])
             return redirect('tickets:detail', pk=ticket.pk)
     else:
         form = TicketForm()
@@ -113,7 +120,7 @@ def unassigned_queue(request):
     tickets = Ticket.objects.filter(
         assigned_to__isnull=True
     ).exclude(
-        status__in=[Ticket.Status.RESOLVED, Ticket.Status.CLOSED]
+        status__in=[Ticket.Status.RESOLVED, Ticket.Status.CLOSED, Ticket.Status.PENDING_APPROVAL]
     ).order_by('-created_at')
 
     assignable_agents = User.objects.filter(role__in=['AGENT', 'TEAM_LEAD']).only('pk', 'first_name', 'last_name', 'email')
@@ -131,7 +138,7 @@ def assigned_to_me(request):
     tickets = Ticket.objects.filter(
         assigned_to=request.user
     ).exclude(
-        status__in=[Ticket.Status.RESOLVED, Ticket.Status.CLOSED]
+        status__in=[Ticket.Status.RESOLVED, Ticket.Status.CLOSED, Ticket.Status.PENDING_APPROVAL]
     ).order_by('-created_at')
 
     assignable_agents = User.objects.filter(role__in=['AGENT', 'TEAM_LEAD']).only('pk', 'first_name', 'last_name', 'email')
@@ -159,7 +166,7 @@ def claim_ticket(request, pk):
         # Optionally create a notification for the agent? Not necessary, but we can add later.
     # Return the updated row or the whole table fragment (for simplicity return the whole table)
     tickets = Ticket.objects.filter(assigned_to__isnull=True).exclude(
-        status__in=[Ticket.Status.RESOLVED, Ticket.Status.CLOSED]
+        status__in=[Ticket.Status.RESOLVED, Ticket.Status.CLOSED, Ticket.Status.PENDING_APPROVAL]
     ).order_by('-created_at')
     return render(request, 'partials/agent_ticket_table.html', {'tickets': tickets})
 
@@ -385,7 +392,7 @@ def bulk_action(request):
         tickets = Ticket.objects.filter(
             assigned_to=request.user
         ).exclude(
-            status__in=[Ticket.Status.RESOLVED, Ticket.Status.CLOSED]
+            status__in=[Ticket.Status.RESOLVED, Ticket.Status.CLOSED, Ticket.Status.PENDING_APPROVAL]
         ).order_by('-created_at')
     else:
         tickets = Ticket.objects.filter(
@@ -484,3 +491,176 @@ def kb_suggestions(request):
     # Will be implemented in Sprint 5
     return render(request, 'partials/kb_suggestions.html', {'articles': []})
 
+
+# APPROVER VIEWS
+
+@login_required
+def approver_dashboard(request):
+    if request.user.role != User.Role.APPROVER:
+        return HttpResponse(status=403)
+    pending = Ticket.objects.filter(status=Ticket.Status.PENDING_APPROVAL)
+    overdue = pending.filter(created_at__lt=timezone.now() - timedelta(days=2))  # example threshold
+    recent_logs = TicketActivityLog.objects.filter(
+        actor=request.user, action__in=['approved', 'rejected']
+    ).select_related('ticket').order_by('-created_at')[:5]
+    context = {
+        'pending_count': pending.count(),
+        'overdue_count': overdue.count(),
+        'pending_tickets': pending.order_by('-created_at')[:10],
+        'recent_logs': recent_logs,
+    }
+    return render(request, 'dashboards/approver_dashboard.html', context)
+
+
+@login_required
+def approver_pending(request):
+    if request.user.role != User.Role.APPROVER:
+        return HttpResponse(status=403)
+    tickets = Ticket.objects.filter(status=Ticket.Status.PENDING_APPROVAL).order_by('-created_at')
+    return render(request, 'partials/approver_pending.html', {'tickets': tickets})
+
+
+@login_required
+def approver_history(request):
+    if request.user.role != User.Role.APPROVER:
+        return HttpResponse(status=403)
+    logs = TicketActivityLog.objects.filter(
+        actor=request.user, action__in=['approved', 'rejected']
+    ).select_related('ticket').order_by('-created_at')[:50]
+    return render(request, 'partials/approver_history.html', {'logs': logs})
+
+
+@login_required
+@require_POST
+def approve_ticket(request, pk):
+    ticket = get_object_or_404(Ticket, pk=pk, status=Ticket.Status.PENDING_APPROVAL)
+    if request.user.role != User.Role.APPROVER:
+        return HttpResponse(status=403)
+    comment = request.POST.get('comment', '')
+    ticket.status = Ticket.Status.APPROVED
+    ticket.save()
+    TicketActivityLog.objects.create(
+        ticket=ticket, action='approved', actor=request.user,
+        details={'comment': comment}
+    )
+    # Notification for requester (optional)
+    Notification.objects.create(
+        recipient=ticket.requester,
+        message=f'Your service request {ticket.number} has been approved.',
+        url=reverse('tickets:detail', args=[ticket.pk])
+    )
+    return redirect('tickets:approver_pending')
+
+
+@login_required
+@require_POST
+def reject_ticket(request, pk):
+    ticket = get_object_or_404(Ticket, pk=pk, status=Ticket.Status.PENDING_APPROVAL)
+    if request.user.role != User.Role.APPROVER:
+        return HttpResponse(status=403)
+    comment = request.POST.get('comment', '')
+    ticket.status = Ticket.Status.CLOSED   # rejected → closed
+    ticket.save()
+    TicketActivityLog.objects.create(
+        ticket=ticket, action='rejected', actor=request.user,
+        details={'comment': comment}
+    )
+    Notification.objects.create(
+        recipient=ticket.requester,
+        message=f'Your service request {ticket.number} was rejected. Reason: {comment}',
+        url=reverse('tickets:detail', args=[ticket.pk])
+    )
+    return redirect('tickets:approver_pending')
+
+
+# ---------- SLA MANAGEMENT (Admin & Superadmin) ----------
+
+def is_admin(user):
+    return user.role in ['ADMIN', 'SUPERADMIN']
+
+@login_required
+@user_passes_test(is_admin)
+def sla_list(request):
+    slas = SLA.objects.all().order_by('priority')
+    calendars = BusinessCalendar.objects.all()
+    rules = EscalationRule.objects.all().order_by('priority', 'timer_type', 'threshold_percent')
+    context = {
+        'slas': slas,
+        'calendars': calendars,
+        'rules': rules,
+        'priority_choices': Ticket.Priority.choices,
+    }
+    return render(request, 'admin/sla_management.html', context)
+
+@login_required
+@user_passes_test(is_admin)
+@require_POST
+def sla_create(request):
+    priority = request.POST.get('priority')
+    response = request.POST.get('response_minutes')
+    resolution = request.POST.get('resolution_minutes')
+    calendar_id = request.POST.get('calendar_id') or None
+    SLA.objects.update_or_create(
+        priority=priority,
+        defaults={
+            'response_minutes': response,
+            'resolution_minutes': resolution,
+            'calendar_id': calendar_id,
+        }
+    )
+    return redirect('tickets:sla_management')
+
+@login_required
+@user_passes_test(is_admin)
+@require_POST
+def sla_delete(request, pk):
+    sla = get_object_or_404(SLA, pk=pk)
+    sla.delete()
+    return redirect('tickets:sla_management')
+
+@login_required
+@user_passes_test(is_admin)
+@require_POST
+def calendar_create(request):
+    name = request.POST.get('name')
+    workdays = request.POST.getlist('workdays')
+    work_start = request.POST.get('work_start')
+    work_end = request.POST.get('work_end')
+    holidays_str = request.POST.get('holidays', '')
+    holidays = [h.strip() for h in holidays_str.split(',') if h.strip()]
+    BusinessCalendar.objects.create(
+        name=name,
+        workdays=workdays,
+        work_start=work_start,
+        work_end=work_end,
+        holidays=holidays,
+    )
+    return redirect('tickets:sla_management')
+
+@login_required
+@user_passes_test(is_admin)
+@require_POST
+def rule_create(request):
+    priority = request.POST.get('priority')
+    timer_type = request.POST.get('timer_type')
+    threshold = request.POST.get('threshold_percent')
+    action = request.POST.get('action_type')
+    notify_role = request.POST.get('notify_role') if action == 'notify' else None
+    reassign_to_role = request.POST.get('reassign_to_role') if action == 'reassign' else None
+    EscalationRule.objects.create(
+        priority=priority,
+        timer_type=timer_type,
+        threshold_percent=threshold,
+        action_type=action,
+        notify_role=notify_role,
+        reassign_to_role=reassign_to_role,
+    )
+    return redirect('tickets:sla_management')
+
+@login_required
+@user_passes_test(is_admin)
+@require_POST
+def rule_delete(request, pk):
+    rule = get_object_or_404(EscalationRule, pk=pk)
+    rule.delete()
+    return redirect('tickets:sla_management')

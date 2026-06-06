@@ -1,0 +1,160 @@
+{% extends "base_dashboard.html" %}
+{% load static %}
+{% load lucide %}
+
+{% block dashboard_title %}SLA Configuration{% endblock %}
+{% block page_title %}SLA Configuration{% endblock %}
+{% block role_label %}Admin{% endblock %}
+{% block role_badge %}ADMIN{% endblock %}
+
+{% block sidebar_nav %}
+    {% include "partials/sidebar_admin.html" %}
+{% endblock %}
+
+{% block dashboard_content %}
+<div class="w-full space-y-8">
+    {# SLA Policies #}
+    <div class="dashboard-card">
+        <h2 class="dashboard-card-header">SLA Policies</h2>
+        <table class="data-table w-full text-xs mb-4">
+            <thead>
+                <tr>
+                    <th>Priority</th>
+                    <th>Response (min)</th>
+                    <th>Resolution (min)</th>
+                    <th>Calendar</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for sla in slas %}
+                <tr>
+                    <td>{{ sla.get_priority_display }}</td>
+                    <td>{{ sla.response_minutes }}</td>
+                    <td>{{ sla.resolution_minutes }}</td>
+                    <td>{{ sla.calendar.name|default:"—" }}</td>
+                    <td>
+                        <form method="post" action="{% url 'tickets:sla_delete' sla.pk %}" class="inline">
+                            {% csrf_token %}
+                            <button class="btn-ghost text-xs text-error">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5">No SLA policies defined.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <form method="post" action="{% url 'tickets:sla_create' %}" class="flex items-end gap-3 flex-wrap">
+            {% csrf_token %}
+            <select name="priority" class="text-xs rounded border py-1.5 px-2" required>
+                <option value="">Priority</option>
+                {% for value, label in priority_choices %}
+                    <option value="{{ value }}">{{ label }}</option>
+                {% endfor %}
+            </select>
+            <input type="number" name="response_minutes" placeholder="Response min" required class="text-xs rounded border py-1.5 px-2 w-24">
+            <input type="number" name="resolution_minutes" placeholder="Resolution min" required class="text-xs rounded border py-1.5 px-2 w-24">
+            <select name="calendar_id" class="text-xs rounded border py-1.5 px-2">
+                <option value="">Default Calendar</option>
+                {% for cal in calendars %}
+                    <option value="{{ cal.pk }}">{{ cal.name }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn-primary text-xs px-3 py-1.5">Add</button>
+        </form>
+    </div>
+
+    {# Business Calendars #}
+    <div class="dashboard-card">
+        <h2 class="dashboard-card-header">Business Calendars</h2>
+        <div class="grid grid-cols-2 gap-4 mb-4">
+            {% for cal in calendars %}
+            <div class="border rounded-lg p-3 text-xs" style="border-color: var(--color-border);">
+                <p class="font-semibold">{{ cal.name }}</p>
+                <p>Days: {{ cal.workdays|join:", " }}</p>
+                <p>Hours: {{ cal.work_start }} – {{ cal.work_end }}</p>
+                <p>Holidays: {{ cal.holidays|join:", " }}</p>
+            </div>
+            {% empty %}
+            <p class="text-xs text-text-secondary">No calendars defined.</p>
+            {% endfor %}
+        </div>
+        <form method="post" action="{% url 'tickets:calendar_create' %}" class="flex items-end gap-3 flex-wrap">
+            {% csrf_token %}
+            <input type="text" name="name" placeholder="Calendar name" required class="text-xs rounded border py-1.5 px-2">
+            <label class="text-xs">Days:
+                <select name="workdays" multiple class="text-xs rounded border py-1.5 px-2">
+                    <option value="0">Mon</option><option value="1">Tue</option><option value="2">Wed</option>
+                    <option value="3">Thu</option><option value="4">Fri</option><option value="5">Sat</option><option value="6">Sun</option>
+                </select>
+            </label>
+            <input type="time" name="work_start" required class="text-xs rounded border py-1.5 px-2">
+            <input type="time" name="work_end" required class="text-xs rounded border py-1.5 px-2">
+            <input type="text" name="holidays" placeholder="Holidays (YYYY-MM-DD, comma)" class="text-xs rounded border py-1.5 px-2 w-48">
+            <button type="submit" class="btn-primary text-xs px-3 py-1.5">Add</button>
+        </form>
+    </div>
+
+    {# Escalation Rules #}
+    <div class="dashboard-card">
+        <h2 class="dashboard-card-header">Escalation Rules</h2>
+        <table class="data-table w-full text-xs mb-4">
+            <thead>
+                <tr>
+                    <th>Priority</th>
+                    <th>Timer</th>
+                    <th>Threshold (%)</th>
+                    <th>Action</th>
+                    <th>Target</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for rule in rules %}
+                <tr>
+                    <td>{{ rule.get_priority_display }}</td>
+                    <td>{{ rule.get_timer_type_display }}</td>
+                    <td>{{ rule.threshold_percent }}%</td>
+                    <td>{{ rule.get_action_type_display }}</td>
+                    <td>{{ rule.notify_role|default:rule.reassign_to_role|default:"—" }}</td>
+                    <td>
+                        <form method="post" action="{% url 'tickets:rule_delete' rule.pk %}" class="inline">
+                            {% csrf_token %}
+                            <button class="btn-ghost text-xs text-error">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6">No escalation rules.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <form method="post" action="{% url 'tickets:rule_create' %}" class="flex items-end gap-3 flex-wrap">
+            {% csrf_token %}
+            <select name="priority" class="text-xs rounded border py-1.5 px-2" required>
+                <option value="">Priority</option>
+                {% for value, label in priority_choices %}
+                    <option value="{{ value }}">{{ label }}</option>
+                {% endfor %}
+            </select>
+            <select name="timer_type" class="text-xs rounded border py-1.5 px-2" required>
+                <option value="response">Response</option>
+                <option value="resolution">Resolution</option>
+            </select>
+            <input type="number" name="threshold_percent" placeholder="Threshold %" required class="text-xs rounded border py-1.5 px-2 w-20">
+            <select name="action_type" class="text-xs rounded border py-1.5 px-2" required>
+                <option value="notify">Notify</option>
+                <option value="reassign">Reassign</option>
+                <option value="add_watcher">Add Watcher</option>
+            </select>
+            <select name="notify_role" class="text-xs rounded border py-1.5 px-2">
+                <option value="">—</option>
+                <option value="TEAM_LEAD">Team Lead</option>
+                <option value="ADMIN">Admin</option>
+            </select>
+            <button type="submit" class="btn-primary text-xs px-3 py-1.5">Add</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

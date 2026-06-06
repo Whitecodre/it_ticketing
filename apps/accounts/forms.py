@@ -1,7 +1,17 @@
 from django import forms
-from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
+from django.core.exceptions import ValidationError
 from .models import User
-from django.contrib.auth.forms import AuthenticationForm
+
+class EmailAuthenticationForm(AuthenticationForm):
+    username = forms.EmailField(
+        label='Email',
+        widget=forms.EmailInput(attrs={'autofocus': True, 'placeholder': 'Email address'})
+    )
+    error_messages = {
+        'invalid_login': 'Please enter a correct email and password. Note that both fields may be case‑sensitive.',
+        'inactive': 'This account is inactive. Please contact support.',
+    }
 
 
 class RegistrationForm(UserCreationForm):
@@ -16,8 +26,20 @@ class RegistrationForm(UserCreationForm):
     def clean_email(self):
         email = self.cleaned_data.get('email')
         if User.objects.filter(email=email).exists():
-            raise forms.ValidationError("A user with this email already exists.")
+            raise ValidationError("A user with this email already exists.")
         return email
+
+    def clean_password1(self):
+        password = self.cleaned_data.get('password1')
+        if len(password) < 8:
+            raise ValidationError('Your password must contain at least 8 characters.')
+        if password.isdigit():
+            raise ValidationError('Your password can’t be entirely numeric.')
+        # Optionally check for common passwords
+        from django.contrib.auth.password_validation import common_passwords
+        if password.lower() in common_passwords:
+            raise ValidationError('Your password is too common.')
+        return password
 
     def save(self, commit=True):
         user = super().save(commit=False)
@@ -29,14 +51,7 @@ class RegistrationForm(UserCreationForm):
         if commit:
             user.save()
         return user
-    
 
-class EmailAuthenticationForm(AuthenticationForm):
-    # This overrides the default 'username' field to use 'email'
-    username = forms.EmailField(
-        label='Email',
-        widget=forms.EmailInput(attrs={'autofocus': True})
-    )
 
 class ProfileForm(forms.ModelForm):
     class Meta:

@@ -239,6 +239,14 @@
     background-color: rgba(239, 68, 68, 0.1);
     color: var(--color-error);
 }
+.status-chip.pending_approval {
+    background-color: rgba(59, 130, 246, 0.1);
+    color: var(--color-info);
+}
+.status-chip.approved {
+    background-color: rgba(16, 185, 129, 0.1);
+    color: var(--color-success);
+}
 
 /* Priority Chips */
 .priority-chip {

@@ -1,6 +1,7 @@
 from django.urls import path
 from django.contrib.auth import views as auth_views
-from apps.accounts.forms import EmailAuthenticationForm
+# from apps.accounts.forms import EmailAuthenticationForm
+from .views import CustomLoginView
 from . import views
 from .views.admin_users import (
     admin_user_list, admin_user_create, admin_user_edit, admin_user_toggle_active
@@ -9,11 +10,7 @@ from .views.admin_users import (
 app_name = 'accounts'
 
 urlpatterns = [
-    path('login/', auth_views.LoginView.as_view(
-        template_name='registration/login.html',
-        authentication_form=EmailAuthenticationForm,
-        redirect_authenticated_user=True
-    ), name='login'),
+    path('login/', views.CustomLoginView.as_view(), name='login'),
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
     path('register/', views.register, name='register'),
     path('verify/<uidb64>/<token>/', views.verify_email, name='verify_email'),

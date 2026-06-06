@@ -1,0 +1,44 @@
+{% extends "base_dashboard.html" %}
+{% load static %}
+{% load lucide %}
+
+{% block dashboard_title %}Approval History{% endblock %}
+{% block page_title %}Approval History{% endblock %}
+{% block role_label %}Approver{% endblock %}
+{% block role_badge %}APPROVER{% endblock %}
+
+{% block sidebar_nav %}
+    {% include "partials/sidebar_approver.html" %}
+{% endblock %}
+
+{% block dashboard_content %}
+<div class="w-full">
+    {% comment %} <h2 class="text-base font-semibold mb-4" style="color: var(--color-text-primary);">Past Decisions</h2> {% endcomment %}
+    {% if logs %}
+    <table class="data-table w-full text-xs">
+        <thead>
+            <tr>
+                <th>Ticket</th>
+                <th>Subject</th>
+                <th>Action</th>
+                <th>Comment</th>
+                <th>Date</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in logs %}
+            <tr>
+                <td><span class="font-mono text-[0.7rem]" style="color: var(--color-primary);">{{ log.ticket.number }}</span></td>
+                <td class="max-w-xs truncate">{{ log.ticket.title }}</td>
+                <td><span class="text-xs px-2 py-0.5 rounded-full {% if log.action == 'approved' %}bg-success/10 text-success{% else %}bg-error/10 text-error{% endif %}">{{ log.action }}</span></td>
+                <td class="max-w-xs truncate">{{ log.details.comment|default:"—" }}</td>
+                <td>{{ log.created_at|date:"M d, H:i" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="text-center py-10 text-xs text-text-secondary">No decisions yet.</div>
+    {% endif %}
+</div>
+{% endblock %}

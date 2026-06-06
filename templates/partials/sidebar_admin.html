@@ -9,7 +9,7 @@
     </div>
 
     <div class="px-3" class="px-3">
-        <a href="#"
+        <a href="{% url 'tickets:sla_management' %}"
         class="flex items-center justify-center p-1.5 rounded-sm transition sidebar-link" data-tooltip="SLA Config"
         style="{% if '/tickets/unassigned/' in request.path %}background-color: var(--color-primary); color: white;{% else %}color: var(--color-text-secondary);{% endif %}">
             {% lucide "sliders-horizontal" size=18 class="h-4.5 w-4.5" %}

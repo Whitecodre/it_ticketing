@@ -8,161 +8,99 @@
 {% block role_badge %}APPROVER{% endblock %}
 
 {% block sidebar_nav %}
-<a href="#" class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition"
-   style="background-color: var(--color-primary); color: white;">
-    {% lucide "layout-dashboard" size=20 class="h-5 w-5 shrink-0" %}
-    Dashboard
-</a>
-<a href="#" class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition"
-   style="color: var(--color-text-secondary);">
-    {% lucide "circle-check" size=20 class="h-5 w-5 shrink-0" %}
-    Pending
-</a>
-<a href="#" class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition"
-   style="color: var(--color-text-secondary);">
-    {% lucide "clock" size=20 class="h-5 w-5 shrink-0" %}
-    History
-</a>
+    {% include "partials/sidebar_approver.html" %}
 {% endblock %}
 
 {% block dashboard_content %}
 
-{# Approver Summary Row #}
+{# KPI Row #}
 <div class="grid grid-cols-2 gap-6 mb-8">
     <div class="kpi-card">
         <p class="kpi-label">Pending Approvals</p>
-        <p class="kpi-value" style="color: var(--color-warning);">7</p>
-        <p class="kpi-trend up">3 require immediate action</p>
+        <p class="kpi-value" style="color: var(--color-warning);">{{ pending_count }}</p>
+        <p class="kpi-trend up">Requires your action</p>
     </div>
     <div class="kpi-card">
         <p class="kpi-label">Overdue</p>
-        <p class="kpi-value" style="color: var(--color-error);">2</p>
-        <p class="kpi-trend down">⚠️ Breached SLA</p>
+        <p class="kpi-value" style="color: var(--color-error);">{{ overdue_count }}</p>
+        <p class="kpi-trend down">⚠️ Needs immediate attention</p>
     </div>
 </div>
 
-{# Main Content - Pending Approvals Table #}
-<div class="dashboard-card mb-6">
-    <div class="flex items-center justify-between mb-4">
-        <h3 class="dashboard-card-header" style="border-bottom: none; margin-bottom: 0; padding-bottom: 0;">Pending Approvals</h3>
-        <span class="text-xs" style="color: var(--color-text-secondary);">Business hours: Mon–Fri, 8AM–6PM</span>
+{# Pending Approvals Table #}
+<div class="dashboard-card p-0 overflow-hidden mb-6">
+    <div class="px-4 py-3 border-b flex items-center justify-between" style="border-color: var(--color-border);">
+        <h3 class="text-xs font-semibold" style="color: var(--color-text-primary);">Pending Approvals</h3>
+        <a href="{% url 'tickets:approver_pending' %}" class="text-xs font-medium" style="color: var(--color-primary);">View all →</a>
     </div>
-    
-    {# Overdue items highlighted #}
-    <div class="rounded-lg p-3 mb-4" style="background-color: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2);">
-        <p class="text-xs font-bold mb-2" style="color: var(--color-error);">⚠️ OVERDUE</p>
-        <div class="flex items-center justify-between">
-            <div>
-                <span class="font-mono text-xs" style="color: var(--color-primary);">APR-001</span>
-                <span class="text-sm ml-2" style="color: var(--color-text-primary);">Procurement: Server hardware — $12,500</span>
-                <span class="text-xs ml-2" style="color: var(--color-text-secondary);">Requested by IT Dept • Due: May 20</span>
-            </div>
-            <div class="approval-group">
-                <button class="btn-success text-xs">Approve</button>
-                <button class="btn-danger text-xs">Reject</button>
-                <button class="btn-ghost text-xs">{% lucide "message-square" size=14 class="h-3.5 w-3.5" %} Comment</button>
-            </div>
-        </div>
-    </div>
-
-    {# Regular pending items #}
-    <table class="data-table">
+    {% if pending_tickets %}
+    <table class="data-table w-full text-xs">
         <thead>
             <tr>
                 <th>ID</th>
                 <th>Requester</th>
-                <th>Item</th>
+                <th>Subject</th>
                 <th>Due</th>
                 <th>Actions</th>
             </tr>
         </thead>
         <tbody>
-            <tr>
-                <td><span class="font-mono text-xs" style="color: var(--color-primary);">APR-002</span></td>
-                <td>Sarah Chen</td>
-                <td>Elevated admin privileges — 48h</td>
-                <td><span class="text-xs" style="color: var(--color-warning);">May 22, 4PM</span></td>
+            {% for ticket in pending_tickets %}
+            <tr class="hover:bg-black/2">
+                <td><span class="font-mono text-[0.7rem]" style="color: var(--color-primary);">{{ ticket.number }}</span></td>
+                <td>{{ ticket.requester.get_full_name|default:ticket.requester.email }}</td>
+                <td class="max-w-xs truncate">{{ ticket.title }}</td>
+                <td class="text-text-secondary">—</td>
                 <td>
-                    <div class="approval-group">
-                        <button class="btn-success text-xs">Approve</button>
-                        <button class="btn-danger text-xs">Reject</button>
-                        <button class="btn-ghost text-xs">Comment</button>
+                    <div class="flex gap-1">
+                        <form method="post" action="{% url 'tickets:approve_ticket' ticket.pk %}" class="inline">
+                            {% csrf_token %}
+                            <button class="btn-success text-xs">Approve</button>
+                        </form>
+                        <form method="post" action="{% url 'tickets:reject_ticket' ticket.pk %}" class="inline">
+                            {% csrf_token %}
+                            <button class="btn-danger text-xs">Reject</button>
+                        </form>
                     </div>
                 </td>
             </tr>
-            <tr>
-                <td><span class="font-mono text-xs" style="color: var(--color-primary);">APR-003</span></td>
-                <td>Bob Martinez</td>
-                <td>Software license — Adobe CC (10 seats)</td>
-                <td><span class="text-xs" style="color: var(--color-text-secondary);">May 23, 12PM</span></td>
-                <td>
-                    <div class="approval-group">
-                        <button class="btn-success text-xs">Approve</button>
-                        <button class="btn-danger text-xs">Reject</button>
-                        <button class="btn-ghost text-xs">Comment</button>
-                    </div>
-                </td>
-            </tr>
-            <tr>
-                <td><span class="font-mono text-xs" style="color: var(--color-primary);">APR-004</span></td>
-                <td>Alice Wong</td>
-                <td>Firewall rule change — Production env</td>
-                <td><span class="text-xs" style="color: var(--color-warning);">May 22, 6PM</span></td>
-                <td>
-                    <div class="approval-group">
-                        <button class="btn-success text-xs">Approve</button>
-                        <button class="btn-danger text-xs">Reject</button>
-                        <button class="btn-ghost text-xs">Comment</button>
-                    </div>
-                </td>
-            </tr>
+            {% endfor %}
         </tbody>
     </table>
+    {% else %}
+    <div class="text-center py-6 text-xs text-text-secondary">No pending approvals.</div>
+    {% endif %}
 </div>
 
-{# Context Viewer Panel #}
-<div class="dashboard-card mb-6">
-    <h3 class="dashboard-card-header">Request Context — APR-002</h3>
-    <div class="rounded-lg p-4" style="background-color: var(--color-background);">
-        <p class="text-xs font-medium mb-2" style="color: var(--color-text-secondary);">Request Payload</p>
-        <pre class="text-xs font-mono p-3 rounded" style="background-color: var(--color-surface); border: 1px solid var(--color-border); overflow-x-auto; color: var(--color-text-primary);">
-{
-  "request_type": "elevated_privileges",
-  "user": "sarah.chen@gemz.com",
-  "duration_hours": 48,
-  "scope": ["domain_admin", "server_access"],
-  "justification": "Security audit requires temporary access to DC-East servers",
-  "manager_approved": true
-}</pre>
+{# Recent History #}
+<div class="dashboard-card p-0 overflow-hidden">
+    <div class="px-4 py-3 border-b" style="border-color: var(--color-border);">
+        <h3 class="text-xs font-semibold" style="color: var(--color-text-primary);">Recent Decisions</h3>
     </div>
-</div>
-
-{# Approval History #}
-<div class="dashboard-card">
-    <h3 class="dashboard-card-header">Recent Approvals</h3>
-    <div class="space-y-2">
-        <div class="flex items-center justify-between text-sm">
-            <div>
-                <span class="font-mono text-xs" style="color: var(--color-primary);">APR-000</span>
-                <span class="ml-2" style="color: var(--color-text-primary);">VPN access extension — Approved</span>
-            </div>
-            <span class="text-xs" style="color: var(--color-text-secondary);">May 21, 2:30 PM</span>
-        </div>
-        <div class="flex items-center justify-between text-sm">
-            <div>
-                <span class="font-mono text-xs" style="color: var(--color-primary);">APR-00A</span>
-                <span class="ml-2" style="color: var(--color-text-primary);">Procurement: Laptops (5 units) — Approved</span>
-            </div>
-            <span class="text-xs" style="color: var(--color-text-secondary);">May 20, 10:15 AM</span>
-        </div>
-        <div class="flex items-center justify-between text-sm">
-            <div>
-                <span class="font-mono text-xs" style="color: var(--color-primary);">APR-00B</span>
-                <span class="ml-2" style="color: var(--color-error);">Database access — Rejected</span>
-            </div>
-            <span class="text-xs" style="color: var(--color-text-secondary);">May 19, 4:45 PM</span>
-        </div>
-    </div>
+    {% if recent_logs %}
+    <table class="data-table w-full text-xs">
+        <thead>
+            <tr>
+                <th>Ticket</th>
+                <th>Action</th>
+                <th>Comment</th>
+                <th>Date</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in recent_logs %}
+            <tr>
+                <td>{{ log.ticket.number }}</td>
+                <td><span class="text-xs px-2 py-0.5 rounded-full {% if log.action == 'approved' %}bg-success/10 text-success{% else %}bg-error/10 text-error{% endif %}">{{ log.action }}</span></td>
+                <td class="max-w-xs truncate">{{ log.details.comment }}</td>
+                <td>{{ log.created_at|date:"M d, H:i" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="text-center py-6 text-xs text-text-secondary">No recent decisions.</div>
+    {% endif %}
 </div>
 
 {% endblock %}

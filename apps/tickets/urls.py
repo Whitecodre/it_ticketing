@@ -33,4 +33,19 @@ urlpatterns = [
     path('audit/', views.audit_log, name='audit_log'),
     path('kb-suggestions/', views.kb_suggestions, name='kb_suggestions'),
     # future: detail, list
-]
+
+    # APPROVER URLS
+    path('approver/', views.approver_dashboard, name='approver_dashboard'),
+    path('approver/pending/', views.approver_pending, name='approver_pending'),
+    path('approver/history/', views.approver_history, name='approver_history'),
+    path('approve/<int:pk>/', views.approve_ticket, name='approve_ticket'),
+    path('reject/<int:pk>/', views.reject_ticket, name='reject_ticket'),
+
+    # SLA URLS
+    path('sla/', views.sla_list, name='sla_management'),
+    path('sla/create/', views.sla_create, name='sla_create'),
+    path('sla/<int:pk>/delete/', views.sla_delete, name='sla_delete'),
+    path('calendar/create/', views.calendar_create, name='calendar_create'),
+    path('rule/create/', views.rule_create, name='rule_create'),
+    path('rule/<int:pk>/delete/', views.rule_delete, name='rule_delete'),
+    ]

@@ -162,3 +162,9 @@ function markReadAndGo(url, notificationId) {
         window.location.href = url;
     }
 }
+
+// Toggling Password Visibility
+(function() {
+    const password = document.getElementById('password');
+    
+})
