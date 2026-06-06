@@ -1,87 +1,77 @@
 {% load lucide %}
 
-    <div class="px-3">
-        <a href="{% url 'dashboard' %}"
-        class="flex items-center justify-center p-2 rounded-sm transition sidebar-link" data-tooltip="Dashboard"
-        style="{% if request.path == '/' %}background-color: var(--color-primary); color: white;{% else %}color: var(--color-text-secondary);{% endif %}">
-            {% lucide "layout-dashboard" size=18 class="h-4.5 w-4.5" %}
-        </a>
+<div class="px-3">
+    <a href="{% url 'dashboard' %}"
+       class="flex items-center justify-center p-2 rounded-sm transition sidebar-link" data-tooltip="Dashboard"
+       style="{% if request.path == '/' %}background-color: var(--color-primary); color: white;{% else %}color: var(--color-text-secondary);{% endif %}">
+        {% lucide "layout-dashboard" size=18 class="h-4.5 w-4.5" %}
+    </a>
+</div>
 
-    </div>
+<div class="px-3">
+    <a href="{% url 'tickets:unassigned' %}"
+       class="flex items-center justify-center p-1.5 rounded-sm transition sidebar-link" data-tooltip="Unassigned"
+       style="{% if '/tickets/unassigned/' in request.path %}background-color: var(--color-primary); color: white;{% else %}color: var(--color-text-secondary);{% endif %}">
+        {% lucide "inbox" size=18 class="h-4.5 w-4.5" %}
+    </a>
+</div>
 
-    <div class="px-3" class="px-3">
-        <a href="{% url 'tickets:unassigned' %}"
-        class="flex items-center justify-center p-1.5 rounded-sm transition sidebar-link" data-tooltip="Unassigned"
-        style="{% if '/tickets/unassigned/' in request.path %}background-color: var(--color-primary); color: white;{% else %}color: var(--color-text-secondary);{% endif %}">
-            {% lucide "inbox" size=18 class="h-4.5 w-4.5" %}
-        </a>
-    </div>
+<div class="px-3">
+    <a href="{% url 'tickets:assigned_to_me' %}"
+       class="flex items-center justify-center p-1.5 rounded-sm transition sidebar-link" data-tooltip="Assigned to Me"
+       style="{% if '/tickets/assigned/' in request.path %}background-color: var(--color-primary); color: white;{% else %}color: var(--color-text-secondary);{% endif %}">
+        {% lucide "user-check" size=18 class="h-4.5 w-4.5" %}
+    </a>
+</div>
 
+<div class="border-t mx-2 my-1" style="border-color: var(--color-border);"></div>
 
-    <div class="px-3">
-        <a href="{% url 'tickets:assigned_to_me' %}"
-        class="flex items-center justify-center p-1.5 rounded-sm transition sidebar-link" data-tooltip="Assigned to Me"
-        style="{% if '/tickets/assigned/' in request.path %}background-color: var(--color-primary); color: white;{% else %}color: var(--color-text-secondary);{% endif %}">
-            {% lucide "user-check" size=18 class="h-4.5 w-4.5" %}
-        </a>
-    </div>
+<div class="px-3">
+    <a href="{% url 'tickets:my_list' %}?status=OPEN"
+       class="flex items-center justify-center p-1.5 rounded-sm transition sidebar-link" data-tooltip="Open Tickets"
+       style="{% if '/tickets/my/' in request.path and request.GET.status == 'OPEN' %}background-color: var(--color-primary); color: white;{% else %}color: var(--color-text-secondary);{% endif %}">
+        {% lucide "circle-alert" size=18 class="h-4.5 w-4.5" %}
+    </a>
+</div>
 
-    <div class="border-t mx-2 my-1" style="border-color: var(--color-border);"></div>
+<div class="px-3">
+    <a href="{% url 'tickets:my_list' %}?status=CLOSED"
+       class="flex items-center justify-center p-1.5 rounded-sm transition sidebar-link" data-tooltip="Closed Tickets"
+       style="{% if '/tickets/my/' in request.path and request.GET.status == 'CLOSED' %}background-color: var(--color-primary); color: white;{% else %}color: var(--color-text-secondary);{% endif %}">
+        {% lucide "circle-check" size=18 class="h-4.5 w-4.5" %}
+    </a>
+</div>
 
-    <div class="px-3">
-        <a href="{% url 'tickets:my_list' %}?status=OPEN"
-        class="flex items-center justify-center p-1.5 rounded-sm transition sidebar-link" data-tooltip="Open Tickets"
-        style="{% if request.GET.status == 'OPEN' and '/tickets/my/' in request.path %}background-color: var(--color-primary); color: white;{% else %}color: var(--color-text-secondary);{% endif %}">
-            {% lucide "circle-alert" size=18 class="h-4.5 w-4.5" %}
-        </a>
-    </div>
+<div class="border-t mx-2 my-1" style="border-color: var(--color-border);"></div>
 
-    <div class="px-3">
-        <a href="{% url 'tickets:my_list' %}?status=CLOSED"
-        class="flex items-center justify-center p-1.5 rounded-sm transition sidebar-link" data-tooltip="Closed Tickets"
-        style="{% if request.GET.status == 'CLOSED' and '/tickets/my/' in request.path %}background-color: var(--color-primary); color: white;{% else %}color: var(--color-text-secondary);{% endif %}">
-            {% lucide "circle-check" size=18 class="h-4.5 w-4.5" %}
-        </a>
-    </div>
+<div class="px-3">
+    <a href="{% url 'kb:management' %}"
+       class="flex items-center justify-center p-1.5 rounded-sm transition sidebar-link" data-tooltip="Knowledge Base"
+       style="{% if '/kb/manage' in request.path %}background-color: var(--color-primary); color: white;{% else %}color: var(--color-text-secondary);{% endif %}">
+        {% lucide "book-open" size=18 class="h-4.5 w-4.5" %}
+    </a>
+</div>
 
-    <div class="border-t mx-2 my-1" style="border-color: var(--color-border);"></div>
+<div class="px-3">
+    <a href="{% url 'tickets:assets' %}"
+       class="flex items-center justify-center p-1.5 rounded-sm transition sidebar-link" data-tooltip="Assets"
+       style="{% if '/assets/' in request.path %}background-color: var(--color-primary); color: white;{% else %}color: var(--color-text-secondary);{% endif %}">
+        {% lucide "hard-drive" size=18 class="h-4.5 w-4.5" %}
+    </a>
+</div>
 
-    <div class="px-3">
-        <a href="{% url "kb:management" %}"
-        class="flex items-center justify-center p-1.5 rounded-sm transition sidebar-link" data-tooltip="Knowledge Base"
-        style="{% if '/kb/manage' in request.path %}background-color: var(--color-primary); color: white;{% else %}color: var(--color-text-secondary);{% endif %}">
-            {% lucide "book-open" size=18 class="h-4.5 w-4.5" %}
-        </a>
-    </div>
+<div class="px-3">
+    <a href="{% url 'tickets:remote_sessions' %}"
+       class="flex items-center justify-center p-1.5 rounded-sm transition sidebar-link" data-tooltip="Remote Sessions"
+       style="{% if '/remote-sessions/' in request.path %}background-color: var(--color-primary); color: white;{% else %}color: var(--color-text-secondary);{% endif %}">
+        {% lucide "monitor" size=18 class="h-4.5 w-4.5" %}
+    </a>
+</div>
 
-    <div class="px-3">
-        <a href="#"
-        class="flex items-center justify-center p-1.5 rounded-sm transition sidebar-link" data-tooltip="Assets"
-        style="color: var(--color-text-secondary);">
-            {% lucide "hard-drive" size=18 class="h-4.5 w-4.5" %}
-        </a>
-    </div>
-
-    <div class="px-3">
-        <a href="#"
-        class="flex items-center justify-center p-1.5 rounded-sm transition sidebar-link" data-tooltip="Remote Sessions"
-        style="color: var(--color-text-secondary);">
-            {% lucide "monitor" size=18 class="h-4.5 w-4.5" %}
-        </a>
-    </div>
-
-    <div class="px-3">
-        <a href="#"
-        class="flex items-center justify-center p-1.5 rounded-sm transition sidebar-link" data-tooltip="Reports"
-        style="color: var(--color-text-secondary);">
-            {% lucide "chart-bar" size=18 class="h-4.5 w-4.5" %}
-        </a>
-    </div>
-
-    <div class="px-3">
-        <a href="{% url 'accounts:profile' %}"
-        class="flex items-center justify-center p-1.5 rounded-sm transition sidebar-link" data-tooltip="Profile"
-        style="{% if request.path == '/accounts/profile/' %}background-color: var(--color-primary); color: white;{% else %}color: var(--color-text-secondary);{% endif %}">
-            {% lucide "circle-user" size=18 class="h-4.5 w-4.5" %}
-        </a>
-    </div>
+<div class="px-3">
+    <a href="{% url 'accounts:profile' %}"
+       class="flex items-center justify-center p-1.5 rounded-sm transition sidebar-link" data-tooltip="Profile"
+       style="{% if request.path == '/accounts/profile/' %}background-color: var(--color-primary); color: white;{% else %}color: var(--color-text-secondary);{% endif %}">
+        {% lucide "circle-user" size=18 class="h-4.5 w-4.5" %}
+    </a>
+</div>

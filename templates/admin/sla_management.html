@@ -4,157 +4,292 @@
 
 {% block dashboard_title %}SLA Configuration{% endblock %}
 {% block page_title %}SLA Configuration{% endblock %}
-{% block role_label %}Admin{% endblock %}
-{% block role_badge %}ADMIN{% endblock %}
+{% block role_label %}{{ request.user.get_role_display }}{% endblock %}
+{% block role_badge %}{{ request.user.get_role_display|upper }}{% endblock %}
 
 {% block sidebar_nav %}
-    {% include "partials/sidebar_admin.html" %}
+    {% include sidebar_template %}
 {% endblock %}
 
 {% block dashboard_content %}
-<div class="w-full space-y-8">
-    {# SLA Policies #}
+<div class="w-full space-y-6">
+
+    <!-- ======== 1. SLA Policies ======== -->
     <div class="dashboard-card">
-        <h2 class="dashboard-card-header">SLA Policies</h2>
-        <table class="data-table w-full text-xs mb-4">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-xs font-semibold" style="color: var(--color-text-primary);">SLA Policies</h2>
+            <button class="btn-primary text-xs px-3 py-1.5 rounded-lg flex items-center gap-1"
+                    onclick="document.getElementById('slaModal').classList.remove('hidden')">
+                {% lucide "plus" size=14 %} Add Policy
+            </button>
+        </div>
+        {% if slas %}
+        <table class="data-table w-full text-xs">
             <thead>
                 <tr>
                     <th>Priority</th>
-                    <th>Response (min)</th>
-                    <th>Resolution (min)</th>
+                    <th>Response Target</th>
+                    <th>Resolution Target</th>
                     <th>Calendar</th>
-                    <th></th>
+                    <th class="w-16">Actions</th>
                 </tr>
             </thead>
             <tbody>
                 {% for sla in slas %}
-                <tr>
-                    <td>{{ sla.get_priority_display }}</td>
-                    <td>{{ sla.response_minutes }}</td>
-                    <td>{{ sla.resolution_minutes }}</td>
-                    <td>{{ sla.calendar.name|default:"—" }}</td>
+                <tr class="hover:bg-black/2">
                     <td>
-                        <form method="post" action="{% url 'tickets:sla_delete' sla.pk %}" class="inline">
+                        <span class="priority-chip {% if sla.priority == 'P1' %}critical{% elif sla.priority == 'P2' %}high{% elif sla.priority == 'P3' %}medium{% else %}low{% endif %} text-[0.65rem]">
+                            {{ sla.get_priority_display }}
+                        </span>
+                    </td>
+                    <td>{{ sla.response_minutes }} min</td>
+                    <td>{{ sla.resolution_minutes }} min</td>
+                    <td>{{ sla.calendar.name|default:"Default" }}</td>
+                    <td>
+                        <form method="post" action="{% url 'tickets:sla_delete' sla.pk %}" onsubmit="return confirm('Delete this SLA?')">
                             {% csrf_token %}
-                            <button class="btn-ghost text-xs text-error">Delete</button>
+                            <button class="btn-ghost p-1 text-error">{% lucide "trash-2" size=14 %}</button>
                         </form>
                     </td>
                 </tr>
-                {% empty %}
-                <tr><td colspan="5">No SLA policies defined.</td></tr>
                 {% endfor %}
             </tbody>
         </table>
-        <form method="post" action="{% url 'tickets:sla_create' %}" class="flex items-end gap-3 flex-wrap">
-            {% csrf_token %}
-            <select name="priority" class="text-xs rounded border py-1.5 px-2" required>
-                <option value="">Priority</option>
-                {% for value, label in priority_choices %}
-                    <option value="{{ value }}">{{ label }}</option>
-                {% endfor %}
-            </select>
-            <input type="number" name="response_minutes" placeholder="Response min" required class="text-xs rounded border py-1.5 px-2 w-24">
-            <input type="number" name="resolution_minutes" placeholder="Resolution min" required class="text-xs rounded border py-1.5 px-2 w-24">
-            <select name="calendar_id" class="text-xs rounded border py-1.5 px-2">
-                <option value="">Default Calendar</option>
-                {% for cal in calendars %}
-                    <option value="{{ cal.pk }}">{{ cal.name }}</option>
-                {% endfor %}
-            </select>
-            <button type="submit" class="btn-primary text-xs px-3 py-1.5">Add</button>
-        </form>
+        {% else %}
+        <div class="text-center py-6 text-xs text-text-secondary">
+            No SLA policies defined yet.
+        </div>
+        {% endif %}
     </div>
 
-    {# Business Calendars #}
+    <!-- ======== 2. Business Calendars ======== -->
     <div class="dashboard-card">
-        <h2 class="dashboard-card-header">Business Calendars</h2>
-        <div class="grid grid-cols-2 gap-4 mb-4">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-xs font-semibold" style="color: var(--color-text-primary);">Business Calendars</h2>
+            <button class="btn-primary text-xs px-3 py-1.5 rounded-lg flex items-center gap-1"
+                    onclick="document.getElementById('calendarModal').classList.remove('hidden')">
+                {% lucide "plus" size=14 %} Add Calendar
+            </button>
+        </div>
+        {% if calendars %}
+        <div class="space-y-2">
             {% for cal in calendars %}
-            <div class="border rounded-lg p-3 text-xs" style="border-color: var(--color-border);">
-                <p class="font-semibold">{{ cal.name }}</p>
-                <p>Days: {{ cal.workdays|join:", " }}</p>
-                <p>Hours: {{ cal.work_start }} – {{ cal.work_end }}</p>
-                <p>Holidays: {{ cal.holidays|join:", " }}</p>
+            <div class="border rounded-lg p-3 flex items-center justify-between text-xs" style="border-color: var(--color-border);">
+                <div class="flex items-center gap-4 flex-wrap">
+                    <span class="font-semibold">{{ cal.name }}</span>
+                    <span>Days: {{ cal.workday_names|join:", " }}</span>
+                    <span>Hours: {{ cal.work_start }} – {{ cal.work_end }}</span>
+                    <span>Holidays: {{ cal.holidays|join:", "|default:"None" }}</span>
+                </div>
+                <button class="btn-ghost p-1 text-error" title="Delete Calendar"
+                        onclick="document.getElementById('deleteCalForm{{ cal.pk }}').submit()">
+                    {% lucide "trash-2" size=14 %}
+                </button>
+                <form id="deleteCalForm{{ cal.pk }}" method="post" action="{% url 'tickets:calendar_delete' cal.pk %}" style="display:none;">
+                    {% csrf_token %}
+                </form>
             </div>
-            {% empty %}
-            <p class="text-xs text-text-secondary">No calendars defined.</p>
             {% endfor %}
         </div>
-        <form method="post" action="{% url 'tickets:calendar_create' %}" class="flex items-end gap-3 flex-wrap">
-            {% csrf_token %}
-            <input type="text" name="name" placeholder="Calendar name" required class="text-xs rounded border py-1.5 px-2">
-            <label class="text-xs">Days:
-                <select name="workdays" multiple class="text-xs rounded border py-1.5 px-2">
-                    <option value="0">Mon</option><option value="1">Tue</option><option value="2">Wed</option>
-                    <option value="3">Thu</option><option value="4">Fri</option><option value="5">Sat</option><option value="6">Sun</option>
-                </select>
-            </label>
-            <input type="time" name="work_start" required class="text-xs rounded border py-1.5 px-2">
-            <input type="time" name="work_end" required class="text-xs rounded border py-1.5 px-2">
-            <input type="text" name="holidays" placeholder="Holidays (YYYY-MM-DD, comma)" class="text-xs rounded border py-1.5 px-2 w-48">
-            <button type="submit" class="btn-primary text-xs px-3 py-1.5">Add</button>
-        </form>
+        {% else %}
+        <div class="text-center py-6 text-xs text-text-secondary">No business calendars defined.</div>
+        {% endif %}
     </div>
 
-    {# Escalation Rules #}
+    <!-- ======== 3. Escalation Rules ======== -->
     <div class="dashboard-card">
-        <h2 class="dashboard-card-header">Escalation Rules</h2>
-        <table class="data-table w-full text-xs mb-4">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-xs font-semibold" style="color: var(--color-text-primary);">Escalation Rules</h2>
+            <button class="btn-primary text-xs px-3 py-1.5 rounded-lg flex items-center gap-1"
+                    onclick="document.getElementById('ruleModal').classList.remove('hidden')">
+                {% lucide "plus" size=14 %} Add Rule
+            </button>
+        </div>
+        {% if rules %}
+        <table class="data-table w-full text-xs">
             <thead>
                 <tr>
                     <th>Priority</th>
                     <th>Timer</th>
-                    <th>Threshold (%)</th>
+                    <th>At</th>
                     <th>Action</th>
                     <th>Target</th>
-                    <th></th>
+                    <th class="w-16">Actions</th>
                 </tr>
             </thead>
             <tbody>
                 {% for rule in rules %}
-                <tr>
-                    <td>{{ rule.get_priority_display }}</td>
+                <tr class="hover:bg-black/2">
+                    <td><span class="priority-chip {% if rule.priority == 'P1' %}critical{% elif rule.priority == 'P2' %}high{% elif rule.priority == 'P3' %}medium{% else %}low{% endif %} text-[0.65rem]">{{ rule.get_priority_display }}</span></td>
                     <td>{{ rule.get_timer_type_display }}</td>
                     <td>{{ rule.threshold_percent }}%</td>
                     <td>{{ rule.get_action_type_display }}</td>
                     <td>{{ rule.notify_role|default:rule.reassign_to_role|default:"—" }}</td>
                     <td>
-                        <form method="post" action="{% url 'tickets:rule_delete' rule.pk %}" class="inline">
+                        <form method="post" action="{% url 'tickets:rule_delete' rule.pk %}" onsubmit="return confirm('Delete this rule?')">
                             {% csrf_token %}
-                            <button class="btn-ghost text-xs text-error">Delete</button>
+                            <button class="btn-ghost p-1 text-error">{% lucide "trash-2" size=14 %}</button>
                         </form>
                     </td>
                 </tr>
-                {% empty %}
-                <tr><td colspan="6">No escalation rules.</td></tr>
                 {% endfor %}
             </tbody>
         </table>
-        <form method="post" action="{% url 'tickets:rule_create' %}" class="flex items-end gap-3 flex-wrap">
+        {% else %}
+        <div class="text-center py-6 text-xs text-text-secondary">No escalation rules defined.</div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- ========== ADD SLA MODAL ========== -->
+<div id="slaModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 hidden">
+    <div class="bg-surface rounded-xl shadow-xl w-full max-w-md p-6 mx-4" style="background-color: var(--color-surface);">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-sm font-semibold">Add SLA Policy</h3>
+            <button onclick="document.getElementById('slaModal').classList.add('hidden')" class="btn-ghost p-1">{% lucide "x" size=18 %}</button>
+        </div>
+        <form method="post" action="{% url 'tickets:sla_create' %}" class="space-y-4">
             {% csrf_token %}
-            <select name="priority" class="text-xs rounded border py-1.5 px-2" required>
-                <option value="">Priority</option>
+            <select name="priority" class="w-full rounded-lg border py-2 px-3 text-xs" required>
+                <option value="">Select Priority</option>
                 {% for value, label in priority_choices %}
                     <option value="{{ value }}">{{ label }}</option>
                 {% endfor %}
             </select>
-            <select name="timer_type" class="text-xs rounded border py-1.5 px-2" required>
+            <input type="number" name="response_minutes" placeholder="Response (minutes)" required
+                   class="w-full rounded-lg border py-2 px-3 text-xs">
+            <input type="number" name="resolution_minutes" placeholder="Resolution (minutes)" required
+                   class="w-full rounded-lg border py-2 px-3 text-xs">
+            <select name="calendar_id" class="w-full rounded-lg border py-2 px-3 text-xs">
+                <option value="">Default Calendar</option>
+                {% for cal in calendars %}
+                    <option value="{{ cal.pk }}">{{ cal.name }}</option>
+                {% endfor %}
+            </select>
+            <div class="flex justify-end gap-2">
+                <button type="button" onclick="document.getElementById('slaModal').classList.add('hidden')" class="btn-ghost text-xs">Cancel</button>
+                <button type="submit" class="btn-primary text-xs px-4 py-2 rounded-lg">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ========== ADD CALENDAR MODAL ========== -->
+<div id="calendarModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 hidden">
+    <div class="bg-surface rounded-xl shadow-xl w-full max-w-md p-6 mx-4" style="background-color: var(--color-surface);">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-sm font-semibold">Add Business Calendar</h3>
+            <button onclick="document.getElementById('calendarModal').classList.add('hidden')" class="btn-ghost p-1">{% lucide "x" size=18 %}</button>
+        </div>
+        <form method="post" action="{% url 'tickets:calendar_create' %}" class="space-y-4">
+            {% csrf_token %}
+            <input type="text" name="name" placeholder="Calendar name" required
+                   class="w-full rounded-lg border py-2 px-3 text-xs">
+            <label class="text-xs font-medium">Workdays</label>
+            <div class="flex flex-wrap gap-2">
+                <label class="text-xs flex items-center gap-1">
+                    <input type="checkbox" name="workdays" value="0" class="rounded"> Mon
+                </label>
+                <label class="text-xs flex items-center gap-1">
+                    <input type="checkbox" name="workdays" value="1" class="rounded"> Tue
+                </label>
+                <label class="text-xs flex items-center gap-1">
+                    <input type="checkbox" name="workdays" value="2" class="rounded"> Wed
+                </label>
+                <label class="text-xs flex items-center gap-1">
+                    <input type="checkbox" name="workdays" value="3" class="rounded"> Thu
+                </label>
+                <label class="text-xs flex items-center gap-1">
+                    <input type="checkbox" name="workdays" value="4" class="rounded"> Fri
+                </label>
+                <label class="text-xs flex items-center gap-1">
+                    <input type="checkbox" name="workdays" value="5" class="rounded"> Sat
+                </label>
+                <label class="text-xs flex items-center gap-1">
+                    <input type="checkbox" name="workdays" value="6" class="rounded"> Sun
+                </label>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <input type="time" name="work_start" required
+                       class="w-full rounded-lg border py-2 px-3 text-xs" value="08:00">
+                <input type="time" name="work_end" required
+                       class="w-full rounded-lg border py-2 px-3 text-xs" value="18:00">
+            </div>
+            <input type="text" name="holidays" placeholder="Holidays (YYYY-MM-DD, comma separated)"
+                   class="w-full rounded-lg border py-2 px-3 text-xs">
+            <div class="flex justify-end gap-2">
+                <button type="button" onclick="document.getElementById('calendarModal').classList.add('hidden')" class="btn-ghost text-xs">Cancel</button>
+                <button type="submit" class="btn-primary text-xs px-4 py-2 rounded-lg">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ========== ADD ESCALATION RULE MODAL ========== -->
+<div id="ruleModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 hidden">
+    <div class="bg-surface rounded-xl shadow-xl w-full max-w-md p-6 mx-4" style="background-color: var(--color-surface);">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-sm font-semibold">Add Escalation Rule</h3>
+            <button onclick="document.getElementById('ruleModal').classList.add('hidden')" class="btn-ghost p-1">{% lucide "x" size=18 %}</button>
+        </div>
+        <form method="post" action="{% url 'tickets:rule_create' %}" class="space-y-4">
+            {% csrf_token %}
+            <select name="priority" class="w-full rounded-lg border py-2 px-3 text-xs bg-background text-text-primary" required>
+                <option value="">Select Priority</option>
+                {% for value, label in priority_choices %}
+                    <option value="{{ value }}">{{ label }}</option>
+                {% endfor %}
+            </select>
+            <select name="timer_type" class="w-full rounded-lg border py-2 px-3 text-xs" required>
                 <option value="response">Response</option>
                 <option value="resolution">Resolution</option>
             </select>
-            <input type="number" name="threshold_percent" placeholder="Threshold %" required class="text-xs rounded border py-1.5 px-2 w-20">
-            <select name="action_type" class="text-xs rounded border py-1.5 px-2" required>
+            <input type="number" name="threshold_percent" placeholder="Threshold (%)" required
+                   class="w-full rounded-lg border py-2 px-3 text-xs" min="1" max="100">
+            <select name="action_type" id="actionTypeSelect" class="w-full rounded-lg border py-2 px-3 text-xs" required
+                    onchange="toggleTargetDropdown()">
                 <option value="notify">Notify</option>
                 <option value="reassign">Reassign</option>
                 <option value="add_watcher">Add Watcher</option>
             </select>
-            <select name="notify_role" class="text-xs rounded border py-1.5 px-2">
-                <option value="">—</option>
-                <option value="TEAM_LEAD">Team Lead</option>
-                <option value="ADMIN">Admin</option>
-            </select>
-            <button type="submit" class="btn-primary text-xs px-3 py-1.5">Add</button>
+
+            {# Notify target #}
+            <div id="notifyRoleGroup">
+                <select name="notify_role" class="w-full rounded-lg border py-2 px-3 text-xs">
+                    <option value="">— Select Role —</option>
+                    <option value="TEAM_LEAD">Team Lead</option>
+                    <option value="ADMIN">Admin</option>
+                </select>
+            </div>
+
+            {# Reassign target (hidden by default) #}
+            <div id="reassignRoleGroup" class="hidden">
+                <select name="reassign_to_role" class="w-full rounded-lg border py-2 px-3 text-xs">
+                    <option value="">— Select Role —</option>
+                    <option value="TEAM_LEAD">Team Lead</option>
+                    <option value="ADMIN">Admin</option>
+                    <option value="AGENT">Agent</option>
+                </select>
+            </div>
+
+            <div class="flex justify-end gap-2">
+                <button type="button" onclick="document.getElementById('ruleModal').classList.add('hidden')" class="btn-ghost text-xs">Cancel</button>
+                <button type="submit" class="btn-primary text-xs px-4 py-2 rounded-lg">Save</button>
+            </div>
         </form>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+{{ block.super }}
+<script>
+    function toggleTargetDropdown() {
+        const action = document.getElementById('actionTypeSelect').value;
+        document.getElementById('notifyRoleGroup').classList.toggle('hidden', action !== 'notify');
+        document.getElementById('reassignRoleGroup').classList.toggle('hidden', action !== 'reassign');
+    }
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', toggleTargetDropdown);
+</script>
 {% endblock %}

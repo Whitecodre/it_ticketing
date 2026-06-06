@@ -1,0 +1,32 @@
+{% extends "base_dashboard.html" %}
+{% load static %}
+{% load lucide %}
+
+{% block dashboard_title %}{{ title }}{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+{% block role_label %}{{ request.user.get_role_display }}{% endblock %}
+{% block role_badge %}{{ request.user.get_role_display|upper }}{% endblock %}
+
+{% block sidebar_nav %}
+    {% if request.user.role == 'AGENT' %}
+        {% include "partials/sidebar_agent.html" %}
+    {% elif request.user.role == 'END_USER' %}
+        {% include "partials/sidebar_end_user.html" %}
+    {% elif request.user.role == 'TEAM_LEAD' %}
+        {% include "partials/sidebar_team_lead.html" %}
+    {% elif request.user.role == 'ADMIN' or request.user.role == 'SUPERADMIN' %}
+        {% include "partials/sidebar_admin.html" %}
+    {% else %}
+        {% include "partials/sidebar_agent.html" %}
+    {% endif %}
+{% endblock %}
+
+{% block dashboard_content %}
+<div class="w-full">
+    <div class="dashboard-card text-center py-12">
+        {% lucide "construction" size=48 class="mx-auto mb-4 text-text-secondary" %}
+        <h2 class="text-lg font-semibold mb-2" style="color: var(--color-text-primary);">{{ title }}</h2>
+        <p class="text-sm text-text-secondary">This feature is coming soon. Our team is working hard to bring it to you.</p>
+    </div>
+</div>
+{% endblock %}

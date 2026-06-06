@@ -6,11 +6,11 @@
 {% block page_title_area %}{% endblock %}   {# <-- suppress the base h1 #}
 
 {% block page_title %}Unassigned Tickets{% endblock %}
-{% block role_label %}Agent{% endblock %}
-{% block role_badge %}AGENT{% endblock %}
+{% block role_label %}{{ request.user.get_role_display }}{% endblock %}
+{% block role_badge %}{{ request.user.get_role_display|upper }}{% endblock %}
 
 {% block sidebar_nav %}
-    {% include "partials/sidebar_agent.html" %}
+    {% include sidebar_template %}
 {% endblock %}
 
 {% block dashboard_content %}

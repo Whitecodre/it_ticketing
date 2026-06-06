@@ -1,0 +1,159 @@
+{% extends "base_dashboard.html" %}
+{% load static %}
+{% load lucide %}
+
+{% block dashboard_title %}Reports & Analytics{% endblock %}
+{% block page_title %}Reports{% endblock %}
+{% block role_label %}{{ request.user.get_role_display }}{% endblock %}
+{% block role_badge %}{{ request.user.get_role_display|upper }}{% endblock %}
+
+{% block sidebar_nav %}
+    {% include sidebar_template %}
+{% endblock %}
+
+{% block dashboard_content %}
+<div class="w-full space-y-5">
+
+    {# KPI Row #}
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div class="kpi-card border-l-4" style="border-left-color: #3B82F6;">
+            <p class="kpi-label">MTTR</p>
+            <p class="kpi-value" style="color: #3B82F6;">{{ mttr_minutes }}<span class="text-xs font-normal text-text-secondary"> min</span></p>
+        </div>
+        <div class="kpi-card border-l-4" style="border-left-color: #EF4444;">
+            <p class="kpi-label">Backlog</p>
+            <p class="kpi-value" style="color: #EF4444;">{{ backlog }}<span class="text-xs font-normal text-text-secondary"> tickets</span></p>
+        </div>
+        <div class="kpi-card border-l-4" style="border-left-color: #0D9488;">
+            <p class="kpi-label">Open Tickets</p>
+            <p class="kpi-value" style="color: #0D9488;">{{ open_total }}</p>
+        </div>
+        <div class="kpi-card border-l-4" style="border-left-color: #F59E0B;">
+            <p class="kpi-label">SLA Policies</p>
+            <p class="kpi-value" style="color: #F59E0B;">{{ sla_data|length }}</p>
+        </div>
+    </div>
+
+    {# Charts #}
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {# SLA Compliance #}
+        <div class="dashboard-card">
+            <h3 class="text-xs font-semibold mb-3" style="color: var(--color-text-primary);">SLA Compliance by Priority</h3>
+            <div style="max-height: 160px;">
+                <canvas id="slaChart"></canvas>
+            </div>
+        </div>
+
+        {# Ticket Volume #}
+        <div class="dashboard-card">
+            <h3 class="text-xs font-semibold mb-3" style="color: var(--color-text-primary);">Ticket Volume (30 days)</h3>
+            <div style="max-height: 160px;">
+                <canvas id="volumeChart"></canvas>
+            </div>
+        </div>
+
+        {# Open by Priority #}
+        <div class="dashboard-card">
+            <h3 class="text-xs font-semibold mb-3" style="color: var(--color-text-primary);">Open by Priority</h3>
+            <div style="max-height: 160px; max-width: 200px; margin: 0 auto;">
+                <canvas id="priorityChart"></canvas>
+            </div>
+        </div>
+
+        {# Summary #}
+        <div class="dashboard-card">
+            <h3 class="text-xs font-semibold mb-3" style="color: var(--color-text-primary);">Summary</h3>
+            <div class="space-y-3">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs text-text-secondary">Mean Time to Resolve</span>
+                    <span class="text-sm font-bold" style="color: #3B82F6;">{{ mttr_minutes }} min</span>
+                </div>
+                <div class="w-full h-2 rounded-full bg-border">
+                    <div class="h-2 rounded-full" style="background: #3B82F6; width: {% if mttr_minutes < 60 %}30{% else %}70{% endif %}%;"></div>
+                </div>
+                <div class="flex items-center justify-between">
+                    <span class="text-xs text-text-secondary">Backlog (>7 days)</span>
+                    <span class="text-sm font-bold" style="color: #EF4444;">{{ backlog }}</span>
+                </div>
+                <div class="w-full h-2 rounded-full bg-border">
+                    <div class="h-2 rounded-full" style="background: #EF4444; width: {% if backlog < 5 %}20{% else %}60{% endif %}%;"></div>
+                </div>
+                <div class="flex items-center justify-between">
+                    <span class="text-xs text-text-secondary">SLA Policies</span>
+                    <span class="text-sm font-bold" style="color: #F59E0B;">{{ sla_data|length }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ block.super }}
+<script>
+    Chart.defaults.font.size = 10;
+    Chart.defaults.plugins.legend.labels.boxWidth = 8;
+
+    // SLA Compliance Chart
+    new Chart(document.getElementById('slaChart'), {
+        type: 'bar',
+        data: {
+            labels: [{% for sla in sla_data %}'{{ sla.priority }}'{% if not forloop.last %},{% endif %}{% endfor %}],
+            datasets: [{
+                label: 'Compliance %',
+                data: [{% for sla in sla_data %}{{ sla.compliance }}{% if not forloop.last %},{% endif %}{% endfor %}],
+                backgroundColor: ['#EF4444', '#F59E0B', '#3B82F6', '#10B981'],
+                borderRadius: 3,
+                barPercentage: 0.6
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { beginAtZero: true, max: 100, grid: { color: 'rgba(0,0,0,0.05)' } }
+            }
+        }
+    });
+
+    // Ticket Volume Chart
+    new Chart(document.getElementById('volumeChart'), {
+        type: 'line',
+        data: {
+            labels: [{% for d in volume_dates %}'{{ d }}'{% if not forloop.last %},{% endif %}{% endfor %}],
+            datasets: [
+                { label: 'Created', data: [{% for c in volume_created %}{{ c }}{% if not forloop.last %},{% endif %}{% endfor %}], borderColor: '#0D9488', backgroundColor: 'transparent', tension: 0.2, pointRadius: 1 },
+                { label: 'Resolved', data: [{% for r in volume_resolved %}{{ r }}{% if not forloop.last %},{% endif %}{% endfor %}], borderColor: '#10B981', backgroundColor: 'transparent', tension: 0.2, pointRadius: 1 }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: { legend: { labels: { boxWidth: 10, font: { size: 9 } } } },
+            scales: { y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } } }
+        }
+    });
+
+    // Open Tickets by Priority
+    new Chart(document.getElementById('priorityChart'), {
+        type: 'doughnut',
+        data: {
+            labels: [{% for label in open_priority_labels %}'{{ label }}'{% if not forloop.last %},{% endif %}{% endfor %}],
+            datasets: [{
+                data: [{% for d in open_priority_data %}{{ d }}{% if not forloop.last %},{% endif %}{% endfor %}],
+                backgroundColor: ['#EF4444', '#F59E0B', '#3B82F6', '#10B981'],
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: { position: 'bottom', labels: { boxWidth: 8, font: { size: 9 } } }
+            }
+        }
+    });
+</script>
+{% endblock %}

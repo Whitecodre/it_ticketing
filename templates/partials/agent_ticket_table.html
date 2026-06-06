@@ -59,6 +59,7 @@
             <th>Subject</th>
             <th>Requester</th>
             <th>Status</th>
+            <th>SLA</th>
             <th>Priority</th>
             <th>Updated</th>
             <th class="w-16">Actions</th>
@@ -74,6 +75,29 @@
             <td class="max-w-xs truncate">{{ ticket.title }}</td>
             <td>{{ ticket.requester.get_full_name|default:ticket.requester.email }}</td>
             <td><span class="status-chip {{ ticket.status|lower }} text-[0.65rem]">{{ ticket.get_status_display }}</span></td>
+            
+            <!-- SLA cell -->
+            {% with sla_info=ticket.sla_status %}
+            <td>
+                {% if sla_info.overall == 'ok' %}
+                    <div class="sla-bar w-16 mb-1">
+                        <div class="sla-bar-fill safe" style="width: {{ sla_info.resolution_pct|default:0 }}%;"></div>
+                    </div>
+                    <span class="sla-timer safe">{{ sla_info.resolution_pct|default:0 }}%</span>
+                {% elif sla_info.overall == 'warning' %}
+                    <div class="sla-bar w-16 mb-1">
+                        <div class="sla-bar-fill warning" style="width: {{ sla_info.resolution_pct|default:0 }}%;"></div>
+                    </div>
+                    <span class="sla-timer warning">{{ sla_info.resolution_pct|default:0 }}%</span>
+                {% else %}
+                    <div class="sla-bar w-16 mb-1">
+                        <div class="sla-bar-fill danger" style="width: 100%;"></div>
+                    </div>
+                    <span class="sla-timer danger">Breached</span>
+                {% endif %}
+            </td>
+            {% endwith %}
+
             <td><span class="priority-chip {% if ticket.priority == 'P1' %}critical{% elif ticket.priority == 'P2' %}high{% elif ticket.priority == 'P3' %}medium{% else %}low{% endif %} text-[0.65rem]">{{ ticket.get_priority_display }}</span></td>
             <td class="text-text-secondary">{{ ticket.updated_at|timesince }} ago</td>
             <td>

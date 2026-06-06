@@ -7,11 +7,11 @@
 {% block dashboard_title %}Assigned to Me{% endblock %}
 
 {% block page_title %}My Tickets{% endblock %}
-{% block role_label %}Agent{% endblock %}
-{% block role_badge %}AGENT{% endblock %}
+{% block role_label %}{{ request.user.get_role_display }}{% endblock %}
+{% block role_badge %}{{ request.user.get_role_display|upper }}{% endblock %}proton
 
 {% block sidebar_nav %}
-    {% include "partials/sidebar_agent.html" %}
+    {% include sidebar_template %}
 {% endblock %}
 
 {% block dashboard_content %}

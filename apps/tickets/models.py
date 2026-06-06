@@ -8,6 +8,51 @@ class Ticket(models.Model):
     class Type(models.TextChoices):
         INCIDENT = 'INCIDENT', 'Incident'
         SERVICE_REQUEST = 'SERVICE_REQUEST', 'Service Request'
+    def sla_status(self):
+        now = timezone.now()
+        result = {'response': 'ok', 'resolution': 'ok', 'response_pct': 0, 'resolution_pct': 0}
+
+        try:
+            sla = SLA.objects.get(priority=self.priority)
+        except SLA.DoesNotExist:
+            return result  # no policy → always ok
+
+        # Response
+        if self.response_due_at:
+            total_secs = (self.response_due_at - self.created_at).total_seconds()
+        else:
+            total_secs = sla.response_minutes * 60   # fallback: use SLA target
+        if total_secs > 0:
+            elapsed_secs = (now - self.created_at).total_seconds()
+            pct = min(100, (elapsed_secs / total_secs) * 100)
+            result['response_pct'] = round(pct, 1)
+            if pct >= 100:
+                result['response'] = 'breached'
+            elif pct >= 75:
+                result['response'] = 'warning'
+
+        # Resolution
+        if self.resolution_due_at:
+            total_secs = (self.resolution_due_at - self.created_at).total_seconds()
+        else:
+            total_secs = sla.resolution_minutes * 60
+        if total_secs > 0:
+            elapsed_secs = (now - self.created_at).total_seconds()
+            pct = min(100, (elapsed_secs / total_secs) * 100)
+            result['resolution_pct'] = round(pct, 1)
+            if pct >= 100:
+                result['resolution'] = 'breached'
+            elif pct >= 75:
+                result['resolution'] = 'warning'
+
+        # Overall status
+        if result['response'] == 'breached' or result['resolution'] == 'breached':
+            result['overall'] = 'breached'
+        elif result['response'] == 'warning' or result['resolution'] == 'warning':
+            result['overall'] = 'warning'
+        else:
+            result['overall'] = 'ok'
+        return result
 
     class Status(models.TextChoices):
         NEW = 'NEW', 'New'
@@ -86,29 +131,51 @@ class Ticket(models.Model):
         return f"{self.number} - {self.title}"
 
     def save(self, *args, **kwargs):
-        # Compute priority based on impact x urgency (if not already set)
+        # Compute priority based on impact x urgency (standard ITIL matrix)
         if not self.priority:
-            impact_map = {
+            impact_score = {
                 self.Impact.INDIVIDUAL: 1,
                 self.Impact.DEPARTMENT: 2,
                 self.Impact.SITE: 3,
                 self.Impact.ORGANIZATION: 4
-            }
-            urgency_map = {
+            }.get(self.impact, 1)
+
+            urgency_score = {
                 self.Urgency.LOW: 1,
                 self.Urgency.MEDIUM: 2,
                 self.Urgency.HIGH: 3,
                 self.Urgency.CRITICAL: 4
-            }
-            score = impact_map.get(self.impact, 1) * urgency_map.get(self.urgency, 1)
-            if score >= 12:
-                self.priority = self.Priority.P1
-            elif score >= 9:
-                self.priority = self.Priority.P2
-            elif score >= 5:
-                self.priority = self.Priority.P3
-            else:
-                self.priority = self.Priority.P4
+            }.get(self.urgency, 1)
+
+            # Standard 4x4 matrix
+            if impact_score == 1:
+                if urgency_score <= 3:
+                    self.priority = self.Priority.P4
+                else:
+                    self.priority = self.Priority.P3
+            elif impact_score == 2:
+                if urgency_score <= 2:
+                    self.priority = self.Priority.P4
+                elif urgency_score == 3:
+                    self.priority = self.Priority.P3
+                else:
+                    self.priority = self.Priority.P2
+            elif impact_score == 3:
+                if urgency_score == 1:
+                    self.priority = self.Priority.P4
+                elif urgency_score == 2:
+                    self.priority = self.Priority.P3
+                elif urgency_score == 3:
+                    self.priority = self.Priority.P2
+                else:
+                    self.priority = self.Priority.P1
+            else:  # impact = Organization
+                if urgency_score == 1:
+                    self.priority = self.Priority.P3
+                elif urgency_score == 2:
+                    self.priority = self.Priority.P2
+                else:
+                    self.priority = self.Priority.P1
         super().save(*args, **kwargs)
 
 
@@ -168,6 +235,13 @@ class BusinessCalendar(models.Model):
     work_start = models.TimeField(default=datetime.time(8, 0))
     work_end = models.TimeField(default=datetime.time(18, 0))
     holidays = models.JSONField(default=list)   # ["2026-01-01", ...]
+
+    @property
+    def workday_names(self):
+        mapping = {
+            0: 'Mon', 1: 'Tue', 2: 'Wed', 3: 'Thu', 4: 'Fri', 5: 'Sat', 6: 'Sun'
+        }
+        return [mapping.get(int(d), str(d)) for d in self.workdays]
 
     def __str__(self):
         return self.name

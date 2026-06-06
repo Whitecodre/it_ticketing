@@ -4,11 +4,11 @@
 
 {% block dashboard_title %}Ticket {{ ticket.number }}{% endblock %}
 {% block page_title %}{{ ticket.number }}{% endblock %}
-{% block role_label %}Agent{% endblock %}
-{% block role_badge %}AGENT{% endblock %}
+{% block role_label %}{{ request.user.get_role_display }}{% endblock %}
+{% block role_badge %}{{ request.user.get_role_display|upper }}{% endblock %}
 
 {% block sidebar_nav %}
-    {% include "partials/sidebar_agent.html" %}
+    {% include sidebar_template %}
 {% endblock %}
 
 {% block topbar_search %}{% endblock %}
@@ -33,6 +33,23 @@
                         <span id="ticketStatusChip">
                             <span class="status-chip {{ ticket.status|lower }} text-xs">{{ ticket.get_status_display }}</span>
                         </span>
+                        <div id="slaBadgeContainer"
+                            hx-get="{% url 'tickets:sla_badge' ticket.pk %}"
+                            hx-trigger="every 5s"
+                            hx-swap="innerHTML">
+                            <span id="slaBadgeInner">
+                                {% with sla_info=ticket.sla_status %}
+                                <span class="text-[0.6rem] px-2 py-0.5 rounded-full 
+                                    {% if sla_info.overall == 'breached' %}bg-error/10 text-error
+                                    {% elif sla_info.overall == 'warning' %}bg-warning/10 text-warning
+                                    {% else %}bg-success/10 text-success{% endif %}">
+                                    {% if sla_info.overall == 'breached' %}SLA Breach
+                                    {% elif sla_info.overall == 'warning' %}SLA Warning
+                                    {% else %}On Track{% endif %}
+                                </span>
+                                {% endwith %}
+                            </span>
+                        </div>
                         <span>•</span>
                         <span>{{ ticket.get_priority_display }}</span>
                     </div>
@@ -61,11 +78,15 @@
 
             {# Quick Actions Bar #}
             <div class="px-4 py-2 border-b flex items-center gap-2"
-                 style="background-color: var(--color-surface); border-color: var(--color-border);">
-                <button class="btn-outline text-xs flex items-center gap-1" onclick="alert('Assign feature coming soon')">
+                style="background-color: var(--color-surface); border-color: var(--color-border);">
+                <button class="btn-outline text-xs flex items-center gap-1"
+                        hx-get="{% url 'tickets:assign_popover' ticket.pk %}"
+                        hx-target="body"
+                        hx-swap="beforeend"
+                        hx-on::after-request="document.getElementById('assignModal').classList.remove('hidden')">
                     {% lucide "user-plus" size=14 %} Assign
                 </button>
-                <button class="btn-ghost text-xs flex items-center gap-1">
+                <button class="btn-ghost text-xs flex items-center gap-1 element-link" data-tooltip="Coming soon">
                     {% lucide "paperclip" size=14 %} Attach
                 </button>
                 <button class="btn-ghost text-xs flex items-center gap-1" onclick="toggleDetailsPanel()">
@@ -256,5 +277,27 @@
             dropdown.classList.add('hidden');
         }
     });
+        // ====== Auto‑save draft (after ticketData is ready) ======
+    // Use Django template variable directly – no dependency on ticketData
+    const draftKey = `draft_{{ ticket.pk }}`;
+    const draftTextarea = document.getElementById('commentBody');
+
+    if (draftTextarea) {
+        // Restore saved draft
+        const saved = localStorage.getItem(draftKey);
+        if (saved) {
+            draftTextarea.value = saved;
+        }
+
+        // Save on every keystroke
+        draftTextarea.addEventListener('input', function() {
+            localStorage.setItem(draftKey, draftTextarea.value);
+        });
+
+        // Clear draft after successful form submission
+        document.getElementById('commentForm').addEventListener('htmx:afterRequest', function() {
+            localStorage.removeItem(draftKey);
+        });
+    }
 </script>
 {% endblock %}

@@ -622,3 +622,10 @@
     }
     .toast-success { background-color: var(--color-success, #10B981); }
     .toast-error { background-color: var(--color-error, #EF4444); }
+
+/* Fix select dropdown visibility in dark mode */
+:root.dark select,
+:root.dark select option {
+    background-color: var(--color-background);
+    color: var(--color-text-primary);
+}

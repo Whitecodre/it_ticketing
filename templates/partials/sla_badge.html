@@ -1,0 +1,10 @@
+{% with sla_info=ticket.sla_status %}
+<span class="text-[0.6rem] px-2 py-0.5 rounded-full 
+    {% if sla_info.overall == 'breached' %}bg-error/10 text-error
+    {% elif sla_info.overall == 'warning' %}bg-warning/10 text-warning
+    {% else %}bg-success/10 text-success{% endif %}">
+    {% if sla_info.overall == 'breached' %}SLA Breach
+    {% elif sla_info.overall == 'warning' %}SLA Warning
+    {% else %}On Track{% endif %}
+</span>
+{% endwith %}

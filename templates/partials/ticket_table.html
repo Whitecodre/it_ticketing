@@ -8,7 +8,7 @@
                 <th>Title</th>
                 <th>Status</th>
                 <th>Priority</th>
-                <th>SLA Due</th>
+                <th>Updated</th>
                 <th>Actions</th>
             </tr>
         </thead>
@@ -19,33 +19,18 @@
                 <td>{{ ticket.title }}</td>
                 <td><span class="status-chip {{ ticket.status|lower }}">{{ ticket.get_status_display }}</span></td>
                 <td><span class="priority-chip {% if ticket.priority == 'P1' %}critical{% elif ticket.priority == 'P2' %}high{% elif ticket.priority == 'P3' %}medium{% else %}low{% endif %}">{{ ticket.get_priority_display }}</span></td>
-                <td>
-                    {% if ticket.status == 'RESOLVED' or ticket.status == 'CLOSED' %}
-                        <span class="sla-timer safe">Resolved</span>
-                    {% else %}
-                        <div class="sla-bar w-24 mb-1">
-                            {% if ticket.resolution_due_at %}
-                                {% with remaining=ticket.resolution_due_at|timeuntil %}
-                                    {% if '0 minutes' in remaining %}
-                                        <div class="sla-bar-fill danger" style="width: 100%;"></div>
-                                    {% elif 'hour' in remaining or 'minute' in remaining %}
-                                        <div class="sla-bar-fill warning" style="width: 70%;"></div>
-                                    {% else %}
-                                        <div class="sla-bar-fill safe" style="width: 45%;"></div>
-                                    {% endif %}
-                                {% endwith %}
-                            {% else %}
-                                <div class="sla-bar-fill safe" style="width: 0%;"></div>
-                            {% endif %}
-                        </div>
-                        <span class="sla-timer safe">{{ ticket.resolution_due_at|timeuntil }}</span>
-                    {% endif %}
-                </td>
+                <td class="text-text-secondary">{{ ticket.updated_at|timesince }} ago</td>
                 <td>
                     <div class="flex gap-2">
                         <a href="{% url 'tickets:detail' ticket.pk %}" class="btn-ghost text-xs">{% lucide "eye" size=14 class="h-3.5 w-3.5" %} View</a>
                         {% if ticket.status == 'NEW' or ticket.status == 'TRIAGED' %}
-                        <button class="btn-ghost text-xs">{% lucide "circle-x" size=14 class="h-3.5 w-3.5" %} Cancel</button>
+                        <button class="btn-ghost text-xs"
+                                hx-post="{% url 'tickets:cancel_ticket' ticket.pk %}"
+                                hx-target="#ticketTableContainer"
+                                hx-swap="innerHTML"
+                                hx-include="[name=current_status]">
+                            {% lucide "circle-x" size=14 class="h-3.5 w-3.5" %} Cancel
+                        </button>
                         {% endif %}
                     </div>
                 </td>

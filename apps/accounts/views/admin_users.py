@@ -34,6 +34,9 @@ def admin_user_list(request):
     paginator = Paginator(users, 15)
     page_obj = paginator.get_page(page)
 
+    # Dynamic sidebar for admin vs superadmin
+    sidebar_template = 'partials/sidebar_admin.html' if request.user.role == 'ADMIN' else 'partials/sidebar_superadmin.html'
+
     context = {
         'users': page_obj,
         'query': query,
@@ -41,6 +44,7 @@ def admin_user_list(request):
         'department_filter': department_filter,
         'role_choices': User.Role.choices,
         'department_choices': User.DEPARTMENT_CHOICES,
+        'sidebar_template': sidebar_template,
     }
 
     if request.headers.get('HX-Request'):

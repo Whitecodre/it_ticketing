@@ -9,10 +9,11 @@ from django.template.loader import render_to_string
 from django.conf import settings
 from django.contrib.auth.views import LoginView
 from django.utils import timezone
+from django.db.models import F, DurationField, ExpressionWrapper, Count, Q
 from datetime import timedelta
 from ..forms import RegistrationForm, ProfileForm, EmailAuthenticationForm
 from ..models import User
-from apps.tickets.models import Ticket, TicketActivityLog
+from apps.tickets.models import Ticket, TicketActivityLog, SLA, BusinessCalendar, EscalationRule, TicketActivityLog
 
 class CustomLoginView(LoginView):
     template_name = 'registration/login.html'
@@ -68,9 +69,38 @@ def dashboard(request):
         context['sla_breaches'] = 0
         context['avg_response_time'] = None   # you can compute later
     elif role in ['ADMIN', 'SUPERADMIN']:
+        # KPI: Total tickets this month
         context['total_tickets_month'] = Ticket.objects.filter(created_at__month=timezone.now().month).count()
-        context['sla_compliance'] = 94.2   # placeholder — will be replaced with real calculation later
-        context['active_connectors'] = 5   # placeholder
+
+        # SLA Compliance calculation
+        resolved_tickets = Ticket.objects.filter(status__in=['RESOLVED', 'CLOSED'], resolved_at__isnull=False)
+        compliant = 0
+        total = 0
+        for ticket in resolved_tickets:
+            try:
+                sla = SLA.objects.get(priority=ticket.priority)
+                resolution_time = ticket.resolved_at - ticket.created_at
+                if resolution_time.total_seconds() / 60 <= sla.resolution_minutes:
+                    compliant += 1
+            except SLA.DoesNotExist:
+                # If no SLA defined, consider as compliant? We'll skip.
+                pass
+            total += 1
+        context['sla_compliance'] = round((compliant / total * 100), 1) if total > 0 else 100.0
+
+        # Active connectors placeholder
+        context['active_connectors'] = 5   # static for now
+
+        # SLA policies summary
+        context['slas'] = SLA.objects.all().order_by('priority')
+        context['escalation_rules'] = EscalationRule.objects.all().order_by('priority', 'timer_type', 'threshold_percent')
+        context['calendars'] = BusinessCalendar.objects.all()
+
+        # Recent audit logs
+        context['recent_audit_logs'] = TicketActivityLog.objects.select_related('ticket', 'actor').order_by('-created_at')[:5]
+
+        # RBAC matrix (dynamic from user roles)
+        context['role_choices'] = User.Role.choices
     elif role == 'TEAM_LEAD':
         open_statuses = ['NEW', 'TRIAGED', 'ASSIGNED', 'IN_PROGRESS', 'PENDING_USER', 'PENDING_VENDOR']
         team_members = User.objects.filter(department=request.user.department, role='AGENT')

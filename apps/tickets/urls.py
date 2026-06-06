@@ -5,6 +5,7 @@ app_name = 'tickets'
 
 urlpatterns = [
     path('new/', views.create_ticket, name='create'),
+    path('<int:pk>/cancel/', views.cancel_ticket, name='cancel_ticket'),
     path('my/', views.my_ticket_list, name='my_list'),
     path('<int:pk>/', views.ticket_detail, name='detail'),
     path('unassigned/', views.unassigned_queue, name='unassigned'),
@@ -31,6 +32,13 @@ urlpatterns = [
     path('team/queue/', views.team_queue, name='team_queue'),
     path('team/reassign/<int:pk>/', views.team_reassign, name='team_reassign'),
     path('audit/', views.audit_log, name='audit_log'),
+    path('reports/', views.reports_dashboard, name='reports'),
+    path('sla/trigger/', views.trigger_sla_processing, name='trigger_sla'),
+
+    path('catalogue/', views.catalogue, name='catalogue'),
+    path('connectors/', views.connectors, name='connectors'),
+    path('assets/', views.assets, name='assets'),
+    path('remote-sessions/', views.remote_sessions, name='remote_sessions'),
     path('kb-suggestions/', views.kb_suggestions, name='kb_suggestions'),
     # future: detail, list
 
@@ -44,8 +52,10 @@ urlpatterns = [
     # SLA URLS
     path('sla/', views.sla_list, name='sla_management'),
     path('sla/create/', views.sla_create, name='sla_create'),
+    path('<int:pk>/sla-badge/', views.sla_badge, name='sla_badge'),
     path('sla/<int:pk>/delete/', views.sla_delete, name='sla_delete'),
     path('calendar/create/', views.calendar_create, name='calendar_create'),
     path('rule/create/', views.rule_create, name='rule_create'),
     path('rule/<int:pk>/delete/', views.rule_delete, name='rule_delete'),
+    path('calendar/<int:pk>/delete/', views.calendar_delete, name='calendar_delete'),
     ]
