@@ -4,85 +4,121 @@
 
 {% block dashboard_title %}My Dashboard{% endblock %}
 {% block page_title_area %}{% endblock %}
-{% block role_label %}End User{% endblock %}
-{% block role_badge %}END USER{% endblock %}
+{% block role_label %}User{% endblock %}
+{% block role_badge %}USER{% endblock %}
 
 {% block sidebar_nav %}
     {% include "partials/sidebar_end_user.html" %}
 {% endblock %}
 
 {% block dashboard_content %}
-<div class="max-w-6xl mx-auto">
-    <h1 class="text-xl font-semibold truncate mb-4" style="color: var(--color-text-primary);">
-        {% block page_title %}Dashboard{% endblock %}
-    </h1>
-    {# Welcome Banner #}
-    <div class="welcome-banner mb-5 p-4">
-        <h2 class="text-lg font-bold">Welcome back, {{ user.first_name|default:"User" }}</h2>
-        <p class="text-xs opacity-90 mt-1">You have {{ open_tickets_count }} open ticket(s).</p>
+<div class="w-full">
+
+    {# Welcome Banner – modern gradient with avatar #}
+    <div class="welcome-banner mb-6 p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-xl">
+        <div class="flex items-center gap-4">
+            <div class="flex h-12 w-12 items-center justify-center rounded-full bg-white/20 text-white text-lg font-bold">
+                {{ user.first_name|default:user.email|slice:":1"|upper }}
+            </div>
+            <div>
+                <h2 class="text-xl font-bold">Welcome back, {{ user.first_name|default:"User" }}</h2>
+                <p class="text-sm opacity-90 mt-0.5">Here's a summary of your tickets and requests</p>
+            </div>
+        </div>
+        <div class="text-left sm:text-right">
+            <p class="text-4xl font-bold">{{ open_tickets_count }}</p>
+            <p class="text-xs opacity-80">open ticket(s)</p>
+        </div>
     </div>
 
-    {# Quick action buttons #}
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
-        <a href="{% url 'tickets:create' %}" class="quick-action-btn">
-            <div class="icon-circle">{% lucide "circle-plus" size=20 %}</div>
+    {# Stats Bar – colourful mini cards #}
+    <div class="grid grid-cols-5 gap-3 mb-6">
+        <a href="{% url 'tickets:my_list' %}" class="kpi-card border-l-4 cursor-pointer hover:shadow-md transition" style="border-left-color: var(--color-primary);">
+            <p class="kpi-label">All</p>
+            <p class="kpi-value text-lg" style="color: var(--color-primary);">{{ all_count|default:0 }}</p>
+        </a>
+        <a href="{% url 'tickets:my_list' %}?status=OPEN" class="kpi-card border-l-4 cursor-pointer hover:shadow-md transition" style="border-left-color: var(--color-info);">
+            <p class="kpi-label">Open</p>
+            <p class="kpi-value text-lg" style="color: var(--color-info);">{{ open_count|default:0 }}</p>
+        </a>
+        <a href="{% url 'tickets:my_list' %}?status=IN_PROGRESS" class="kpi-card border-l-4 cursor-pointer hover:shadow-md transition" style="border-left-color: var(--color-warning);">
+            <p class="kpi-label">In Progress</p>
+            <p class="kpi-value text-lg" style="color: var(--color-warning);">{{ in_progress_count|default:0 }}</p>
+        </a>
+        <a href="{% url 'tickets:my_list' %}?status=RESOLVED" class="kpi-card border-l-4 cursor-pointer hover:shadow-md transition" style="border-left-color: var(--color-success);">
+            <p class="kpi-label">Resolved</p>
+            <p class="kpi-value text-lg" style="color: var(--color-success);">{{ resolved_count|default:0 }}</p>
+        </a>
+        <a href="{% url 'tickets:my_list' %}?status=CLOSED" class="kpi-card border-l-4 cursor-pointer hover:shadow-md transition" style="border-left-color: var(--color-text-secondary);">
+            <p class="kpi-label">Closed</p>
+            <p class="kpi-value text-lg" style="color: var(--color-text-secondary);">{{ closed_count|default:0 }}</p>
+        </a>
+    </div>
+
+    {# Quick Action Buttons #}
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+        <a href="{% url 'tickets:create' %}" class="quick-action-btn group">
+            <div class="icon-circle group-hover:scale-110 transition-transform">
+                {% lucide "circle-plus" size=20 %}
+            </div>
             <span class="text-xs font-semibold">New Incident</span>
             <span class="text-[0.65rem] text-text-secondary">Report something broken</span>
         </a>
-        <a href="{% url 'tickets:create' %}?type=SERVICE_REQUEST" class="quick-action-btn">
-            <div class="icon-circle">{% lucide "file-text" size=20 %}</div>
+        <a href="{% url 'tickets:create' %}?type=SERVICE_REQUEST" class="quick-action-btn group">
+            <div class="icon-circle group-hover:scale-110 transition-transform">
+                {% lucide "file-text" size=20 %}
+            </div>
             <span class="text-xs font-semibold">Service Request</span>
             <span class="text-[0.65rem] text-text-secondary">Need access or help</span>
         </a>
-        <a href="#" class="quick-action-btn">
-            <div class="icon-circle">{% lucide "book-open" size=20 %}</div>
+        <a href="{% url 'kb:portal' %}" class="quick-action-btn group">
+            <div class="icon-circle group-hover:scale-110 transition-transform">
+                {% lucide "book-open" size=20 %}
+            </div>
             <span class="text-xs font-semibold">Knowledge Base</span>
             <span class="text-[0.65rem] text-text-secondary">Find answers fast</span>
         </a>
     </div>
 
-    {# Filter chips #}
-    <div class="flex flex-wrap gap-1.5 mb-4">
-        <button class="filter-chip active text-xs cursor-pointer">All</button>
-        <button class="filter-chip text-xs cursor-pointer">Open</button>
-        <button class="filter-chip text-xs cursor-pointer">In Progress</button>
-        <button class="filter-chip text-xs cursor-pointer">Resolved</button>
-        <button class="filter-chip text-xs cursor-pointer">Closed</button>
-    </div>
-
-    {# Ticket table #}
+    {# Recent Tickets – dynamic table #}
     <div class="dashboard-card p-0 overflow-hidden">
+        <div class="flex items-center justify-between px-4 py-3 border-b" style="border-color: var(--color-border);">
+            <h3 class="text-xs font-semibold" style="color: var(--color-text-primary);">Recent Tickets</h3>
+            <a href="{% url 'tickets:my_list' %}" class="text-xs font-medium" style="color: var(--color-primary);">View all →</a>
+        </div>
+        {% if recent_tickets %}
         <div class="overflow-x-auto">
             <table class="data-table w-full text-xs">
                 <thead>
                     <tr>
-                        <th class="w-8"><input type="checkbox" class="rounded"></th>
                         <th>Ticket</th>
                         <th>Subject</th>
                         <th>Status</th>
                         <th>Priority</th>
                         <th>Updated</th>
-                        <th class="w-16">Actions</th>
+                        <th class="w-10"></th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for ticket in recent_tickets %}
-                    <tr class="group hover:bg-black/2">
-                        <td><input type="checkbox" class="rounded"></td>
+                    <tr class="group hover:bg-black/2 cursor-pointer"
+                        onclick="window.location.href='{% url 'tickets:detail' ticket.pk %}'">
                         <td><span class="font-mono text-[0.7rem]" style="color: var(--color-primary);">{{ ticket.number }}</span></td>
                         <td class="max-w-xs truncate">{{ ticket.title }}</td>
                         <td><span class="status-chip {{ ticket.status|lower }} text-[0.65rem]">{{ ticket.get_status_display }}</span></td>
                         <td><span class="priority-chip {% if ticket.priority == 'P1' %}critical{% elif ticket.priority == 'P2' %}high{% elif ticket.priority == 'P3' %}medium{% else %}low{% endif %} text-[0.65rem]">{{ ticket.get_priority_display }}</span></td>
                         <td class="text-text-secondary">{{ ticket.updated_at|timesince }} ago</td>
                         <td>
-                            <div class="flex gap-1.5 opacity-0 group-hover:opacity-100 transition">
-                                <a href="{% url 'tickets:detail' ticket.pk %}" class="btn-ghost p-1" title="Continue conversation">{% lucide "message-square" size=14 %}</a>
-                            </div>
+                            <a href="{% url 'tickets:detail' ticket.pk %}"
+                            class="btn-ghost p-1 text-xs flex items-center gap-1 opacity-0 group-hover:opacity-100 transition element-link" data-tooltip="Continue conversation">
+                                {% lucide "message-square" size=14 %}
+                                <span>View</span>
+                            </a>
                         </td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="7" class="text-center py-10 text-text-secondary text-xs">
+                        <td colspan="6" class="text-center py-10 text-text-secondary text-xs">
                             No tickets yet. <a href="{% url 'tickets:create' %}" class="text-primary font-medium">Create your first ticket →</a>
                         </td>
                     </tr>
@@ -90,13 +126,11 @@
                 </tbody>
             </table>
         </div>
-        <div class="flex items-center justify-between p-3 border-t text-xs" style="border-color: var(--color-border);">
-            <span class="text-text-secondary">Showing 1-{{ recent_tickets|length }} of {{ recent_tickets|length }}</span>
-            <div class="flex gap-1.5">
-                <button class="btn-ghost px-2.5 py-1 rounded text-xs">Previous</button>
-                <button class="btn-ghost px-2.5 py-1 rounded text-xs">Next</button>
-            </div>
+        {% else %}
+        <div class="text-center py-10 text-text-secondary text-xs">
+            No tickets yet. <a href="{% url 'tickets:create' %}" class="text-primary font-medium">Create your first ticket →</a>
         </div>
+        {% endif %}
     </div>
 </div>
 {% endblock %}

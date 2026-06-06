@@ -1,7 +1,21 @@
 from django import forms
 from .models import Ticket, TicketComment
+from apps.common.models import Category
 
 class TicketForm(forms.ModelForm):
+    # Explicit field override to remove the blank option
+    category = forms.ModelChoiceField(
+    queryset=Category.objects.all(),
+    empty_label="Select a category",   # ← friendly placeholder
+    required=False,
+    widget=forms.Select(attrs={
+        'class': 'block w-full rounded-lg border py-2.5 px-4 text-sm transition focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary',
+        'hx-get': '',
+        'hx-target': '#kb-suggestions',
+        'hx-trigger': 'change',
+    }),
+)
+
     class Meta:
         model = Ticket
         fields = ['type', 'title', 'description', 'category', 'impact', 'urgency']
@@ -18,12 +32,6 @@ class TicketForm(forms.ModelForm):
                 'rows': 5,
                 'placeholder': 'Describe your issue or request in detail'
             }),
-            'category': forms.Select(attrs={
-                'class': 'block w-full rounded-lg border py-2.5 px-4 text-sm transition focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary',
-                'hx-get': '',  # will set dynamically
-                'hx-target': '#kb-suggestions',
-                'hx-trigger': 'change',
-            }),
             'impact': forms.Select(attrs={
                 'class': 'block w-full rounded-lg border py-2.5 px-4 text-sm transition focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary'
             }),
@@ -31,6 +39,7 @@ class TicketForm(forms.ModelForm):
                 'class': 'block w-full rounded-lg border py-2.5 px-4 text-sm transition focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary'
             }),
         }
+
 
 class CommentForm(forms.ModelForm):
     class Meta:

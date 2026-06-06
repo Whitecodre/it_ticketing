@@ -1,20 +1,22 @@
 {% load lucide %}
 
-{# Filter buttons (active state driven by current_status) #}
+{# Filter buttons #}
 <div class="flex flex-wrap gap-2 mb-4">
+    {# All chip – active only when no explicit sub‑filter is applied #}
     <button class="btn-ghost text-xs rounded-full px-4 py-1.5 border"
-            hx-get="{% url 'tickets:my_list' %}"
+            hx-get="{% url 'tickets:my_list' %}{% if base_status %}?base={{ base_status }}&status={{ base_status }}{% endif %}"
             hx-target="#ticketTableContainer"
             hx-swap="innerHTML"
-            style="{% if not current_status %}background-color: var(--color-primary); color: white; border-color: var(--color-primary);{% else %}border-color: var(--color-border);{% endif %}">
+            style="{% if not explicit %}background-color: var(--color-primary); color: white; border-color: var(--color-primary);{% else %}border-color: var(--color-border);{% endif %}">
         All
     </button>
+
     {% for value, label in status_choices %}
         <button class="btn-ghost text-xs rounded-full px-4 py-1.5 border"
-                hx-get="{% url 'tickets:my_list' %}?status={{ value }}"
+                hx-get="{% url 'tickets:my_list' %}?base={{ base_status }}&status={{ value }}&explicit=1"
                 hx-target="#ticketTableContainer"
                 hx-swap="innerHTML"
-                style="{% if current_status == value %}background-color: var(--color-primary); color: white; border-color: var(--color-primary);{% else %}border-color: var(--color-border);{% endif %}">
+                style="{% if current_status == value and explicit %}background-color: var(--color-primary); color: white; border-color: var(--color-primary);{% else %}border-color: var(--color-border);{% endif %}">
             {{ label }}
         </button>
     {% endfor %}

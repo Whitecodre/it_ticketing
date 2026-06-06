@@ -43,8 +43,8 @@ class User(AbstractUser):
         ADMIN = 'ADMIN', _('Admin')
         TEAM_LEAD = 'TEAM_LEAD', _('Team Lead')
         APPROVER = 'APPROVER', _('Approver')
-        AGENT = 'AGENT', _('Agent')
-        END_USER = 'END_USER', _('End User')
+        AGENT = 'AGENT', _('Support Team')
+        END_USER = 'END_USER', _('User')
 
     role = models.CharField(
         max_length=20,

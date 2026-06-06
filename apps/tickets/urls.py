@@ -34,6 +34,7 @@ urlpatterns = [
     path('audit/', views.audit_log, name='audit_log'),
     path('reports/', views.reports_dashboard, name='reports'),
     path('sla/trigger/', views.trigger_sla_processing, name='trigger_sla'),
+    path('sla/cleanup/', views.trigger_cleanup, name='trigger_cleanup'),
 
     path('catalogue/', views.catalogue, name='catalogue'),
     path('connectors/', views.connectors, name='connectors'),

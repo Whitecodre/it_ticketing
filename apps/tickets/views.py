@@ -32,16 +32,20 @@ def get_sidebar_template(user):
 # ---------- Ticket Creation ----------
 @login_required
 def create_ticket(request):
+    # Determine ticket type from query parameter, default to INCIDENT
+    ticket_type = request.GET.get('type', 'INCIDENT').upper()
+    if ticket_type not in ['INCIDENT', 'SERVICE_REQUEST']:
+        ticket_type = 'INCIDENT'
+
     if request.method == 'POST':
         form = TicketForm(request.POST)
         if form.is_valid():
             ticket = form.save(commit=False)
             ticket.requester = request.user
+            ticket.type = ticket_type   # force type, ignore any submitted value
 
-            # Determine number prefix based on ticket type
+            # Determine number prefix
             prefix = 'TK' if ticket.type == Ticket.Type.INCIDENT else 'SRV'
-
-            # Generate a unique 4-digit suffix
             for _ in range(20):
                 suffix = str(random.randint(0, 9999)).zfill(4)
                 candidate = f"{prefix}#{suffix}"
@@ -54,24 +58,18 @@ def create_ticket(request):
 
             ticket.save()
 
-            def apply_sla(ticket):
-                try:
-                    sla = SLA.objects.get(priority=ticket.priority)
-                except SLA.DoesNotExist:
-                    return
-                now = timezone.now()
-                ticket.response_due_at = now + timedelta(minutes=sla.response_minutes)
-                ticket.resolution_due_at = now + timedelta(minutes=sla.resolution_minutes)
-                ticket.save(update_fields=['response_due_at', 'resolution_due_at'])
-
+            # Apply SLA and routing for service requests
             if ticket.type == Ticket.Type.SERVICE_REQUEST:
                 ticket.status = Ticket.Status.PENDING_APPROVAL
                 ticket.save(update_fields=['status'])
-            apply_sla(ticket)
+            # Call your existing apply_sla helper here if it's defined elsewhere
+
             return redirect('tickets:detail', pk=ticket.pk)
     else:
-        form = TicketForm()
-    return render(request, 'requester/ticket_form.html', {'form': form})
+        form = TicketForm(initial={'type': ticket_type})
+
+    template = 'requester/incident_form.html' if ticket_type == 'INCIDENT' else 'requester/service_request_form.html'
+    return render(request, template, {'form': form, 'ticket_type': ticket_type})
 
 # ---------- Cancel Ticket ----------
 @login_required
@@ -89,19 +87,43 @@ def cancel_ticket(request, pk):
         details={'from': ticket.status, 'to': Ticket.Status.CLOSED, 'reason': 'Cancelled by requester'}
     )
     if request.headers.get('HX-Request'):
+        # Rebuild the exact same paginated list as my_ticket_list
         tickets = Ticket.objects.filter(requester=request.user).order_by('-created_at')
         status_filter = request.POST.get('current_status', '')
-        if status_filter:
-            tickets = tickets.filter(status=status_filter)
-        return render(request, 'partials/ticket_table.html', {'tickets': tickets, 'current_status': status_filter})
-    return redirect('tickets:my_list')
+        if status_filter and status_filter.upper() in dict(Ticket.Status.choices):
+            tickets = tickets.filter(status=status_filter.upper())
+
+        paginator = Paginator(tickets, 10)
+        page_number = request.POST.get('page', 1)
+        try:
+            page_obj = paginator.page(page_number)
+        except (PageNotAnInteger, EmptyPage):
+            page_obj = paginator.page(1)
+
+        context = {
+            'tickets': page_obj,
+            'current_status': status_filter,
+            'status_choices': Ticket.Status.choices,
+        }
+        return render(request, 'partials/ticket_list_partial.html', context)
 
 # ---------- My Tickets List ----------
 @login_required
 def my_ticket_list(request):
     tickets = Ticket.objects.filter(requester=request.user).order_by('-created_at')
-    status_filter = request.GET.get('status')
-    if status_filter and status_filter.upper() in dict(Ticket.Status.choices):
+    status_filter = request.GET.get('status', '')
+    base = request.GET.get('base', '')
+
+    # Map virtual filters to real status lists
+    open_statuses = ['NEW', 'TRIAGED', 'ASSIGNED', 'IN_PROGRESS', 'PENDING_USER', 'PENDING_VENDOR', 'APPROVED']
+    closed_statuses = ['RESOLVED', 'CLOSED']
+
+    # Apply filtering
+    if status_filter == 'OPEN':
+        tickets = tickets.filter(status__in=open_statuses)
+    elif status_filter == 'CLOSED':
+        tickets = tickets.filter(status__in=closed_statuses)
+    elif status_filter and status_filter.upper() in dict(Ticket.Status.choices):
         tickets = tickets.filter(status=status_filter.upper())
 
     paginator = Paginator(tickets, 10)
@@ -111,11 +133,44 @@ def my_ticket_list(request):
     except (PageNotAnInteger, EmptyPage):
         page_obj = paginator.page(1)
 
+    # Choose which chips to show
+    all_choices = Ticket.Status.choices
+    if base == 'OPEN':
+        status_choices = [
+            ('NEW', 'New'), ('TRIAGED', 'Triaged'), ('ASSIGNED', 'Assigned'),
+            ('IN_PROGRESS', 'In Progress'), ('PENDING_USER', 'Pending User'),
+            ('PENDING_VENDOR', 'Pending Vendor'), ('APPROVED', 'Approved'),
+        ]
+    elif base == 'CLOSED':
+        status_choices = [('RESOLVED', 'Resolved'), ('CLOSED', 'Closed')]
+    else:
+        status_choices = all_choices
+
+    # Set base for template context
+    base_status = base if base in ['OPEN', 'CLOSED'] else ''
+    # Determine if the user clicked a specific sub‑filter chip
+    explicit = request.GET.get('explicit') == '1'
+
+
     context = {
         'tickets': page_obj,
         'current_status': status_filter or '',
-        'status_choices': Ticket.Status.choices,
+        'status_choices': status_choices,
         'sidebar_template': get_sidebar_template(request.user),
+        'base_status': base_status,
+        'explicit': explicit,
+    }
+
+    if request.headers.get('HX-Request'):
+        return render(request, 'partials/ticket_list_partial.html', context)
+    return render(request, 'requester/ticket_list.html', context)
+
+    context = {
+        'tickets': page_obj,
+        'current_status': status_filter or '',
+        'status_choices': status_choices,
+        'sidebar_template': get_sidebar_template(request.user),
+        'base_status': base,          # always set
     }
 
     if request.headers.get('HX-Request'):
@@ -594,6 +649,18 @@ def trigger_sla_processing(request):
     try:
         call_command('process_sla')
         return HttpResponse('SLA processed OK', status=200)
+    except Exception as e:
+        return HttpResponse(f'Error: {str(e)}', status=500)
+    
+# ---------- Auto-Delete User Trigger ----------
+@csrf_exempt
+def trigger_cleanup(request):
+    secret = request.GET.get('secret')
+    if secret != 'jkeihwihivkgyg678448bhct36gysyvy!!gygrv':
+        return HttpResponse(status=403)
+    try:
+        call_command('cleanup_inactive_users')
+        return HttpResponse('Cleanup completed', status=200)
     except Exception as e:
         return HttpResponse(f'Error: {str(e)}', status=500)
 

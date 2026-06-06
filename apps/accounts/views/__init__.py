@@ -45,9 +45,16 @@ def dashboard(request):
     context = {}
     if role == 'END_USER':
         context['open_tickets_count'] = Ticket.objects.filter(
-            requester=request.user, status__in=['NEW', 'TRIAGED', 'ASSIGNED', 'IN_PROGRESS', 'PENDING_USER', 'PENDING_VENDOR']
+            requester=request.user,
+            status__in=['NEW', 'TRIAGED', 'ASSIGNED', 'IN_PROGRESS', 'PENDING_USER', 'PENDING_VENDOR']
         ).count()
-        context['recent_tickets'] = Ticket.objects.filter(requester=request.user).order_by('-created_at')[:3]
+        context['recent_tickets'] = Ticket.objects.filter(requester=request.user).order_by('-created_at')[:5]
+        # Status counts for the mini stats bar
+        context['all_count'] = Ticket.objects.filter(requester=request.user).count()
+        context['open_count'] = Ticket.objects.filter(requester=request.user, status='NEW').count()
+        context['in_progress_count'] = Ticket.objects.filter(requester=request.user, status='IN_PROGRESS').count()
+        context['resolved_count'] = Ticket.objects.filter(requester=request.user, status='RESOLVED').count()
+        context['closed_count'] = Ticket.objects.filter(requester=request.user, status='CLOSED').count()
     elif role == 'AGENT':
         # All non-closed/resolved tickets (open in the system)
         open_statuses = ['NEW', 'TRIAGED', 'ASSIGNED', 'IN_PROGRESS', 'PENDING_USER', 'PENDING_VENDOR']
