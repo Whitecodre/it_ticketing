@@ -41,6 +41,9 @@
                                 {% lucide "user-check" size=14 %}
                             {% endif %}
                         </button>
+                        <button class="btn-ghost p-1 text-xs" onclick="openPasswordModal({{ user.pk }})" title="Change Password">
+                            {% lucide "key" size=14 %}
+                        </button>
                     {% else %}
                         <span class="text-xs text-text-secondary text-center w-full">-</span>
                     {% endif %}

@@ -4,7 +4,7 @@ from django.contrib.auth import views as auth_views
 from .views import CustomLoginView
 from . import views
 from .views.admin_users import (
-    admin_user_list, admin_user_create, admin_user_edit, admin_user_toggle_active
+    admin_user_list, admin_user_create, admin_user_edit, admin_user_toggle_active, admin_user_change_password
 )
 
 app_name = 'accounts'
@@ -44,4 +44,5 @@ urlpatterns = [
     path('admin/users/create/', admin_user_create, name='admin_user_create'),
     path('admin/users/<int:pk>/edit/', admin_user_edit, name='admin_user_edit'),
     path('admin/users/<int:pk>/toggle-active/', admin_user_toggle_active, name='admin_user_toggle_active'),
+    path('admin/users/<int:pk>/change-password/', admin_user_change_password, name='admin_user_change_password'),
 ]

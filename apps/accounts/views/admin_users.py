@@ -133,3 +133,19 @@ def admin_user_toggle_active(request, pk):
     user.is_active = not user.is_active
     user.save()
     return JsonResponse({'status': 'ok', 'is_active': user.is_active})
+
+@login_required
+@user_passes_test(is_admin)
+@require_POST
+def admin_user_change_password(request, pk):
+    user = get_object_or_404(User, pk=pk)
+    if user.role == 'SUPERADMIN' and request.user.role != 'SUPERADMIN':
+        return JsonResponse({'error': 'Only a Superadmin can change another Superadmin\'s password.'}, status=403)
+
+    new_password = request.POST.get('password', '').strip()
+    if len(new_password) < 8:
+        return JsonResponse({'error': 'Password must be at least 8 characters.'}, status=400)
+
+    user.set_password(new_password)
+    user.save()
+    return JsonResponse({'status': 'ok', 'message': 'Password changed successfully.'})
