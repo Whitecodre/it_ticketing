@@ -1,5 +1,22 @@
 // global.js – loaded on every dashboard page
 
+// Togling Mobile Search bar
+function toggleMobileSearch() {
+    const wrapper = document.getElementById('mobileSearchInputWrapper');
+    const input = wrapper.querySelector('input');
+    if (wrapper.classList.contains('w-0')) {
+        // Open
+        wrapper.classList.remove('w-0', 'ml-0');
+        wrapper.classList.add('w-50', 'ml-2');
+        setTimeout(() => input.focus(), 100);
+    } else {
+        // Close
+        wrapper.classList.add('w-0', 'ml-0');
+        wrapper.classList.remove('w-50', 'ml-2');
+        input.value = '';
+    }
+}
+
 // ----- Sidebar Toggle (Mobile) -----
 function toggleSidebar() {
     const sidebar = document.getElementById('sidebar');

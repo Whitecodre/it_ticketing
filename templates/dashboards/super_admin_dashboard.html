@@ -14,7 +14,7 @@
 {% block dashboard_content %}
 
 {# KPI Row #}
-<div class="grid grid-cols-3 gap-6 mb-8">
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
     <div class="kpi-card">
         <p class="kpi-label">Total Tickets (This Month)</p>
         <p class="kpi-value">{{ total_tickets_month }}</p>
@@ -47,26 +47,28 @@
                 <a href="{% url 'tickets:sla_management' %}" class="text-xs font-medium" style="color: var(--color-primary);">Manage →</a>
             </div>
             {% if slas %}
-            <table class="data-table w-full text-xs">
-                <thead>
-                    <tr>
-                        <th>Priority</th>
-                        <th>Response</th>
-                        <th>Resolution</th>
-                        <th>Calendar</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for sla in slas %}
-                    <tr>
-                        <td><span class="priority-chip {% if sla.priority == 'P1' %}critical{% elif sla.priority == 'P2' %}high{% elif sla.priority == 'P3' %}medium{% else %}low{% endif %} text-[0.65rem]">{{ sla.get_priority_display }}</span></td>
-                        <td>{{ sla.response_minutes }} min</td>
-                        <td>{{ sla.resolution_minutes }} min</td>
-                        <td>{{ sla.calendar.name|default:"Default" }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+            <div class="overflow-x-auto">
+                <table class="data-table w-full text-xs">
+                    <thead>
+                        <tr>
+                            <th>Priority</th>
+                            <th>Response</th>
+                            <th>Resolution</th>
+                            <th>Calendar</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for sla in slas %}
+                        <tr>
+                            <td><span class="priority-chip {% if sla.priority == 'P1' %}critical{% elif sla.priority == 'P2' %}high{% elif sla.priority == 'P3' %}medium{% else %}low{% endif %} text-[0.65rem]">{{ sla.get_priority_display }}</span></td>
+                            <td>{{ sla.response_minutes }} min</td>
+                            <td>{{ sla.resolution_minutes }} min</td>
+                            <td>{{ sla.calendar.name|default:"Default" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
             {% else %}
             <div class="text-center py-4 text-xs text-text-secondary">No SLA policies configured yet.</div>
             {% endif %}
@@ -79,28 +81,30 @@
                 <a href="{% url 'tickets:sla_management' %}" class="text-xs font-medium" style="color: var(--color-primary);">Manage →</a>
             </div>
             {% if escalation_rules %}
-            <table class="data-table w-full text-xs">
-                <thead>
-                    <tr>
-                        <th>Priority</th>
-                        <th>Timer</th>
-                        <th>Threshold</th>
-                        <th>Action</th>
-                        <th>Target</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for rule in escalation_rules %}
-                    <tr>
-                        <td><span class="priority-chip {% if rule.priority == 'P1' %}critical{% elif rule.priority == 'P2' %}high{% elif rule.priority == 'P3' %}medium{% else %}low{% endif %} text-[0.65rem]">{{ rule.get_priority_display }}</span></td>
-                        <td>{{ rule.get_timer_type_display }}</td>
-                        <td>{{ rule.threshold_percent }}%</td>
-                        <td>{{ rule.get_action_type_display }}</td>
-                        <td>{{ rule.notify_role|default:rule.reassign_to_role|default:"—" }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+            <div class="overflow-x-auto">
+                <table class="data-table w-full text-xs">
+                    <thead>
+                        <tr>
+                            <th>Priority</th>
+                            <th>Timer</th>
+                            <th>Threshold</th>
+                            <th>Action</th>
+                            <th>Target</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for rule in escalation_rules %}
+                        <tr>
+                            <td><span class="priority-chip {% if rule.priority == 'P1' %}critical{% elif rule.priority == 'P2' %}high{% elif rule.priority == 'P3' %}medium{% else %}low{% endif %} text-[0.65rem]">{{ rule.get_priority_display }}</span></td>
+                            <td>{{ rule.get_timer_type_display }}</td>
+                            <td>{{ rule.threshold_percent }}%</td>
+                            <td>{{ rule.get_action_type_display }}</td>
+                            <td>{{ rule.notify_role|default:rule.reassign_to_role|default:"—" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
             {% else %}
             <div class="text-center py-4 text-xs text-text-secondary">No escalation rules defined.</div>
             {% endif %}
@@ -116,12 +120,12 @@
             <div class="space-y-2">
                 {% for log in recent_audit_logs %}
                 <div class="flex items-center justify-between text-xs">
-                    <div>
+                    <div class="min-w-0 mr-2">
                         <span style="color: var(--color-text-primary);">{{ log.ticket.number|default:"—" }}</span>
                         <span class="ml-2" style="color: var(--color-text-secondary);">{{ log.action }}</span>
-                        <span class="ml-2 truncate max-w-xs" style="color: var(--color-text-primary);">{{ log.details }}</span>
+                        <span class="ml-2 truncate max-w-xs inline-block" style="color: var(--color-text-primary);">{{ log.details }}</span>
                     </div>
-                    <span style="color: var(--color-text-secondary);">{{ log.created_at|timesince }} ago</span>
+                    <span class="shrink-0" style="color: var(--color-text-secondary);">{{ log.created_at|timesince }} ago</span>
                 </div>
                 {% endfor %}
             </div>
@@ -137,34 +141,36 @@
         {# RBAC Matrix #}
         <div class="context-rail">
             <h3 class="text-sm font-semibold mb-3" style="color: var(--color-text-primary);">RBAC Matrix</h3>
-            <table class="text-xs w-full">
-                <thead>
-                    <tr>
-                        <th class="text-left py-2" style="color: var(--color-text-secondary);">Role</th>
-                        <th class="text-center py-2" style="color: var(--color-text-secondary);">View</th>
-                        <th class="text-center py-2" style="color: var(--color-text-secondary);">Edit</th>
-                        <th class="text-center py-2" style="color: var(--color-text-secondary);">Delete</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for role_value, role_label in role_choices %}
-                    <tr>
-                        <td class="py-1.5" style="color: var(--color-text-primary);">{{ role_label }}</td>
-                        <td class="text-center">✓</td>
-                        {% if role_value == 'END_USER' %}
-                            <td class="text-center">—</td>
-                            <td class="text-center">—</td>
-                        {% elif role_value == 'AGENT' %}
+            <div class="overflow-x-auto">
+                <table class="text-xs w-full">
+                    <thead>
+                        <tr>
+                            <th class="text-left py-2" style="color: var(--color-text-secondary);">Role</th>
+                            <th class="text-center py-2" style="color: var(--color-text-secondary);">View</th>
+                            <th class="text-center py-2" style="color: var(--color-text-secondary);">Edit</th>
+                            <th class="text-center py-2" style="color: var(--color-text-secondary);">Delete</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for role_value, role_label in role_choices %}
+                        <tr>
+                            <td class="py-1.5" style="color: var(--color-text-primary);">{{ role_label }}</td>
                             <td class="text-center">✓</td>
-                            <td class="text-center">—</td>
-                        {% else %}
-                            <td class="text-center">✓</td>
-                            <td class="text-center">✓</td>
-                        {% endif %}
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+                            {% if role_value == 'END_USER' %}
+                                <td class="text-center">—</td>
+                                <td class="text-center">—</td>
+                            {% elif role_value == 'AGENT' %}
+                                <td class="text-center">✓</td>
+                                <td class="text-center">—</td>
+                            {% else %}
+                                <td class="text-center">✓</td>
+                                <td class="text-center">✓</td>
+                            {% endif %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
 
         {# Business Calendars #}

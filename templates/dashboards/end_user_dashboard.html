@@ -32,7 +32,7 @@
     </div>
 
     {# Stats Bar – colourful mini cards #}
-    <div class="grid grid-cols-5 gap-3 mb-6">
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
         <a href="{% url 'tickets:my_list' %}" class="kpi-card border-l-4 cursor-pointer hover:shadow-md transition" style="border-left-color: var(--color-primary);">
             <p class="kpi-label">All</p>
             <p class="kpi-value text-lg" style="color: var(--color-primary);">{{ all_count|default:0 }}</p>

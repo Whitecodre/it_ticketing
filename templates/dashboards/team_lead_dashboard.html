@@ -14,7 +14,7 @@
 {% block dashboard_content %}
 <div class="w-full">
     {# KPI Row #}
-    <div class="grid grid-cols-3 gap-6 mb-8">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
         <div class="kpi-card">
             <p class="kpi-label">Team Open Tickets</p>
             <p class="kpi-value">{{ team_open_tickets }}</p>
@@ -39,28 +39,30 @@
             <a href="{% url 'tickets:team_queue' %}" class="text-xs font-medium" style="color: var(--color-primary);">View all →</a>
         </div>
         {% if recent_team_tickets %}
-        <table class="data-table w-full text-xs">
-            <thead>
-                <tr>
-                    <th>Ticket</th>
-                    <th>Subject</th>
-                    <th>Assignee</th>
-                    <th>Status</th>
-                    <th>Updated</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for ticket in recent_team_tickets %}
-                <tr class="hover:bg-black/2">
-                    <td><span class="font-mono text-[0.7rem]" style="color: var(--color-primary);">{{ ticket.number }}</span></td>
-                    <td class="max-w-xs truncate">{{ ticket.title }}</td>
-                    <td>{{ ticket.assigned_to.get_full_name|default:"Unassigned" }}</td>
-                    <td><span class="status-chip {{ ticket.status|lower }} text-[0.65rem]">{{ ticket.get_status_display }}</span></td>
-                    <td class="text-text-secondary">{{ ticket.updated_at|timesince }} ago</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <div class="overflow-x-auto">
+            <table class="data-table w-full text-xs">
+                <thead>
+                    <tr>
+                        <th>Ticket</th>
+                        <th>Subject</th>
+                        <th>Assignee</th>
+                        <th>Status</th>
+                        <th>Updated</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ticket in recent_team_tickets %}
+                    <tr class="hover:bg-black/2">
+                        <td><span class="font-mono text-[0.7rem]" style="color: var(--color-primary);">{{ ticket.number }}</span></td>
+                        <td class="max-w-xs truncate">{{ ticket.title }}</td>
+                        <td>{{ ticket.assigned_to.get_full_name|default:"Unassigned" }}</td>
+                        <td><span class="status-chip {{ ticket.status|lower }} text-[0.65rem]">{{ ticket.get_status_display }}</span></td>
+                        <td class="text-text-secondary">{{ ticket.updated_at|timesince }} ago</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
         {% else %}
         <div class="text-center py-6 text-xs text-text-secondary">No team tickets.</div>
         {% endif %}

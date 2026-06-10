@@ -14,7 +14,7 @@
 {% block dashboard_content %}
 
 {# KPI Row #}
-<div class="grid grid-cols-2 gap-6 mb-8">
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
     <div class="kpi-card">
         <p class="kpi-label">Pending Approvals</p>
         <p class="kpi-value" style="color: var(--color-warning);">{{ pending_count }}</p>
@@ -34,39 +34,41 @@
         <a href="{% url 'tickets:approver_pending' %}" class="text-xs font-medium" style="color: var(--color-primary);">View all →</a>
     </div>
     {% if pending_tickets %}
-    <table class="data-table w-full text-xs">
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Requester</th>
-                <th>Subject</th>
-                <th>Due</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for ticket in pending_tickets %}
-            <tr class="hover:bg-black/2">
-                <td><span class="font-mono text-[0.7rem]" style="color: var(--color-primary);">{{ ticket.number }}</span></td>
-                <td>{{ ticket.requester.get_full_name|default:ticket.requester.email }}</td>
-                <td class="max-w-xs truncate">{{ ticket.title }}</td>
-                <td class="text-text-secondary">—</td>
-                <td>
-                    <div class="flex gap-1">
-                        <form method="post" action="{% url 'tickets:approve_ticket' ticket.pk %}" class="inline">
-                            {% csrf_token %}
-                            <button class="btn-success text-xs">Approve</button>
-                        </form>
-                        <form method="post" action="{% url 'tickets:reject_ticket' ticket.pk %}" class="inline">
-                            {% csrf_token %}
-                            <button class="btn-danger text-xs">Reject</button>
-                        </form>
-                    </div>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    <div class="overflow-x-auto">
+        <table class="data-table w-full text-xs">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Requester</th>
+                    <th>Subject</th>
+                    <th>Due</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ticket in pending_tickets %}
+                <tr class="hover:bg-black/2">
+                    <td><span class="font-mono text-[0.7rem]" style="color: var(--color-primary);">{{ ticket.number }}</span></td>
+                    <td>{{ ticket.requester.get_full_name|default:ticket.requester.email }}</td>
+                    <td class="max-w-xs truncate">{{ ticket.title }}</td>
+                    <td class="text-text-secondary">—</td>
+                    <td>
+                        <div class="flex gap-1">
+                            <form method="post" action="{% url 'tickets:approve_ticket' ticket.pk %}" class="inline">
+                                {% csrf_token %}
+                                <button class="btn-success text-xs">Approve</button>
+                            </form>
+                            <form method="post" action="{% url 'tickets:reject_ticket' ticket.pk %}" class="inline">
+                                {% csrf_token %}
+                                <button class="btn-danger text-xs">Reject</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
     {% else %}
     <div class="text-center py-6 text-xs text-text-secondary">No pending approvals.</div>
     {% endif %}
@@ -78,26 +80,28 @@
         <h3 class="text-xs font-semibold" style="color: var(--color-text-primary);">Recent Decisions</h3>
     </div>
     {% if recent_logs %}
-    <table class="data-table w-full text-xs">
-        <thead>
-            <tr>
-                <th>Ticket</th>
-                <th>Action</th>
-                <th>Comment</th>
-                <th>Date</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for log in recent_logs %}
-            <tr>
-                <td>{{ log.ticket.number }}</td>
-                <td><span class="text-xs px-2 py-0.5 rounded-full {% if log.action == 'approved' %}bg-success/10 text-success{% else %}bg-error/10 text-error{% endif %}">{{ log.action }}</span></td>
-                <td class="max-w-xs truncate">{{ log.details.comment }}</td>
-                <td>{{ log.created_at|date:"M d, H:i" }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    <div class="overflow-x-auto">
+        <table class="data-table w-full text-xs">
+            <thead>
+                <tr>
+                    <th>Ticket</th>
+                    <th>Action</th>
+                    <th>Comment</th>
+                    <th>Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in recent_logs %}
+                <tr>
+                    <td>{{ log.ticket.number }}</td>
+                    <td><span class="text-xs px-2 py-0.5 rounded-full {% if log.action == 'approved' %}bg-success/10 text-success{% else %}bg-error/10 text-error{% endif %}">{{ log.action }}</span></td>
+                    <td class="max-w-xs truncate">{{ log.details.comment }}</td>
+                    <td>{{ log.created_at|date:"M d, H:i" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
     {% else %}
     <div class="text-center py-6 text-xs text-text-secondary">No recent decisions.</div>
     {% endif %}
