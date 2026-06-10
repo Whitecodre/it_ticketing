@@ -1,6 +1,7 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.core.exceptions import ValidationError
+from django.contrib.auth.password_validation import validate_password
 from .models import User
 
 class EmailAuthenticationForm(AuthenticationForm):
@@ -31,14 +32,8 @@ class RegistrationForm(UserCreationForm):
 
     def clean_password1(self):
         password = self.cleaned_data.get('password1')
-        if len(password) < 8:
-            raise ValidationError('Your password must contain at least 8 characters.')
-        if password.isdigit():
-            raise ValidationError('Your password can’t be entirely numeric.')
-        # Optionally check for common passwords
-        from django.contrib.auth.password_validation import common_passwords
-        if password.lower() in common_passwords:
-            raise ValidationError('Your password is too common.')
+        # Let Django’s built‑in validators check common passwords, length, etc.
+        validate_password(password)
         return password
 
     def save(self, commit=True):
