@@ -14,55 +14,60 @@
     {# ========== LEFT SIDEBAR (icon‑only, 64px) ========== #}
     <aside id="sidebar"
            class="fixed inset-y-0 left-0 z-50 flex flex-col border-r transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out
-                  w-20 md:w-16 overflow-hidden"
+                  w-16 overflow-y-auto overflow-x-hidden"
            style="background-color: var(--color-surface); border-color: var(--color-border);">
 
         {# Logo #}
-        <div class="flex flex-col items-center py-3 border-b" style="border-color: var(--color-border);">
+        <div class="flex items-center justify-center-safe gap-2 py-3 border-b" style="border-color: var(--color-border);">
             <img src="{% static 'img/gemz-logo.png' %}" alt="Gemz" class="h-8 w-auto">
+            <h2 class="md:hidden md:mt-3 text-center text-xl font-bold tracking-wide text-primary">
+                Gemz
+            </h2>
         </div>
 
         {# Navigation icons #}
-        <nav class="flex-1 min-h-0 overflow-y-auto py-3 space-y-4">
+        <nav class="flex-1 py-3 space-y-4">
             {% block sidebar_nav %}
             <div class="flex flex-col items-center space-y-2">
-                <a href="{% url 'dashboard' %}" class="flex items-center justify-center rounded-md p-2 transition sidebar-link"
+                <a href="{% url 'dashboard' %}" class="sidebar-link flex items-center justify-center rounded-md p-2 transition"
+                   data-tooltip="Dashboard"
                    style="{% if request.path == '/' %}background-color: var(--color-primary); color: white;{% else %}color: var(--color-text-secondary);{% endif %}">
-                    {% lucide "layout-dashboard" size=20 class="h-5 w-5" %}
-                    <span class="sidebar-tooltip">Dashboard</span>
+                    {% lucide "layout-dashboard" size=20 class="h-5 w-5 shrink-0" %}
                 </a>
-                <a href="{% url 'tickets:my_list' %}" class="flex items-center justify-center rounded-md p-2 transition sidebar-link"
+                <a href="{% url 'tickets:my_list' %}" class="sidebar-link flex items-center justify-center rounded-md p-2 transition"
+                   data-tooltip="All Tickets"
                    style="{% if '/tickets/my/' in request.path %}background-color: var(--color-primary); color: white;{% else %}color: var(--color-text-secondary);{% endif %}">
-                    {% lucide "inbox" size=20 class="h-5 w-5" %}
-                    <span class="sidebar-tooltip">All Tickets</span>
+                    {% lucide "inbox" size=20 class="h-5 w-5 shrink-0" %}
                 </a>
-                <a href="{% url 'tickets:my_list' %}?status=OPEN" class="flex items-center justify-center rounded-md p-2 transition sidebar-link"
+                <a href="{% url 'tickets:my_list' %}?status=OPEN" class="sidebar-link flex items-center justify-center rounded-md p-2 transition"
+                   data-tooltip="Unsolved"
                    style="color: var(--color-text-secondary);">
-                    {% lucide "circle-alert" size=20 class="h-5 w-5" %}
-                    <span class="sidebar-tooltip">Unsolved</span>
+                    {% lucide "circle-alert" size=20 class="h-5 w-5 shrink-0" %}
                 </a>
             </div>
             <div class="flex flex-col items-center space-y-2">
-                <a href="#" class="flex items-center justify-center rounded-md p-2 transition sidebar-link"
+                <a href="#" class="sidebar-link flex items-center justify-center rounded-md p-2 transition"
+                   data-tooltip="Knowledge Base"
                    style="color: var(--color-text-secondary);">
-                    {% lucide "book-open" size=20 class="h-5 w-5" %}
-                    <span class="sidebar-tooltip">Knowledge Base</span>
+                    {% lucide "book-open" size=20 class="h-5 w-5 shrink-0" %}
                 </a>
-                <a href="#" class="flex items-center justify-center rounded-md p-2 transition sidebar-link"
+                <a href="#" class="sidebar-link flex items-center justify-center rounded-md p-2 transition"
+                   data-tooltip="Remote Session"
                    style="color: var(--color-text-secondary);">
-                    {% lucide "monitor" size=20 class="h-5 w-5" %}
-                    <span class="sidebar-tooltip">Remote Session</span>
+                    {% lucide "monitor" size=20 class="h-5 w-5 shrink-0" %}
                 </a>
             </div>
             {% endblock %}
         </nav>
 
         {# Footer help button #}
-        <div class="border-t py-2 flex justify-center" style="border-color: var(--color-border);">
-            <button class="rounded-full p-2 transition hover:bg-black/5 sidebar-link" data-tooltip="Contact Support"
-                    style="color: var(--color-text-secondary);">
-                {% lucide "circle-help" size=20 class="h-5 w-5" %}
-            </button>
+        <div class="border-t py-2 flex md:justify-center justify-start" style="border-color: var(--color-border);">
+            <a href="#"   {# or any appropriate link; we'll keep it as a button that opens a modal later #}
+            class="sidebar-link flex items-center justify-center rounded-md p-2 transition"
+            data-tooltip="Contact Support"
+            style="color: var(--color-text-secondary);">
+                {% lucide "life-buoy" size=20 class="h-5 w-5" %}
+            </a>
         </div>
     </aside>
 

@@ -40,13 +40,34 @@ document.addEventListener('click', function(event) {
     }
 });
 
-// Close sidebar on mobile when link clicked
+// ----- DOMContentLoaded: sidebar link close, notifications, touch tooltips -----
 document.addEventListener('DOMContentLoaded', function() {
+    // Close sidebar on mobile when link clicked
     document.querySelectorAll('#sidebar a').forEach(link => {
         link.addEventListener('click', () => {
             if (window.innerWidth < 768) closeSidebar();
         });
     });
+
+    // Load notifications on bell click
+    const bell = document.getElementById('notificationBell');
+    if (bell) {
+        bell.addEventListener('load-notifications', function() {
+            htmx.ajax('GET', window.notificationsUrl || '/notifications/list/', {
+                target: '#notificationDropdown',
+                swap: 'innerHTML'
+            });
+        });
+    }
+
+    // Touch devices: copy data-tooltip to native title (fallback)
+    if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+        document.querySelectorAll('[data-tooltip]').forEach(el => {
+            if (!el.hasAttribute('title')) {
+                el.setAttribute('title', el.getAttribute('data-tooltip'));
+            }
+        });
+    }
 });
 
 // ----- Notifications Dropdown -----
@@ -58,19 +79,6 @@ function toggleNotificationDropdown() {
     }
     dropdown.classList.toggle('hidden');
 }
-
-// Load notifications on bell click (set up once)
-document.addEventListener('DOMContentLoaded', function() {
-    const bell = document.getElementById('notificationBell');
-    if (bell) {
-        bell.addEventListener('load-notifications', function() {
-            htmx.ajax('GET', window.notificationsUrl || '/notifications/list/', {
-                target: '#notificationDropdown',
-                swap: 'innerHTML'
-            });
-        });
-    }
-});
 
 // Close notification dropdown on outside click
 document.addEventListener('click', function(event) {
@@ -94,8 +102,11 @@ function closeSlideover() {
     }, 300);
 }
 
-// ----- Floating Tooltips (sidebar + extended) -----
+// ----- Floating Tooltips (desktop only) -----
 (function() {
+    // If touch device, skip floating tooltips
+    if ('ontouchstart' in window || navigator.maxTouchPoints > 0) return;
+
     // Right-aligned tooltip for sidebar
     const tooltip = document.createElement('div');
     tooltip.className = 'floating-tooltip';
@@ -116,6 +127,8 @@ function closeSlideover() {
 })();
 
 (function() {
+    if ('ontouchstart' in window || navigator.maxTouchPoints > 0) return;
+
     // Bottom-aligned tooltip for other elements
     const tooltip = document.createElement('div');
     tooltip.className = 'floating-tooltip-extended';
@@ -146,25 +159,19 @@ document.body.addEventListener('htmx:configRequest', function(event) {
 // This function must be available globally
 function markReadAndGo(url, notificationId) {
     // Mark as read
-    fetch('{% url "notifications:mark_read" 999 %}'.replace('999', notificationId), {
+    fetch('/notifications/mark-read/' + notificationId + '/', {
         method: 'POST',
         headers: {
             'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
         }
     }).then(() => {
         // Update badge count
-        htmx.ajax('GET', '{% url "notifications:unread_count" %}', {target:'#notificationBadge', swap:'innerHTML'});
+        htmx.ajax('GET', '/notifications/unread-count/', {target:'#notificationBadge', swap:'innerHTML'});
         // Reload dropdown to reflect read state
-        htmx.ajax('GET', '{% url "notifications:list" %}', {target:'#notificationDropdown', swap:'innerHTML'});
+        htmx.ajax('GET', '/notifications/list/', {target:'#notificationDropdown', swap:'innerHTML'});
     });
     // Navigate to the ticket URL
     if (url) {
         window.location.href = url;
     }
 }
-
-// Toggling Password Visibility
-(function() {
-    const password = document.getElementById('password');
-    
-})

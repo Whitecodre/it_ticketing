@@ -17,7 +17,7 @@
         --color-info: #3B82F6;           /* blue-500 */
   }
   html{
-    font-size: 90%;
+    font-size: 80%;
   }
     /* Dark mode (Palette 3 – Premium Enterprise) */
     :root.dark {
@@ -628,4 +628,28 @@
 :root.dark select option {
     background-color: var(--color-background);
     color: var(--color-text-primary);
+}
+
+/* ---------- RESPONSIVE SIDEBAR (mobile) ---------- */
+@media (max-width: 767px) {
+    /* When sidebar is open, expand width to show labels */
+    #sidebar:not(.-translate-x-full) {
+        width: 14rem;                     /* wide enough for labels */
+    }
+
+    /* Generate labels from data-tooltip */
+    #sidebar:not(.-translate-x-full) .sidebar-link[data-tooltip]::after {
+        content: attr(data-tooltip);
+        margin-left: 0.75rem;
+        font-size: 0.8rem;
+        font-weight: 500;
+        color: inherit;
+        white-space: nowrap;
+    }
+
+    /* Align links to the left so the label sits next to the icon */
+    #sidebar:not(.-translate-x-full) .sidebar-link {
+        justify-content: flex-start;
+        padding-left: 1rem;
+    }
 }
