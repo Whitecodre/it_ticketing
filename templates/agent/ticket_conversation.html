@@ -162,7 +162,7 @@
                                 {# File attachment via label #}
                                 <label class="btn-ghost p-1 text-xs element-link cursor-pointer" data-tooltip="Attach files">
                                     {% lucide "paperclip" size=14 %}
-                                    <input type="file" name="attachments" multiple class="hidden">
+                                    <input type="file" name="attachments" multiple class="sr-only">
                                 </label>
                             </div>
                         </div>
@@ -294,46 +294,39 @@
         });
     }
 
-    // File preview chips – add/remove with DataTransfer
-    document.addEventListener('DOMContentLoaded', function() {
+    // File preview chips – remove & add‑more (working version)
+    (function() {
         const fileInput = document.querySelector('input[name="attachments"]');
         if (!fileInput) return;
 
-        const composer = fileInput.closest('form');
         const textarea = document.getElementById('commentBody');
-        if (!textarea) {
-            console.warn('File preview: textarea #commentBody not found');
-            return;
-        }
+        if (!textarea) return;
 
-        // Container for chips
         const previewContainer = document.createElement('div');
-        previewContainer.className = 'flex flex-wrap gap-1 mb-1';
+        previewContainer.className = 'inline-flex flex-wrap gap-1 mb-1';
         textarea.parentNode.insertBefore(previewContainer, textarea);
 
-        // Add‑more icon button (small + inside a circle)
+        // Add‑more icon button
         const addMoreBtn = document.createElement('button');
         addMoreBtn.type = 'button';
-        addMoreBtn.className = 'inline-flex items-center justify-center w-6 h-6 rounded-full border border-dashed text-text-secondary hover:text-primary hover:border-primary transition';
+        addMoreBtn.className = 'inline items-center justify-center ml-1 w-6 h-6 rounded border border-dashed text-text-secondary hover:text-primary hover:border-primary transition';
         addMoreBtn.style.borderColor = 'var(--color-border)';
-        addMoreBtn.innerHTML = '&#x2B;';   // plus sign
+        addMoreBtn.innerHTML = '&#x2B;';
         addMoreBtn.addEventListener('click', () => fileInput.click());
         previewContainer.after(addMoreBtn);
         addMoreBtn.style.display = 'none';
 
-        // DataTransfer to accumulate files
-        let dt = new DataTransfer();
+        let fileList = [];
 
         function syncInput() {
+            const dt = new DataTransfer();
+            fileList.forEach(f => dt.items.add(f));
             fileInput.files = dt.files;
-            fileInput.value = '';   // allows re‑selecting the same file
         }
 
         function renderPreview() {
             previewContainer.innerHTML = '';
-            const files = dt.files;
-            for (let i = 0; i < files.length; i++) {
-                const file = files[i];
+            fileList.forEach((file, index) => {
                 const chip = document.createElement('span');
                 chip.className = 'inline-flex items-center gap-1 text-xs bg-gray-700 text-white rounded-full pl-2 pr-1 py-1';
                 const sizeKB = (file.size / 1024).toFixed(1);
@@ -342,39 +335,39 @@
                 const removeBtn = document.createElement('button');
                 removeBtn.type = 'button';
                 removeBtn.className = 'text-white/60 hover:text-white transition ml-1';
-                removeBtn.innerHTML = '&#x2715;';   // X mark
+                removeBtn.innerHTML = '&#x2715;';
                 removeBtn.addEventListener('click', () => {
-                    const newDt = new DataTransfer();
-                    for (let j = 0; j < files.length; j++) {
-                        if (j !== i) newDt.items.add(files[j]);
-                    }
-                    dt = newDt;
+                    fileList.splice(index, 1);
                     syncInput();
                     renderPreview();
                 });
                 chip.appendChild(removeBtn);
                 previewContainer.appendChild(chip);
-            }
-            addMoreBtn.style.display = files.length > 0 ? 'inline-flex' : 'none';
+            });
+            addMoreBtn.style.display = fileList.length > 0 ? 'inline-flex' : 'none';
         }
 
         fileInput.addEventListener('change', function() {
-            const newFiles = fileInput.files;
-            for (let i = 0; i < newFiles.length; i++) {
-                dt.items.add(newFiles[i]);
-            }
+            const newFiles = Array.from(fileInput.files);
+            newFiles.forEach(f => fileList.push(f));
             syncInput();
             renderPreview();
         });
 
-        // Reset after HTMX request
-        document.getElementById('commentForm').addEventListener('htmx:afterRequest', function() {
-            previewContainer.innerHTML = '';
-            addMoreBtn.style.display = 'none';
-            dt = new DataTransfer();
+        // Ensure the input has the latest files right before the form is submitted
+        const commentForm = document.getElementById('commentForm');
+        commentForm.addEventListener('submit', function() {
             syncInput();
         });
-    });
+
+        // Reset after successful HTMX request
+        commentForm.addEventListener('htmx:afterRequest', function() {
+            fileList = [];
+            syncInput();
+            previewContainer.innerHTML = '';
+            addMoreBtn.style.display = 'none';
+        });
+    })();
 
 </script>
 {% endblock %}
