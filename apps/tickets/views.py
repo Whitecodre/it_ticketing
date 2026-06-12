@@ -218,6 +218,7 @@ def ticket_detail(request, pk):
         return redirect('dashboard')
 
     comments = ticket.comments.filter(visibility=TicketComment.Visibility.PUBLIC).order_by('created_at')
+    initial_attachments = ticket.attachments.filter(comment__isnull=True)
     form = CommentForm()
 
     if request.method == 'POST' and request.headers.get('HX-Request'):
@@ -242,7 +243,12 @@ def ticket_detail(request, pk):
                 details={'from': Ticket.Status.PENDING_USER, 'to': Ticket.Status.IN_PROGRESS}
             )
             comments = ticket.comments.filter(visibility=TicketComment.Visibility.PUBLIC).order_by('created_at')
-            return render(request, 'partials/comment_thread.html', {'ticket': ticket, 'comments': comments})
+            initial_attachments = ticket.attachments.filter(comment__isnull=True)   # already there
+            return render(request, 'partials/comment_thread.html', {
+                'ticket': ticket,
+                'comments': comments,
+                'initial_attachments': initial_attachments,   # ← added
+            })
         else:
             return render(request, 'partials/comment_form.html', {'form': form, 'ticket': ticket}, status=422)
 
@@ -250,6 +256,7 @@ def ticket_detail(request, pk):
         'ticket': ticket,
         'comments': comments,
         'form': form,
+        'initial_attachments': initial_attachments,
         'sidebar_template': get_sidebar_template(request.user),
     })
 
@@ -328,10 +335,19 @@ def agent_ticket_conversation(request, pk):
         return HttpResponse(status=403)
     comments = ticket.comments.all().order_by('created_at')
     form = CommentForm()
+    initial_attachments = ticket.attachments.filter(comment__isnull=True)
+    user_attachments = ticket.attachments.filter(uploaded_by__role='END_USER')
+    agent_attachments = ticket.attachments.filter(
+        uploaded_by__role__in=['AGENT', 'TEAM_LEAD', 'ADMIN', 'SUPERADMIN']
+    )
+
     return render(request, 'agent/ticket_conversation.html', {
         'ticket': ticket,
         'comments': comments,
         'form': form,
+        'initial_attachments': initial_attachments,
+        'user_attachments': user_attachments,
+        'agent_attachments': agent_attachments,
         'sidebar_template': get_sidebar_template(request.user),
     })
 
@@ -349,11 +365,17 @@ def add_comment_conversation(request, pk):
         if comment.visibility not in ['PUBLIC', 'INTERNAL']:
             comment.visibility = 'PUBLIC'
         comment.save()
+        # Debug
+        print("Files received:", request.FILES.getlist('attachments'))
 
         # Attachments
         files = request.FILES.getlist('attachments')
         if files:
-            save_attachments(ticket, files, request.user, comment=comment)
+            print("Attempting to save", len(files), "file(s)")
+            created = save_attachments(ticket, files, request.user, comment=comment)
+            print("Attachments saved:", [a.filename for a in created])
+            # Force a fresh copy of the comment so its attachments manager is populated
+            comment = TicketComment.objects.get(pk=comment.pk)
 
         TicketActivityLog.objects.create(
             ticket=ticket, action='commented', actor=request.user,
@@ -372,10 +394,12 @@ def add_comment_conversation(request, pk):
                         details={'from': old_status, 'to': ticket.status}
                     )
 
-    comments = ticket.comments.all().order_by('created_at')
+    comments = ticket.comments.prefetch_related('attachment_set').all().order_by('created_at')
+    initial_attachments = ticket.attachments.filter(comment__isnull=True)
     return render(request, 'partials/conversation_timeline.html', {
         'ticket': ticket,
         'comments': comments,
+        'initial_attachments': initial_attachments, 
     })
 
 # ---------- Update Ticket Status ----------
@@ -399,9 +423,15 @@ def update_status(request, pk):
 def ticket_details_panel(request, pk):
     ticket = get_object_or_404(Ticket, pk=pk)
     followers = User.objects.filter(role__in=['AGENT','TEAM_LEAD'])[:5]
+    user_attachments = ticket.attachments.filter(uploaded_by__role='END_USER')
+    agent_attachments = ticket.attachments.filter(
+        uploaded_by__role__in=['AGENT', 'TEAM_LEAD', 'ADMIN', 'SUPERADMIN']
+    )
     return render(request, 'partials/ticket_details_panel.html', {
         'ticket': ticket,
         'followers': followers,
+        'user_attachments': user_attachments,
+        'agent_attachments': agent_attachments,
     })
 
 # ---------- Edit Subject ----------

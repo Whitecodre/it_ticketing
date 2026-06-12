@@ -2,7 +2,7 @@
     /* Light mode (Palette 2 – Modern Tech) – default */
     :root {
         --color-primary: #0D9488;        /* teal-600 */
-        --color-primary-dark: #0F766E;   /* teal-700 */
+        --color-primary-dark: #0d645d;   /* teal-700 */
         --color-primary-light: #14B8A6;  /* teal-500 */
         --color-secondary: #3B82F6;      /* blue-500 */
         --color-background: #F8FAFC;     /* slate-50 */
@@ -695,4 +695,44 @@ main {
 table.data-table {
     min-width: 100%;        /* allows table to be at least as wide as container */
     width: max-content;     /* but it can grow if needed (and then scroll) */
+}
+/* ========== END OF UNIVERSAL TABLE RESPONSIVENESS ========== */
+
+
+/* Message bubble tails */
+.bubble-right,
+.bubble-left {
+    position: relative;
+}
+
+/* Right bubble (agent) – tail on bottom‑right */
+.bubble-right {
+    border-bottom-right-radius: 2px !important;
+}
+.bubble-right::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    right: -5px;
+    width: 0;
+    height: 0;
+    border-left: 8px solid var(--color-primary);
+    border-top: 8px solid transparent;
+    border-bottom: 8px solid transparent;
+}
+
+/* Left bubble (requester / description) – tail on bottom‑left */
+.bubble-left {
+    border-bottom-left-radius: 2px !important;
+}
+.bubble-left::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: -5px;
+    width: 0;
+    height: 0;
+    border-right: 8px solid #374151;      /* bg-gray-700 */
+    border-top: 8px solid transparent;
+    border-bottom: 8px solid transparent;
 }

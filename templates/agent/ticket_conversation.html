@@ -79,16 +79,16 @@
             {# Quick Actions Bar #}
             <div class="px-4 py-2 border-b flex items-center gap-2"
                 style="background-color: var(--color-surface); border-color: var(--color-border);">
-                <button class="btn-outline text-xs flex items-center gap-1"
+                {% comment %} <button class="btn-outline text-xs flex items-center gap-1"
                         hx-get="{% url 'tickets:assign_popover' ticket.pk %}"
                         hx-target="body"
                         hx-swap="beforeend"
                         hx-on::after-request="document.getElementById('assignModal').classList.remove('hidden')">
                     {% lucide "user-plus" size=14 %} Assign
-                </button>
-                <button class="btn-ghost text-xs flex items-center gap-1 element-link" data-tooltip="Coming soon">
+                </button> {% endcomment %}
+                {% comment %} <button class="btn-ghost text-xs flex items-center gap-1 element-link" data-tooltip="Coming soon">
                     {% lucide "paperclip" size=14 %} Attach
-                </button>
+                </button> {% endcomment %}
                 <button class="btn-ghost text-xs flex items-center gap-1" onclick="toggleDetailsPanel()">
                     {% lucide "panel-right" size=14 %} Toggle Details
                 </button>
@@ -177,9 +177,9 @@
 
         {# ========== RIGHT DETAILS PANEL (hidden by default) ========== #}
         <div id="detailsPanel" 
-            class="shrink-0 border-l overflow-hidden transition-all duration-300 ease-in-out w-0"
+            class="shrink-0 border-l overflow-y-auto overflow-x-hidden transition-all duration-300 ease-in-out w-0"
             style="background-color: var(--color-surface); border-color: var(--color-border);">
-            <div id="detailsPanelContent" class="w-80">
+            <div id="detailsPanelContent" class="w-auto max-w-90">
                 {% include "partials/ticket_details_panel.html" %}
             </div>
         </div>
@@ -293,5 +293,88 @@
             localStorage.removeItem(draftKey);
         });
     }
+
+    // File preview chips – add/remove with DataTransfer
+    document.addEventListener('DOMContentLoaded', function() {
+        const fileInput = document.querySelector('input[name="attachments"]');
+        if (!fileInput) return;
+
+        const composer = fileInput.closest('form');
+        const textarea = document.getElementById('commentBody');
+        if (!textarea) {
+            console.warn('File preview: textarea #commentBody not found');
+            return;
+        }
+
+        // Container for chips
+        const previewContainer = document.createElement('div');
+        previewContainer.className = 'flex flex-wrap gap-1 mb-1';
+        textarea.parentNode.insertBefore(previewContainer, textarea);
+
+        // Add‑more icon button (small + inside a circle)
+        const addMoreBtn = document.createElement('button');
+        addMoreBtn.type = 'button';
+        addMoreBtn.className = 'inline-flex items-center justify-center w-6 h-6 rounded-full border border-dashed text-text-secondary hover:text-primary hover:border-primary transition';
+        addMoreBtn.style.borderColor = 'var(--color-border)';
+        addMoreBtn.innerHTML = '&#x2B;';   // plus sign
+        addMoreBtn.addEventListener('click', () => fileInput.click());
+        previewContainer.after(addMoreBtn);
+        addMoreBtn.style.display = 'none';
+
+        // DataTransfer to accumulate files
+        let dt = new DataTransfer();
+
+        function syncInput() {
+            fileInput.files = dt.files;
+            fileInput.value = '';   // allows re‑selecting the same file
+        }
+
+        function renderPreview() {
+            previewContainer.innerHTML = '';
+            const files = dt.files;
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const chip = document.createElement('span');
+                chip.className = 'inline-flex items-center gap-1 text-xs bg-gray-700 text-white rounded-full pl-2 pr-1 py-1';
+                const sizeKB = (file.size / 1024).toFixed(1);
+                chip.innerHTML = `📎 ${file.name} (${sizeKB} KB)`;
+
+                const removeBtn = document.createElement('button');
+                removeBtn.type = 'button';
+                removeBtn.className = 'text-white/60 hover:text-white transition ml-1';
+                removeBtn.innerHTML = '&#x2715;';   // X mark
+                removeBtn.addEventListener('click', () => {
+                    const newDt = new DataTransfer();
+                    for (let j = 0; j < files.length; j++) {
+                        if (j !== i) newDt.items.add(files[j]);
+                    }
+                    dt = newDt;
+                    syncInput();
+                    renderPreview();
+                });
+                chip.appendChild(removeBtn);
+                previewContainer.appendChild(chip);
+            }
+            addMoreBtn.style.display = files.length > 0 ? 'inline-flex' : 'none';
+        }
+
+        fileInput.addEventListener('change', function() {
+            const newFiles = fileInput.files;
+            for (let i = 0; i < newFiles.length; i++) {
+                dt.items.add(newFiles[i]);
+            }
+            syncInput();
+            renderPreview();
+        });
+
+        // Reset after HTMX request
+        document.getElementById('commentForm').addEventListener('htmx:afterRequest', function() {
+            previewContainer.innerHTML = '';
+            addMoreBtn.style.display = 'none';
+            dt = new DataTransfer();
+            syncInput();
+        });
+    });
+
 </script>
 {% endblock %}

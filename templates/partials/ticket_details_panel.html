@@ -81,24 +81,57 @@
         </div>
     </div>
 
+    <hr style="border-color: var(--color-border);">
     {# ---------- Attachments ---------- #}
     <div>
         <label class="text-[0.65rem] font-semibold uppercase tracking-wider mb-1 block" style="color: var(--color-text-secondary);">Attachments</label>
-        <div class="space-y-1">
-            {% for attachment in ticket.attachments.all %}
-            <div class="flex items-center gap-2 text-xs">
-                {% lucide "paperclip" size=12 class="text-text-secondary" %}
-                <span class="truncate" style="color: var(--color-text-primary);">{{ attachment.filename }}</span>
-                <a href="{% url 'tickets:attachment_download' attachment.pk %}" class="text-primary ml-auto" download>Download</a>
+
+        {# User Attachments #}
+        <div class="mb-2">
+            <button class="flex items-center gap-1 text-xs font-medium w-full text-left cursor-pointer"
+                    style="color: var(--color-text-primary);"
+                    onclick="this.nextElementSibling.classList.toggle('hidden'); this.querySelector('.chevron').classList.toggle('rotate-90')">
+                {% lucide "chevron-right" size=14 class="chevron transition-transform" %}
+                Sent by {{ ticket.requester.get_full_name|default:ticket.requester.email }} (User)
+                <span class="text-text-secondary text-[0.6rem] ml-1">({{ user_attachments|length }})</span>
+            </button>
+            <div class="hidden mt-1 space-y-1">
+                {% for att in user_attachments %}
+                <div class="flex items-center gap-2 text-xs pl-5">
+                    {% lucide "paperclip" size=12 class="text-text-secondary" %}
+                    <span class="truncate" style="color: var(--color-text-primary);">{{ att.filename }}</span>
+                    <a href="{% url 'tickets:attachment_download' att.pk %}" class="text-primary ml-auto" download>Download</a>
+                </div>
+                {% empty %}
+                <p class="text-xs text-text-secondary pl-5">No files</p>
+                {% endfor %}
             </div>
-            {% empty %}
-            <p class="text-xs text-text-secondary">No attachments</p>
-            {% endfor %}
+        </div>
+
+        {# Agent / Support Team Attachments #}
+        <div>
+            <button class="flex items-center gap-1 text-xs font-medium w-full text-left cursor-pointer"
+                    style="color: var(--color-text-primary);"
+                    onclick="this.nextElementSibling.classList.toggle('hidden'); this.querySelector('.chevron').classList.toggle('rotate-90')">
+                {% lucide "chevron-right" size=14 class="chevron transition-transform" %}
+                Sent by Support Team
+                <span class="text-text-secondary text-[0.6rem] ml-1">({{ agent_attachments|length }})</span>
+            </button>
+            <div class="hidden mt-1 space-y-1">
+                {% for att in agent_attachments %}
+                <div class="flex items-center gap-2 text-xs pl-5">
+                    {% lucide "paperclip" size=12 class="text-text-secondary" %}
+                    <span class="truncate" style="color: var(--color-text-primary);">{{ att.filename }}</span>
+                    <a href="{% url 'tickets:attachment_download' att.pk %}" class="text-primary ml-auto" download>Download</a>
+                </div>
+                {% empty %}
+                <p class="text-xs text-text-secondary pl-5">No files</p>
+                {% endfor %}
+            </div>
         </div>
     </div>
 
-    <hr style="border-color: var(--color-border);">
-    <button class="btn-outline w-full text-xs">+ Create Task</button>
+    {% comment %} <button class="btn-outline w-full text-xs">+ Create Task</button> {% endcomment %}
 </div>
 
 <script>

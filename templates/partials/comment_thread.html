@@ -1,23 +1,48 @@
 {% load lucide %}
 
+{# ---------- Ticket description (initial message) ---------- #}
+<div class="flex justify-start mb-3">
+    <div class="max-w-[70%] rounded-lg px-4 py-2 text-sm text-white bg-gray-700 bubble-left">
+        <div class="text-xs font-semibold mb-1 opacity-80">
+            {{ ticket.requester.get_full_name }}
+        </div>
+        <div>{{ ticket.description|linebreaksbr }}</div>
+        {% for att in initial_attachments %}
+        <div class="mt-1 text-xs">
+            <a href="{% url 'tickets:attachment_download' att.pk %}"
+               class="flex items-center gap-1"
+               style="color: var(--color-text-secondary);">
+                {% lucide "paperclip" size=12 %}
+                {{ att.filename }} ({{ att.size|filesizeformat }})
+            </a>
+        </div>
+        {% endfor %}
+        <div class="text-[0.6rem] mt-1 opacity-60">
+            {{ ticket.created_at|date:"h:i A" }}
+        </div>
+    </div>
+</div>
+
+{# ---------- Comments ---------- #}
 {% for comment in comments %}
     <div class="flex {% if comment.author == request.user %}justify-end{% else %}justify-start{% endif %} mb-3">
         <div class="max-w-[70%] rounded-lg px-4 py-2 text-sm text-white
                     {% if comment.author == request.user %}
-                        bg-primary
+                        bg-primary bubble-right
                     {% else %}
-                        bg-gray-700
+                        bg-gray-700 bubble-left
                     {% endif %}">
             <div class="text-xs font-semibold mb-1 opacity-80">
                 {{ comment.author.get_full_name }}
             </div>
             <div>{{ comment.body|linebreaksbr }}</div>
 
-            {# Attachments #}
-            {% for attachment in comment.attachments.all %}
+            {# ---------- Attachments Loop ---------- #}
+            {% for attachment in comment.attachment_set.all %}
                 <div class="mt-1 text-xs">
                     <a href="{% url 'tickets:attachment_download' attachment.pk %}"
-                       class="text-white/80 hover:text-white underline flex items-center gap-1">
+                       class="flex items-center gap-1"
+                       style="color: {% if comment.author == request.user %}var(--color-primary-dark){% else %}var(--color-text-secondary){% endif %};">
                         {% lucide "paperclip" size=12 %}
                         {{ attachment.filename }} ({{ attachment.size|filesizeformat }})
                     </a>
@@ -38,4 +63,4 @@
 {# OOB status update #}
 <div id="ticketStatusChip" hx-swap-oob="true">
     <span class="status-chip {{ ticket.status|lower }} text-xs">{{ ticket.get_status_display }}</span>
-</div>   
+</div>

@@ -34,5 +34,14 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 # Email (console for now)
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
+# Cloudinary file storage
+DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+
+CLOUDINARY_STORAGE = {
+    'CLOUD_NAME': env('CLOUDINARY_CLOUD_NAME', default=''),
+    'API_KEY': env('CLOUDINARY_API_KEY', default=''),
+    'API_SECRET': env('CLOUDINARY_API_SECRET', default=''),
+}
+
 # CSRF trusted origins
 CSRF_TRUSTED_ORIGINS = env.list('CSRF_TRUSTED_ORIGINS', default=['https://*.onrender.com'])

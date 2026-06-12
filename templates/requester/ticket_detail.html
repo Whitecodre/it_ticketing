@@ -106,5 +106,29 @@
             scrollTimelineToBottom();
         }
     });
+
+    // File preview chips
+    (function() {
+        const fileInput = document.querySelector('input[name="attachments"]');
+        const previewContainer = document.createElement('div');
+        previewContainer.className = 'flex flex-wrap gap-1 mt-1';
+        const composer = fileInput.closest('form');
+        composer.insertBefore(previewContainer, composer.querySelector('textarea').parentNode);
+
+        fileInput.addEventListener('change', function() {
+            previewContainer.innerHTML = '';
+            Array.from(fileInput.files).forEach(file => {
+                const chip = document.createElement('span');
+                chip.className = 'inline-flex items-center gap-1 text-xs bg-gray-700 text-white rounded-full px-2 py-1';
+                chip.innerHTML = `{% lucide "paperclip" size=12 class="h-3 w-3" %} ${file.name} (${(file.size/1024).toFixed(1)} KB)`;
+                previewContainer.appendChild(chip);
+            });
+        });
+
+        // Clear preview after successful upload
+        document.getElementById('commentForm').addEventListener('htmx:afterRequest', function() {
+            previewContainer.innerHTML = '';
+        });
+    })();
 </script>
 {% endblock %}
