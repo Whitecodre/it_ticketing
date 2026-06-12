@@ -33,6 +33,7 @@ urlpatterns = [
     path('team/reassign/<int:pk>/', views.team_reassign, name='team_reassign'),
     path('audit/', views.audit_log, name='audit_log'),
     path('reports/', views.reports_dashboard, name='reports'),
+    path('attachment/<int:pk>/', views.attachment_download, name='attachment_download'),
     path('sla/trigger/', views.trigger_sla_processing, name='trigger_sla'),
     path('sla/cleanup/', views.trigger_cleanup, name='trigger_cleanup'),
 

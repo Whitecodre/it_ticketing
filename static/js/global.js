@@ -7,12 +7,12 @@ function toggleMobileSearch() {
     if (wrapper.classList.contains('w-0')) {
         // Open
         wrapper.classList.remove('w-0', 'ml-0');
-        wrapper.classList.add('w-50', 'ml-2');
+        wrapper.classList.add('w-40', 'ml-2');
         setTimeout(() => input.focus(), 100);
     } else {
         // Close
         wrapper.classList.add('w-0', 'ml-0');
-        wrapper.classList.remove('w-50', 'ml-2');
+        wrapper.classList.remove('w-40', 'ml-2');
         input.value = '';
     }
 }

@@ -653,3 +653,46 @@
         padding-left: 1rem;
     }
 }
+
+/* ========== RESPONSIVE TABLES (global) ========== */
+/* Make any dashboard card scroll horizontally if its content is too wide */
+.dashboard-card {
+    overflow-x: auto;
+}
+
+/* Also apply to the user management table container */
+#userTableContainer {
+    overflow-x: auto;
+}
+
+/* Ensure the main content area doesn't force a horizontal scrollbar on the whole page */
+main.flex-1.overflow-y-auto {
+    overflow-x: hidden;
+}
+
+/* ========== UNIVERSAL TABLE RESPONSIVENESS ========== */
+
+/* 1. Force all dashboard cards (and any container that might hold a table) to scroll horizontally */
+.dashboard-card,
+.context-rail,
+#ticketTableContainer,
+#userTableContainer {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;   /* smooth scrolling on iOS */
+}
+
+/* 2. Prevent the main page body from ever getting a horizontal scrollbar */
+html, body {
+    overflow-x: hidden;
+}
+
+/* 3. Make sure the main content area itself doesn't overflow */
+main {
+    overflow-x: hidden;
+}
+
+/* 4. Ensure tables don't have a width larger than their container */
+table.data-table {
+    min-width: 100%;        /* allows table to be at least as wide as container */
+    width: max-content;     /* but it can grow if needed (and then scroll) */
+}

@@ -108,40 +108,33 @@
 
             {# Composer (bottom) #}
             <div class="px-4 py-3 border-t"
-                 style="background-color: var(--color-surface); border-color: var(--color-border);">
+                style="background-color: var(--color-surface); border-color: var(--color-border);">
                 <form id="commentForm"
-                      hx-post="{% url 'tickets:add_comment_conversation' ticket.pk %}"
-                      hx-target="#commentTimeline"
-                      hx-swap="innerHTML"
-                      hx-on::after-request="document.getElementById('commentBody').value = ''; scrollTimelineToBottom()">
+                    hx-post="{% url 'tickets:add_comment_conversation' ticket.pk %}"
+                    hx-target="#commentTimeline"
+                    hx-swap="innerHTML"
+                    hx-on::after-request="document.getElementById('commentBody').value = ''; scrollTimelineToBottom()"
+                    enctype="multipart/form-data">
                     {% csrf_token %}
 
                     <div class="flex items-center gap-2 mb-2" id="visibilityToggles">
                         <label class="text-xs font-semibold cursor-pointer" onclick="setActiveTab('public')">
                             <input type="radio" name="visibility" value="PUBLIC" checked class="sr-only">
-                            <span id="tabPublic" class="px-3 py-1 rounded-full inline-block bg-primary text-white border border-primary">
-                                Public Reply
-                            </span>
+                            <span id="tabPublic" class="px-3 py-1 rounded-full inline-block bg-primary text-white border border-primary">Public Reply</span>
                         </label>
                         <label class="text-xs font-semibold cursor-pointer" onclick="setActiveTab('internal')">
                             <input type="radio" name="visibility" value="INTERNAL" class="sr-only">
-                            <span id="tabInternal" class="px-3 py-1 rounded-full inline-block bg-background text-text-secondary border border-border">
-                                Internal Note
-                            </span>
+                            <span id="tabInternal" class="px-3 py-1 rounded-full inline-block bg-background text-text-secondary border border-border">Internal Note</span>
                         </label>
                     </div>
 
-                    {# Comment Area #}
-                    <div>
-                        <textarea id="commentBody" name="body" rows="2" placeholder="Write a reply…"
-                        class="w-full rounded-lg border p-3 text-xs resize-none focus:outline-none focus:ring-2"
-                        style="background-color: var(--color-background); border-color: var(--color-border); color: var(--color-text-primary); --tw-ring-color: var(--color-primary);"
-                        required></textarea>
-                    </div>
-                    {# End of Comment Area #}
-
                     <div class="flex gap-2">
                         <div class="flex-1">
+                            <textarea id="commentBody" name="body" rows="2" placeholder="Write a reply…"
+                            class="w-full rounded-lg border p-3 text-xs resize-none focus:outline-none focus:ring-2"
+                            style="background-color: var(--color-background); border-color: var(--color-border); color: var(--color-text-primary); --tw-ring-color: var(--color-primary);"
+                            required></textarea>
+
                             <div class="flex items-center gap-1 mt-1">
                                 <button type="button" class="btn-ghost p-1 text-xs element-link" data-tooltip="Bold">
                                     {% lucide "bold" size=14 %}
@@ -162,17 +155,18 @@
                                         <div id="macroDropdownContent"
                                             hx-get="{% url 'tickets:macro_list' %}"
                                             hx-trigger="click from:#loadMacros"
-                                            hx-swap="innerHTML">
-                                        </div>
+                                            hx-swap="innerHTML"></div>
                                     </div>
-                                    {# Hidden trigger element #}
                                     <button id="loadMacros" class="hidden"></button>
                                 </div>
-                                <button type="button" class="btn-ghost p-1 text-xs element-link" data-tooltip="Attach file">
+                                {# File attachment via label #}
+                                <label class="btn-ghost p-1 text-xs element-link cursor-pointer" data-tooltip="Attach files">
                                     {% lucide "paperclip" size=14 %}
-                                </button>
+                                    <input type="file" name="attachments" multiple class="hidden">
+                                </label>
                             </div>
                         </div>
+
                         <button type="submit" class="btn-primary text-xs flex items-center gap-1 self-end px-4 py-2">
                             {% lucide "send" size=14 %} Send
                         </button>

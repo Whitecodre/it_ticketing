@@ -89,7 +89,7 @@
             <div class="flex items-center gap-2 text-xs">
                 {% lucide "paperclip" size=12 class="text-text-secondary" %}
                 <span class="truncate" style="color: var(--color-text-primary);">{{ attachment.filename }}</span>
-                <a href="{{ attachment.file.url }}" class="text-primary ml-auto" download>Download</a>
+                <a href="{% url 'tickets:attachment_download' attachment.pk %}" class="text-primary ml-auto" download>Download</a>
             </div>
             {% empty %}
             <p class="text-xs text-text-secondary">No attachments</p>

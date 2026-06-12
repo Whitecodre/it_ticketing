@@ -1,9 +1,10 @@
-import random
+import random, hashlib, os
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
+from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.core.management import call_command
-from django.http import JsonResponse, HttpResponse
+from django.http import JsonResponse, HttpResponse, FileResponse
 from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_exempt
 from django.db.models import Count, Avg, Q, F
@@ -12,13 +13,12 @@ from django.utils import timezone
 from django.urls import reverse
 from datetime import timedelta
 from .forms import TicketForm, CommentForm
-from .models import Ticket, TicketComment, Macro, TicketActivityLog, SLA, EscalationRule, BusinessCalendar
+from .models import Ticket, TicketComment, Macro, TicketActivityLog, SLA, EscalationRule, BusinessCalendar, Attachment
 from apps.accounts.models import User
 from apps.common.models import Notification
 
-# ---------- Helper ----------
+# ---------- Helpers ----------
 def get_sidebar_template(user):
-    """Return the correct sidebar partial for the user's role."""
     mapping = {
         'END_USER': 'partials/sidebar_end_user.html',
         'AGENT': 'partials/sidebar_agent.html',
@@ -29,10 +29,60 @@ def get_sidebar_template(user):
     }
     return mapping.get(user.role, 'partials/sidebar_end_user.html')
 
+def apply_sla(ticket):
+    """Set SLA due dates based on the ticket priority."""
+    try:
+        sla = SLA.objects.get(priority=ticket.priority)
+    except SLA.DoesNotExist:
+        return
+    now = timezone.now()
+    ticket.response_due_at = now + timedelta(minutes=sla.response_minutes)
+    ticket.resolution_due_at = now + timedelta(minutes=sla.resolution_minutes)
+    ticket.save(update_fields=['response_due_at', 'resolution_due_at'])
+
+# ---------- Attachment validation ----------
+ALLOWED_MIMES = [
+    'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'text/plain',
+    'application/zip',
+]
+MAX_SIZE_MB = 10
+
+def save_attachments(ticket, files, author, comment=None):
+    """Validate and save file attachments. Returns list of created Attachment objects."""
+    created = []
+    for f in files:
+        if f.size > MAX_SIZE_MB * 1024 * 1024:
+            continue   # silently skip oversized files
+        mime = f.content_type.split(';')[0].strip().lower()
+        if mime not in ALLOWED_MIMES:
+            continue   # silently skip disallowed types
+        # Compute SHA‑256 hash
+        sha = hashlib.sha256()
+        for chunk in f.chunks():
+            sha.update(chunk)
+        f.seek(0)
+        att = Attachment.objects.create(
+            ticket=ticket,
+            comment=comment,
+            file=f,
+            filename=f.name,
+            uploaded_by=author,
+            content_type=mime,
+            size=f.size,
+            hash=sha.hexdigest(),
+        )
+        created.append(att)
+    return created
+
 # ---------- Ticket Creation ----------
 @login_required
 def create_ticket(request):
-    # Determine ticket type from query parameter, default to INCIDENT
     ticket_type = request.GET.get('type', 'INCIDENT').upper()
     if ticket_type not in ['INCIDENT', 'SERVICE_REQUEST']:
         ticket_type = 'INCIDENT'
@@ -42,9 +92,9 @@ def create_ticket(request):
         if form.is_valid():
             ticket = form.save(commit=False)
             ticket.requester = request.user
-            ticket.type = ticket_type   # force type, ignore any submitted value
+            ticket.type = ticket_type
 
-            # Determine number prefix
+            # Generate unique number
             prefix = 'TK' if ticket.type == Ticket.Type.INCIDENT else 'SRV'
             for _ in range(20):
                 suffix = str(random.randint(0, 9999)).zfill(4)
@@ -58,11 +108,16 @@ def create_ticket(request):
 
             ticket.save()
 
-            # Apply SLA and routing for service requests
+            # Attachments
+            files = request.FILES.getlist('attachments')
+            if files:
+                save_attachments(ticket, files, request.user)
+
+            # SLA & routing
             if ticket.type == Ticket.Type.SERVICE_REQUEST:
                 ticket.status = Ticket.Status.PENDING_APPROVAL
                 ticket.save(update_fields=['status'])
-            # Call your existing apply_sla helper here if it's defined elsewhere
+            apply_sla(ticket)
 
             return redirect('tickets:detail', pk=ticket.pk)
     else:
@@ -87,25 +142,23 @@ def cancel_ticket(request, pk):
         details={'from': ticket.status, 'to': Ticket.Status.CLOSED, 'reason': 'Cancelled by requester'}
     )
     if request.headers.get('HX-Request'):
-        # Rebuild the exact same paginated list as my_ticket_list
         tickets = Ticket.objects.filter(requester=request.user).order_by('-created_at')
         status_filter = request.POST.get('current_status', '')
         if status_filter and status_filter.upper() in dict(Ticket.Status.choices):
             tickets = tickets.filter(status=status_filter.upper())
-
         paginator = Paginator(tickets, 10)
         page_number = request.POST.get('page', 1)
         try:
             page_obj = paginator.page(page_number)
         except (PageNotAnInteger, EmptyPage):
             page_obj = paginator.page(1)
-
         context = {
             'tickets': page_obj,
             'current_status': status_filter,
             'status_choices': Ticket.Status.choices,
         }
         return render(request, 'partials/ticket_list_partial.html', context)
+    return redirect('tickets:my_list')
 
 # ---------- My Tickets List ----------
 @login_required
@@ -113,12 +166,9 @@ def my_ticket_list(request):
     tickets = Ticket.objects.filter(requester=request.user).order_by('-created_at')
     status_filter = request.GET.get('status', '')
     base = request.GET.get('base', '')
-
-    # Map virtual filters to real status lists
     open_statuses = ['NEW', 'TRIAGED', 'ASSIGNED', 'IN_PROGRESS', 'PENDING_USER', 'PENDING_VENDOR', 'APPROVED']
     closed_statuses = ['RESOLVED', 'CLOSED']
 
-    # Apply filtering
     if status_filter == 'OPEN':
         tickets = tickets.filter(status__in=open_statuses)
     elif status_filter == 'CLOSED':
@@ -133,24 +183,19 @@ def my_ticket_list(request):
     except (PageNotAnInteger, EmptyPage):
         page_obj = paginator.page(1)
 
-    # Choose which chips to show
+    # Choose chips
     all_choices = Ticket.Status.choices
     if base == 'OPEN':
-        status_choices = [
-            ('NEW', 'New'), ('TRIAGED', 'Triaged'), ('ASSIGNED', 'Assigned'),
-            ('IN_PROGRESS', 'In Progress'), ('PENDING_USER', 'Pending User'),
-            ('PENDING_VENDOR', 'Pending Vendor'), ('APPROVED', 'Approved'),
-        ]
+        status_choices = [('NEW','New'), ('TRIAGED','Triaged'), ('ASSIGNED','Assigned'),
+                          ('IN_PROGRESS','In Progress'), ('PENDING_USER','Pending User'),
+                          ('PENDING_VENDOR','Pending Vendor'), ('APPROVED','Approved')]
     elif base == 'CLOSED':
-        status_choices = [('RESOLVED', 'Resolved'), ('CLOSED', 'Closed')]
+        status_choices = [('RESOLVED','Resolved'), ('CLOSED','Closed')]
     else:
         status_choices = all_choices
 
-    # Set base for template context
-    base_status = base if base in ['OPEN', 'CLOSED'] else ''
-    # Determine if the user clicked a specific sub‑filter chip
+    base_status = base if base in ['OPEN','CLOSED'] else ''
     explicit = request.GET.get('explicit') == '1'
-
 
     context = {
         'tickets': page_obj,
@@ -159,18 +204,6 @@ def my_ticket_list(request):
         'sidebar_template': get_sidebar_template(request.user),
         'base_status': base_status,
         'explicit': explicit,
-    }
-
-    if request.headers.get('HX-Request'):
-        return render(request, 'partials/ticket_list_partial.html', context)
-    return render(request, 'requester/ticket_list.html', context)
-
-    context = {
-        'tickets': page_obj,
-        'current_status': status_filter or '',
-        'status_choices': status_choices,
-        'sidebar_template': get_sidebar_template(request.user),
-        'base_status': base,          # always set
     }
 
     if request.headers.get('HX-Request'):
@@ -195,6 +228,11 @@ def ticket_detail(request, pk):
             comment.author = request.user
             comment.visibility = TicketComment.Visibility.PUBLIC
             comment.save()
+
+            # Attachments
+            files = request.FILES.getlist('attachments')
+            if files:
+                save_attachments(ticket, files, request.user, comment=comment)
 
             if ticket.status == Ticket.Status.PENDING_USER:
                 ticket.status = Ticket.Status.IN_PROGRESS
@@ -288,7 +326,6 @@ def agent_ticket_conversation(request, pk):
     ticket = get_object_or_404(Ticket, pk=pk)
     if request.user.role not in [User.Role.AGENT, User.Role.TEAM_LEAD, User.Role.ADMIN, User.Role.SUPERADMIN]:
         return HttpResponse(status=403)
-
     comments = ticket.comments.all().order_by('created_at')
     form = CommentForm()
     return render(request, 'agent/ticket_conversation.html', {
@@ -312,6 +349,11 @@ def add_comment_conversation(request, pk):
         if comment.visibility not in ['PUBLIC', 'INTERNAL']:
             comment.visibility = 'PUBLIC'
         comment.save()
+
+        # Attachments
+        files = request.FILES.getlist('attachments')
+        if files:
+            save_attachments(ticket, files, request.user, comment=comment)
 
         TicketActivityLog.objects.create(
             ticket=ticket, action='commented', actor=request.user,
@@ -412,17 +454,12 @@ def add_follower_popover(request, ticket_pk):
         'agents': User.objects.filter(role__in=['AGENT','TEAM_LEAD'])[:10],
     })
 
-# ---------- Popover stubs ----------
-def edit_group_popover(request, pk):
-    return render(request, 'partials/popovers/empty.html')
-def edit_type_popover(request, pk):
-    return render(request, 'partials/popovers/empty.html')
-def edit_priority_popover(request, pk):
-    return render(request, 'partials/popovers/empty.html')
-def add_tag_popover(request, pk):
-    return render(request, 'partials/popovers/empty.html')
-def remove_tag(request, pk, tag_pk):
-    return HttpResponse(status=204)
+# Popover stubs
+def edit_group_popover(request, pk): return render(request, 'partials/popovers/empty.html')
+def edit_type_popover(request, pk): return render(request, 'partials/popovers/empty.html')
+def edit_priority_popover(request, pk): return render(request, 'partials/popovers/empty.html')
+def add_tag_popover(request, pk): return render(request, 'partials/popovers/empty.html')
+def remove_tag(request, pk, tag_pk): return HttpResponse(status=204)
 
 # ---------- Macros ----------
 @login_required
@@ -497,11 +534,9 @@ def team_queue(request):
         assigned_to__in=team_members
     ).exclude(status__in=[Ticket.Status.RESOLVED, Ticket.Status.CLOSED]
     ).order_by('-created_at')
-
     agent_id = request.GET.get('agent')
     if agent_id:
         tickets = tickets.filter(assigned_to_id=agent_id)
-
     context = {
         'tickets': tickets,
         'team_members': team_members,
@@ -534,22 +569,17 @@ def team_reassign(request, pk):
 def audit_log(request):
     if request.user.role not in ['TEAM_LEAD', 'ADMIN', 'SUPERADMIN']:
         return HttpResponse(status=403)
-
     logs = TicketActivityLog.objects.select_related('ticket', 'actor').all()
     if request.user.role == 'TEAM_LEAD':
         team_members = User.objects.filter(department=request.user.department, role='AGENT')
         logs = logs.filter(
             Q(ticket__assigned_to__in=team_members) | Q(ticket__requester__in=team_members)
         )
-
     action = request.GET.get('action')
     ticket_id = request.GET.get('ticket')
-    if action:
-        logs = logs.filter(action=action)
-    if ticket_id:
-        logs = logs.filter(ticket__number__icontains=ticket_id)
+    if action: logs = logs.filter(action=action)
+    if ticket_id: logs = logs.filter(ticket__number__icontains=ticket_id)
     logs = logs.order_by('-created_at')[:100]
-
     context = {
         'logs': logs,
         'action_choices': ['created', 'status_changed', 'assigned', 'unassigned', 'commented'],
@@ -563,13 +593,11 @@ def reports_dashboard(request):
     user = request.user
     if user.role not in ['ADMIN', 'SUPERADMIN', 'TEAM_LEAD']:
         return HttpResponse(status=403)
-
     if user.role == 'TEAM_LEAD':
         team_members = User.objects.filter(department=user.department, role='AGENT')
         ticket_filter = Q(assigned_to__in=team_members) | Q(requester__in=team_members)
     else:
         ticket_filter = Q()
-
     slas = SLA.objects.all().order_by('priority')
     sla_data = []
     for sla in slas:
@@ -651,7 +679,7 @@ def trigger_sla_processing(request):
         return HttpResponse('SLA processed OK', status=200)
     except Exception as e:
         return HttpResponse(f'Error: {str(e)}', status=500)
-    
+
 # ---------- Auto-Delete User Trigger ----------
 @csrf_exempt
 def trigger_cleanup(request):
@@ -667,14 +695,12 @@ def trigger_cleanup(request):
 # ---------- Placeholder / Static Pages ----------
 @login_required
 def catalogue(request):
-    if request.user.role not in ['ADMIN', 'SUPERADMIN']:
-        return HttpResponse(status=403)
+    if request.user.role not in ['ADMIN', 'SUPERADMIN']: return HttpResponse(status=403)
     return render(request, 'admin/catalogue.html', {'sidebar_template': get_sidebar_template(request.user)})
 
 @login_required
 def connectors(request):
-    if request.user.role not in ['ADMIN', 'SUPERADMIN']:
-        return HttpResponse(status=403)
+    if request.user.role not in ['ADMIN', 'SUPERADMIN']: return HttpResponse(status=403)
     return render(request, 'admin/connectors.html', {'sidebar_template': get_sidebar_template(request.user)})
 
 @login_required
@@ -691,8 +717,7 @@ def kb_suggestions(request):
 # ---------- Approver Views ----------
 @login_required
 def approver_dashboard(request):
-    if request.user.role != User.Role.APPROVER:
-        return HttpResponse(status=403)
+    if request.user.role != User.Role.APPROVER: return HttpResponse(status=403)
     pending = Ticket.objects.filter(status=Ticket.Status.PENDING_APPROVAL)
     overdue = pending.filter(created_at__lt=timezone.now() - timedelta(days=2))
     recent_logs = TicketActivityLog.objects.filter(
@@ -709,15 +734,13 @@ def approver_dashboard(request):
 
 @login_required
 def approver_pending(request):
-    if request.user.role != User.Role.APPROVER:
-        return HttpResponse(status=403)
+    if request.user.role != User.Role.APPROVER: return HttpResponse(status=403)
     tickets = Ticket.objects.filter(status=Ticket.Status.PENDING_APPROVAL).order_by('-created_at')
     return render(request, 'partials/approver_pending.html', {'tickets': tickets, 'sidebar_template': get_sidebar_template(request.user)})
 
 @login_required
 def approver_history(request):
-    if request.user.role != User.Role.APPROVER:
-        return HttpResponse(status=403)
+    if request.user.role != User.Role.APPROVER: return HttpResponse(status=403)
     logs = TicketActivityLog.objects.filter(
         actor=request.user, action__in=['approved', 'rejected']
     ).select_related('ticket').order_by('-created_at')[:50]
@@ -727,8 +750,7 @@ def approver_history(request):
 @require_POST
 def approve_ticket(request, pk):
     ticket = get_object_or_404(Ticket, pk=pk, status=Ticket.Status.PENDING_APPROVAL)
-    if request.user.role != User.Role.APPROVER:
-        return HttpResponse(status=403)
+    if request.user.role != User.Role.APPROVER: return HttpResponse(status=403)
     comment = request.POST.get('comment', '')
     ticket.status = Ticket.Status.APPROVED
     ticket.save()
@@ -744,8 +766,7 @@ def approve_ticket(request, pk):
 @require_POST
 def reject_ticket(request, pk):
     ticket = get_object_or_404(Ticket, pk=pk, status=Ticket.Status.PENDING_APPROVAL)
-    if request.user.role != User.Role.APPROVER:
-        return HttpResponse(status=403)
+    if request.user.role != User.Role.APPROVER: return HttpResponse(status=403)
     comment = request.POST.get('comment', '')
     ticket.status = Ticket.Status.CLOSED
     ticket.save()
@@ -757,9 +778,19 @@ def reject_ticket(request, pk):
     )
     return redirect('tickets:approver_pending')
 
+# ---------- Attachment Download ----------
+@login_required
+def attachment_download(request, pk):
+    attachment = get_object_or_404(Attachment, pk=pk)
+    ticket = attachment.ticket
+    if request.user != ticket.requester and request.user.role not in ['AGENT', 'TEAM_LEAD', 'ADMIN', 'SUPERADMIN']:
+        raise PermissionDenied
+    response = FileResponse(attachment.file.open('rb'), content_type=attachment.content_type or 'application/octet-stream')
+    response['Content-Disposition'] = f'attachment; filename="{attachment.filename}"'
+    return response
+
 # ---------- SLA Management (Admin & Superadmin) ----------
-def is_admin(user):
-    return user.role in ['ADMIN', 'SUPERADMIN']
+def is_admin(user): return user.role in ['ADMIN', 'SUPERADMIN']
 
 @login_required
 @user_passes_test(is_admin)

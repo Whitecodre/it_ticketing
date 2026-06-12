@@ -15,12 +15,12 @@
     <script src="{% static 'js/htmx.min.js' %}" defer></script>
 
     {# CHARTJS #}
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="{% static 'js/chart.min.js' %}"></script>
 
-    <link rel="stylesheet" href="{% static 'css/theme.css' %}">
+    <link rel="stylesheet" href="{% static 'css/theme.css' %}?v=2">
 
 </head>
-<body class="h-full font-poppins">
+<body class="font-poppins">
 
     {# -------- NAVIGATION (radio theme switcher) -------- #}
     {% block navigation %}

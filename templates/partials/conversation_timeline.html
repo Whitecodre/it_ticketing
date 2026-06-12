@@ -23,6 +23,14 @@
                     {{ comment.author.get_full_name }}
                 </div>
                 <div>{{ comment.body|linebreaksbr }}</div>
+                {% for attachment in comment.attachments.all %}
+                    <div class="mt-1 text-xs">
+                        <a href="{% url 'tickets:attachment_download' attachment.pk %}" class="text-primary hover:underline flex items-center gap-1">
+                            {% lucide "paperclip" size=12 %}
+                            {{ attachment.filename }} ({{ attachment.size|filesizeformat }})
+                        </a>
+                    </div>
+                {% endfor %}
                 <div class="text-[0.6rem] mt-1 opacity-60">
                     {{ comment.created_at|date:"h:i A" }}
                 </div>

@@ -56,31 +56,32 @@
     {# Composer (fixed at bottom) #}
     <div class="px-4 py-3 border-t" style="background-color: var(--color-surface); border-color: var(--color-border);">
         <form hx-post="{% url 'tickets:detail' ticket.pk %}"
-              hx-target="#commentThread"
-              hx-swap="innerHTML"
-              hx-on::after-request="this.reset()">
+            hx-target="#commentThread"
+            hx-swap="innerHTML"
+            hx-on::after-request="this.reset()"
+            enctype="multipart/form-data">
             {% csrf_token %}
 
-            {# Comment Area #}
             <div>
                 <textarea name="body" rows="2" placeholder="Write a reply…"
                 class="w-full rounded-lg border p-3 text-xs resize-none focus:outline-none focus:ring-2"
                 style="background-color: var(--color-background); border-color: var(--color-border); color: var(--color-text-primary); --tw-ring-color: var(--color-primary);"
                 required></textarea>
             </div>
-            {# End of Comment Area #}
-            <div class="flex gap-2">
+
+            <div class="flex gap-2 mt-2">
                 <div class="flex-1">
-                    <div class="flex items-center gap-1 mt-1">
+                    <div class="flex items-center gap-1">
                         <button type="button" class="btn-ghost p-1 text-xs element-link" data-tooltip="Bold">
                             {% lucide "bold" size=14 %}
                         </button>
                         <button type="button" class="btn-ghost p-1 text-xs element-link" data-tooltip="Italic">
                             {% lucide "italic" size=14 %}
                         </button>
-                        <button type="button" class="btn-ghost p-1 text-xs element-link" data-tooltip="Attach file">
+                        <label class="btn-ghost p-1 text-xs element-link cursor-pointer" data-tooltip="Attach files">
                             {% lucide "paperclip" size=14 %}
-                        </button>
+                            <input type="file" name="attachments" multiple class="hidden">
+                        </label>
                     </div>
                 </div>
                 <button type="submit" class="btn-primary text-xs flex items-center gap-1 self-end px-4 py-2">

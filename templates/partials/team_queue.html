@@ -30,41 +30,43 @@
 
     <div class="dashboard-card p-0 overflow-hidden">
         {% if tickets %}
-        <table class="data-table w-full text-xs">
-            <thead>
-                <tr>
-                    <th>Ticket</th>
-                    <th>Subject</th>
-                    <th>Assignee</th>
-                    <th>Status</th>
-                    <th>Updated</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for ticket in tickets %}
-                <tr class="hover:bg-black/2">
-                    <td><span class="font-mono text-[0.7rem]" style="color: var(--color-primary);">{{ ticket.number }}</span></td>
-                    <td class="max-w-xs truncate">{{ ticket.title }}</td>
-                    <td>{{ ticket.assigned_to.get_full_name|default:"Unassigned" }}</td>
-                    <td><span class="status-chip {{ ticket.status|lower }} text-[0.65rem]">{{ ticket.get_status_display }}</span></td>
-                    <td class="text-text-secondary">{{ ticket.updated_at|timesince }} ago</td>
-                    <td>
-                        <select class="text-xs rounded border py-1 px-2 focus:outline-none"
-                                style="background-color: var(--color-background); border-color: var(--color-border); color: var(--color-text-primary);"
-                                onchange="reassignTicket({{ ticket.pk }}, this.value)">
-                            <option value="">Reassign</option>
-                            {% for agent in team_members %}
-                                {% if agent.pk != ticket.assigned_to.pk %}
-                                    <option value="{{ agent.pk }}">{{ agent.get_full_name }}</option>
-                                {% endif %}
-                            {% endfor %}
-                        </select>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <div class="overflow-x-auto">
+            <table class="data-table w-full text-xs">
+                <thead>
+                    <tr>
+                        <th>Ticket</th>
+                        <th>Subject</th>
+                        <th>Assignee</th>
+                        <th>Status</th>
+                        <th>Updated</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ticket in tickets %}
+                    <tr class="hover:bg-black/2">
+                        <td><span class="font-mono text-[0.7rem]" style="color: var(--color-primary);">{{ ticket.number }}</span></td>
+                        <td class="max-w-xs truncate">{{ ticket.title }}</td>
+                        <td>{{ ticket.assigned_to.get_full_name|default:"Unassigned" }}</td>
+                        <td><span class="status-chip {{ ticket.status|lower }} text-[0.65rem]">{{ ticket.get_status_display }}</span></td>
+                        <td class="text-text-secondary">{{ ticket.updated_at|timesince }} ago</td>
+                        <td>
+                            <select class="text-xs rounded border py-1 px-2 focus:outline-none"
+                                    style="background-color: var(--color-background); border-color: var(--color-border); color: var(--color-text-primary);"
+                                    onchange="reassignTicket({{ ticket.pk }}, this.value)">
+                                <option value="">Reassign</option>
+                                {% for agent in team_members %}
+                                    {% if agent.pk != ticket.assigned_to.pk %}
+                                        <option value="{{ agent.pk }}">{{ agent.get_full_name }}</option>
+                                    {% endif %}
+                                {% endfor %}
+                            </select>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
         {% else %}
         <div class="text-center py-10 text-xs text-text-secondary">No tickets in the team queue.</div>
         {% endif %}
@@ -87,7 +89,7 @@
         }).then(response => response.json())
           .then(data => {
               if (data.status === 'ok') {
-                  location.reload();  // simple refresh to show changes
+                  location.reload();
               }
           });
     }

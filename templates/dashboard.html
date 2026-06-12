@@ -1,9 +1,0 @@
-{% extends "base.html" %}
-{% block title %}Dashboard{% endblock %}
-{% block content %}
-<div class="max-w-4xl mx-auto mt-10 p-6 bg-white rounded-lg shadow">
-    <h1 class="text-2xl font-bold">Welcome, {{ request.user.get_full_name|default:request.user.username }}</h1>
-    <p class="mt-2 text-gray-600">Your role: <span class="font-semibold">{{ request.user.get_role_display }}</span></p>
-    <p class="mt-4 text-gray-500">Your personalised dashboard will appear here once it's built.</p>
-</div>
-{% endblock %}
