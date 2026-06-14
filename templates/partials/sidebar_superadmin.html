@@ -27,6 +27,24 @@
 <div class="border-t mx-2 my-1" style="border-color: var(--color-border);"></div>
 
 <div class="px-3">
+    <a href="{% url 'tickets:unassigned' %}"
+    class="flex items-center justify-center p-1.5 rounded-sm transition sidebar-link" data-tooltip="Unassigned"
+    style="{% if '/tickets/unassigned/' in request.path %}background-color: var(--color-primary); color: white;{% else %}color: var(--color-text-secondary);{% endif %}">
+        {% lucide "inbox" size=18 class="h-4.5 w-4.5" %}
+    </a>
+</div>
+
+<div class="px-3">
+    <a href="{% url 'tickets:assigned_to_me' %}"
+    class="flex items-center justify-center p-1.5 rounded-sm transition sidebar-link" data-tooltip="Assigned to Me"
+    style="{% if '/tickets/assigned/' in request.path %}background-color: var(--color-primary); color: white;{% else %}color: var(--color-text-secondary);{% endif %}">
+        {% lucide "user-check" size=18 class="h-4.5 w-4.5" %}
+    </a>
+</div>
+
+<div class="border-t mx-2 my-1" style="border-color: var(--color-border);"></div>
+
+<div class="px-3">
     <a href="{% url 'accounts:admin_users' %}"
        class="flex items-center justify-center p-1.5 rounded-sm transition sidebar-link" data-tooltip="User Management"
        style="{% if '/admin/users/' in request.path %}background-color: var(--color-primary); color: white;{% else %}color: var(--color-text-secondary);{% endif %}">
@@ -57,13 +75,5 @@
        class="flex items-center justify-center p-1.5 rounded-sm transition sidebar-link" data-tooltip="Reports"
        style="{% if '/reports/' in request.path %}background-color: var(--color-primary); color: white;{% else %}color: var(--color-text-secondary);{% endif %}">
         {% lucide "chart-bar" size=18 class="h-4.5 w-4.5" %}
-    </a>
-</div>
-
-<div class="px-3">
-    <a href="{% url 'accounts:profile' %}"
-       class="flex items-center justify-center p-1.5 rounded-sm transition sidebar-link" data-tooltip="Profile"
-       style="{% if request.path == '/accounts/profile/' %}background-color: var(--color-primary); color: white;{% else %}color: var(--color-text-secondary);{% endif %}">
-        {% lucide "circle-user" size=18 class="h-4.5 w-4.5" %}
     </a>
 </div>

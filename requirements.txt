@@ -12,3 +12,4 @@ factory-boy>=3.3
 django-lucide>=0.3
 cloudinary>=1.41
 django-cloudinary-storage>=0.3
+beautifulsoup4>=4.15.0

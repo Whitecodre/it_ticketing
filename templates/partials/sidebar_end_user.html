@@ -67,11 +67,3 @@
         {% lucide "monitor" size=18 class="h-4.5 w-4.5" %}
     </a>
 </div>
-
-<div class="px-3">
-    <a href="{% url 'accounts:profile' %}"
-       class="flex items-center justify-center p-2 rounded-sm transition sidebar-link" data-tooltip="Profile"
-       style="{% if request.path == '/accounts/profile/' %}background-color: var(--color-primary); color: white;{% else %}color: var(--color-text-secondary);{% endif %}">
-        {% lucide "circle-user" size=18 class="h-4.5 w-4.5" %}
-    </a>
-</div>

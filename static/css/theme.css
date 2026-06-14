@@ -679,6 +679,7 @@ main.flex-1.overflow-y-auto {
 #userTableContainer {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;   /* smooth scrolling on iOS */
+    max-width: 100%;      /* prevent card from expanding beyond parent */
 }
 
 /* 2. Prevent the main page body from ever getting a horizontal scrollbar */
@@ -688,13 +689,14 @@ html, body {
 
 /* 3. Make sure the main content area itself doesn't overflow */
 main {
-    overflow-x: hidden;
+    overflow-x: auto;
+    overflow-y: auto;   /* keep vertical scrolling */
 }
 
 /* 4. Ensure tables don't have a width larger than their container */
 table.data-table {
     min-width: 100%;        /* allows table to be at least as wide as container */
-    width: max-content;     /* but it can grow if needed (and then scroll) */
+    width: 100%;     /* but it can grow if needed (and then scroll) */
 }
 /* ========== END OF UNIVERSAL TABLE RESPONSIVENESS ========== */
 

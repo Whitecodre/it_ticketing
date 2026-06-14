@@ -6,7 +6,7 @@
         <div class="text-xs font-semibold mb-1 opacity-80">
             {{ ticket.requester.get_full_name }}
         </div>
-        <div>{{ ticket.description|linebreaksbr }}</div>
+        <div>{{ ticket.description|linebreaksbr|safe }}</div>
         {% for att in initial_attachments %}
         <div class="mt-1 text-xs">
             <a href="{% url 'tickets:attachment_download' att.pk %}"
@@ -35,13 +35,13 @@
             <div class="text-xs font-semibold mb-1 opacity-80">
                 {{ comment.author.get_full_name }}
             </div>
-            <div>{{ comment.body|linebreaksbr }}</div>
+            <div>{{ comment.body|safe }}</div>
 
             {# ---------- Attachments Loop ---------- #}
             {% for attachment in comment.attachment_set.all %}
                 <div class="mt-1 text-xs">
                     <a href="{% url 'tickets:attachment_download' attachment.pk %}"
-                       class="flex items-center gap-1"
+                       class="flex items-center gap-1 underline"
                        style="color: {% if comment.author == request.user %}var(--color-primary-dark){% else %}var(--color-text-secondary){% endif %};">
                         {% lucide "paperclip" size=12 %}
                         {{ attachment.filename }} ({{ attachment.size|filesizeformat }})

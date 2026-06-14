@@ -6,11 +6,11 @@
         <div class="text-xs font-semibold mb-1 opacity-80">
             {{ ticket.requester.get_full_name }}
         </div>
-        <div>{{ ticket.description|linebreaksbr }}</div>
+        <div>{{ ticket.description|linebreaksbr|safe }}</div>
         {% for att in initial_attachments %}
         <div class="mt-1 text-xs">
             <a href="{% url 'tickets:attachment_download' att.pk %}"
-               class="flex items-center gap-1"
+               class="flex items-center gap-1 underline"
                style="color: var(--color-text-secondary);">
                 {% lucide "paperclip" size=12 %}
                 {{ att.filename }} ({{ att.size|filesizeformat }})
@@ -24,15 +24,15 @@
 </div>
 
 {% for comment in comments %}
-    {% if comment.visibility == 'INTERNAL' %}
+    {% if comment.visibility == 'INTERNAL' and request.user.role in 'AGENT,TEAM_LEAD,ADMIN,SUPERADMIN' %}
         <div class="flex justify-center mb-3">
             <div class="max-w-lg rounded-lg px-4 py-2 text-xs border border-warning/20"
                  style="background-color: rgba(245, 158, 11, 0.06); color: var(--color-text-primary);">
-                <span class="font-semibold text-warning">Internal Note</span> — {{ comment.body|linebreaksbr }}
+                <span class="font-semibold text-warning">Internal Note</span> — {{ comment.body|safe }}
                 {% for attachment in comment.attachment_set.all %}
                     <div class="mt-1 text-xs">
                         <a href="{% url 'tickets:attachment_download' attachment.pk %}"
-                           class="flex items-center gap-1"
+                           class="flex items-center gap-1 underline"
                            style="color: var(--color-text-secondary);">
                             {% lucide "paperclip" size=12 %}
                             {{ attachment.filename }} ({{ attachment.size|filesizeformat }})
@@ -55,11 +55,11 @@
                 <div class="text-xs font-semibold mb-1 opacity-80">
                     {{ comment.author.get_full_name }}
                 </div>
-                <div>{{ comment.body|linebreaksbr }}</div>
+                <div>{{ comment.body|safe }}</div>
                 {% for attachment in comment.attachment_set.all %}
                     <div class="mt-1 text-xs">
                         <a href="{% url 'tickets:attachment_download' attachment.pk %}"
-                           class="flex items-center gap-1"
+                           class="flex items-center gap-1 underline"
                            style="color: {% if comment.author == request.user %}var(--color-primary-dark){% else %}var(--color-text-secondary){% endif %};">
                             {% lucide "paperclip" size=12 %}
                             {{ attachment.filename }} ({{ attachment.size|filesizeformat }})

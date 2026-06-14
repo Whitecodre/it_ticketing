@@ -1,10 +1,47 @@
 <!DOCTYPE html>
 <html>
-<body>
-    <p>Hi {{ user.username }},</p>
-    <p>Thank you for registering. Please click the link below to verify your email address:</p>
-    <p><a href="{{ link }}">{{ link }}</a></p>
-    <p>This link will expire in 24 hours.</p>
-    <p>If you did not create an account, please ignore this email.</p>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify your email</title>
+</head>
+<body style="margin: 0; padding: 20px; background-color: #F8FAFC; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+    <div style="max-width: 480px; margin: 0 auto; background: #FFFFFF; border-radius: 16px; padding: 32px 28px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+        
+        <!-- Logo / Brand -->
+        <div style="text-align: center; margin-bottom: 24px;">
+            <img src="https://demo-it-ticketing.onrender.com/static/img/gemz-logo.png" alt="Gemz Software" style="height: 40px; width: auto;">
+            <h1 style="font-size: 22px; font-weight: 600; color: #0D9488; margin: 12px 0 0 0;">Verify your email</h1>
+        </div>
+
+        <!-- Greeting -->
+        <p style="font-size: 16px; color: #1E293B; margin: 0 0 12px 0;">Hi <strong>{{ user.get_full_name|default:user.email }}</strong>,</p>
+        
+        <p style="font-size: 15px; color: #334155; line-height: 1.5; margin: 0 0 20px 0;">
+            Thanks for creating an account with Gemz IT Ticketing. Please verify your email address by clicking the button below.
+        </p>
+
+        <!-- Call to action button -->
+        <div style="text-align: center; margin: 28px 0 24px 0;">
+            <a href="{{ link }}" style="display: inline-block; background-color: #0D9488; color: #FFFFFF; font-size: 16px; font-weight: 600; text-decoration: none; padding: 12px 28px; border-radius: 9999px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">Verify Email Address</a>
+        </div>
+
+        <!-- Fallback link (for email clients that block buttons) -->
+        <p style="font-size: 13px; color: #64748B; text-align: center; margin: 0 0 20px 0;">
+            If the button doesn't work, copy and paste this link into your browser:<br>
+            <a href="{{ link }}" style="color: #0D9488; word-break: break-all;">{{ link }}</a>
+        </p>
+
+        <p style="font-size: 13px; color: #64748B; margin: 0 0 8px 0;">
+            This link expires in 24 hours.
+        </p>
+
+        <hr style="border: none; border-top: 1px solid #E2E8F0; margin: 24px 0 16px 0;">
+
+        <p style="font-size: 12px; color: #94A3B8; text-align: center; margin: 0;">
+            If you didn't create this account, you can safely ignore this email.<br>
+            &copy; 2025 Gemz Software
+        </p>
+    </div>
 </body>
 </html>

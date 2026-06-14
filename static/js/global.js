@@ -1,19 +1,29 @@
 // global.js – loaded on every dashboard page
 
-// Togling Mobile Search bar
+// Toggling Mobile Search bar
 function toggleMobileSearch() {
     const wrapper = document.getElementById('mobileSearchInputWrapper');
     const input = wrapper.querySelector('input');
+    const searchIcon = document.getElementById('searchIconSearch');
+    const closeIcon = document.getElementById('searchIconClose');
     if (wrapper.classList.contains('w-0')) {
         // Open
         wrapper.classList.remove('w-0', 'ml-0');
         wrapper.classList.add('w-40', 'ml-2');
         setTimeout(() => input.focus(), 100);
+        if (searchIcon && closeIcon) {
+            searchIcon.classList.add('hidden');
+            closeIcon.classList.remove('hidden');
+        }
     } else {
         // Close
         wrapper.classList.add('w-0', 'ml-0');
         wrapper.classList.remove('w-40', 'ml-2');
         input.value = '';
+        if (searchIcon && closeIcon) {
+            searchIcon.classList.remove('hidden');
+            closeIcon.classList.add('hidden');
+        }
     }
 }
 
@@ -191,4 +201,42 @@ function markReadAndGo(url, notificationId) {
     if (url) {
         window.location.href = url;
     }
+}
+// ========== RICH TEXT EDITOR (contenteditable) ==========
+let currentEditableDiv = null;
+
+function initRichTextEditor(divId, hiddenInputId) {
+    const editor = document.getElementById(divId);
+    const hidden = document.getElementById(hiddenInputId);
+    if (!editor || !hidden) return;
+    currentEditableDiv = editor;
+
+    // Sync HTML to hidden input before form submit
+    const form = editor.closest('form');
+    if (form) {
+        form.addEventListener('submit', function() {
+            hidden.value = editor.innerHTML;
+        });
+    }
+
+    // Optional: restore draft from localStorage
+    const draftKey = editor.getAttribute('data-draft-key');
+    if (draftKey) {
+        const saved = localStorage.getItem(draftKey);
+        if (saved) editor.innerHTML = saved;
+        editor.addEventListener('input', function() {
+            localStorage.setItem(draftKey, editor.innerHTML);
+        });
+        // Clear draft after successful submission
+        form.addEventListener('htmx:afterRequest', function() {
+            localStorage.removeItem(draftKey);
+            editor.innerHTML = '';
+        });
+    }
+}
+
+function formatDocument(command, value = null) {
+    if (!currentEditableDiv) return;
+    currentEditableDiv.focus();
+    document.execCommand(command, false, value);
 }

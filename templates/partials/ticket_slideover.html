@@ -1,54 +1,190 @@
 {% load lucide %}
 
-<div class="flex items-center justify-between mb-4">
-    <h2 class="text-base font-semibold" style="color: var(--color-text-primary);">{{ ticket.title }}</h2>
-    <button onclick="closeSlideover()" class="btn-ghost p-1">
-        {% lucide "x" size=18 %}
-    </button>
-</div>
-
-<div class="flex items-center gap-2 mb-4">
-    <span class="status-chip {{ ticket.status|lower }} text-xs">{{ ticket.get_status_display }}</span>
-    <span class="priority-chip {% if ticket.priority == 'P1' %}critical{% elif ticket.priority == 'P2' %}high{% elif ticket.priority == 'P3' %}medium{% else %}low{% endif %} text-xs">{{ ticket.get_priority_display }}</span>
-    {% if not ticket.assigned_to %}
-    <button class="btn-primary text-xs ml-auto flex items-center gap-1"
-            hx-post="{% url 'tickets:claim_ticket' ticket.pk %}"
-            hx-on::after-request="closeSlideover()"
-            hx-on::after-request="location.reload()">
-        {% lucide "user-plus" size=14 %} Claim
-    </button>
-    {% endif %}
-</div>
-
-<div class="space-y-3 text-sm" style="color: var(--color-text-primary);">
-    <div><strong>Requester:</strong> {{ ticket.requester.get_full_name|default:ticket.requester.email }}</div>
-    <div><strong>Assigned to:</strong> {{ ticket.assigned_to.get_full_name|default:"Unassigned" }}</div>
-    <div><strong>Created:</strong> {{ ticket.created_at|date:"M d, Y, P" }}</div>
-    <div>
-        <strong>Description:</strong>
-        <p class="mt-1">{{ ticket.description|linebreaks }}</p>
+<div class="flex flex-col h-full">
+    <!-- Header with gradient accent -->
+    <div class="relative px-5 py-4 border-b" style="background: linear-gradient(to right, var(--color-primary) 0%, var(--color-primary-dark) 100%); border-color: var(--color-border);">
+        <div class="flex items-start justify-between">
+            <div class="flex-1 pr-4">
+                <h2 class="text-base font-semibold text-white leading-tight">{{ ticket.title }}</h2>
+                <p class="text-xs text-white/80 mt-1 font-mono">{{ ticket.number }}</p>
+            </div>
+            <button onclick="closeSlideover()" class="text-white/80 hover:text-white transition">
+                {% lucide "x" size=20 %}
+            </button>
+        </div>
+        <div class="flex gap-2 mt-3">
+            <span class="status-chip {{ ticket.status|lower }} text-xs bg-white/20 text-white border-0">{{ ticket.get_status_display }}</span>
+            <span class="priority-chip {% if ticket.priority == 'P1' %}critical{% elif ticket.priority == 'P2' %}high{% elif ticket.priority == 'P3' %}medium{% else %}low{% endif %} text-xs bg-white/20 text-white border-0">{{ ticket.get_priority_display }}</span>
+        </div>
     </div>
-</div>
 
-<hr class="my-4" style="border-color: var(--color-border);">
+    <!-- Scrollable content -->
+    <div class="flex-1 overflow-y-auto p-5 space-y-5" style="background-color: var(--color-background);">
+        
+        <!-- Requester & Assignee (two columns) -->
+        <div class="grid grid-cols-2 gap-4">
+            <div class="flex items-start gap-3">
+                <div class="shrink-0">
+                    {% if ticket.requester.avatar %}
+                        <img src="{{ ticket.requester.avatar.url }}" class="h-8 w-8 rounded-full object-cover">
+                    {% else %}
+                        <div class="h-8 w-8 rounded-full flex items-center justify-center text-white text-xs font-semibold" style="background-color: var(--color-secondary);">
+                            {{ ticket.requester.email.0|upper }}
+                        </div>
+                    {% endif %}
+                </div>
+                <div class="min-w-0">
+                    <p class="text-[0.65rem] font-semibold uppercase tracking-wider text-text-secondary">Requester</p>
+                    <p class="text-sm font-medium truncate" style="color: var(--color-text-primary);">{{ ticket.requester.get_full_name|default:ticket.requester.email }}</p>
+                    <p class="text-xs text-text-secondary truncate">{{ ticket.requester.email }}</p>
+                </div>
+            </div>
+            <div class="flex items-start gap-3">
+                <div class="shrink-0">
+                    {% if ticket.assigned_to %}
+                        {% if ticket.assigned_to.avatar %}
+                            <img src="{{ ticket.assigned_to.avatar.url }}" class="h-8 w-8 rounded-full object-cover">
+                        {% else %}
+                            <div class="h-8 w-8 rounded-full flex items-center justify-center text-white text-xs font-semibold" style="background-color: var(--color-primary);">
+                                {{ ticket.assigned_to.email.0|upper }}
+                            </div>
+                        {% endif %}
+                    {% else %}
+                        <div class="h-8 w-8 rounded-full flex items-center justify-center bg-border text-text-secondary">
+                            {% lucide "user" size=16 %}
+                        </div>
+                    {% endif %}
+                </div>
+                <div class="min-w-0">
+                    <p class="text-[0.65rem] font-semibold uppercase tracking-wider text-text-secondary">Assignee</p>
+                    {% if ticket.assigned_to %}
+                        <p class="text-sm font-medium truncate" style="color: var(--color-text-primary);">{{ ticket.assigned_to.get_full_name }}</p>
+                        <p class="text-xs text-text-secondary truncate">{{ ticket.assigned_to.get_role_display }}</p>
+                    {% else %}
+                        <p class="text-sm text-text-secondary italic">Unassigned</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
 
-<h3 class="text-sm font-semibold mb-2" style="color: var(--color-text-primary);">Comments</h3>
-<div class="space-y-3">
-    {% for comment in comments %}
-    <div class="rounded-lg p-3 {% if comment.visibility == 'INTERNAL' %}border-l-2{% endif %}"
-         style="{% if comment.visibility == 'INTERNAL' %}border-color: var(--color-warning); background-color: var(--color-background);{% else %}background-color: var(--color-background);{% endif %}">
-        <div class="flex items-center gap-2 mb-1">
-            <span class="text-xs font-medium" style="color: {% if comment.visibility == 'INTERNAL' %}var(--color-warning){% else %}var(--color-primary){% endif %};">
-                {{ comment.author.get_full_name }}
-            </span>
-            <span class="text-[0.65rem]" style="color: var(--color-text-secondary);">{{ comment.created_at|timesince }} ago</span>
-            {% if comment.visibility == 'INTERNAL' %}
-            <span class="text-[0.6rem] font-semibold uppercase text-warning">Internal</span>
+        <!-- Metadata grid (short) -->
+        <div class="grid grid-cols-2 gap-x-4 gap-y-3 text-sm border-t pt-4" style="border-color: var(--color-border);">
+            <div>
+                <p class="text-[0.65rem] font-semibold uppercase tracking-wider text-text-secondary">Created</p>
+                <p class="text-sm" style="color: var(--color-text-primary);">{{ ticket.created_at|date:"M d, Y" }}</p>
+                <p class="text-xs text-text-secondary">{{ ticket.created_at|time:"H:i" }}</p>
+            </div>
+            <div>
+                <p class="text-[0.65rem] font-semibold uppercase tracking-wider text-text-secondary">Last Updated</p>
+                <p class="text-sm" style="color: var(--color-text-primary);">{{ ticket.updated_at|timesince }} ago</p>
+            </div>
+            <div>
+                <p class="text-[0.65rem] font-semibold uppercase tracking-wider text-text-secondary">Type</p>
+                <p class="text-sm" style="color: var(--color-text-primary);">{{ ticket.get_type_display }}</p>
+            </div>
+            <div>
+                <p class="text-[0.65rem] font-semibold uppercase tracking-wider text-text-secondary">Category</p>
+                <p class="text-sm" style="color: var(--color-text-primary);">{{ ticket.category.name|default:"—" }}</p>
+            </div>
+        </div>
+
+        <!-- Description + Attachments (collapsible groups) -->
+        <div class="rounded-xl p-4 space-y-3" style="background-color: var(--color-surface); border: 1px solid var(--color-border); border-radius: 0.75rem;">
+            <div class="text-sm" style="color: var(--color-text-primary); line-height: 1.5;">
+                <p class="text-[0.65rem] font-semibold uppercase tracking-wider text-text-secondary mb-2">Description</p>
+                {{ ticket.description|linebreaksbr }}
+            </div>
+
+            <!-- Attachments grouped: User attachments -->
+            {% if user_attachments %}
+            <div class="pt-2 border-t" style="border-color: var(--color-border);">
+                <button class="flex items-center gap-1 text-xs font-medium w-full text-left cursor-pointer" style="color: var(--color-text-primary);"
+                        onclick="this.nextElementSibling.classList.toggle('hidden'); this.querySelector('.chevron').classList.toggle('rotate-90')">
+                    {% lucide "chevron-right" size=14 class="chevron transition-transform" %}
+                    Sent by {{ ticket.requester.get_full_name|default:ticket.requester.email }} (User)
+                    <span class="text-text-secondary text-[0.6rem] ml-1">({{ user_attachments|length }})</span>
+                </button>
+                <div class="hidden mt-2 space-y-1">
+                    {% for att in user_attachments %}
+                    <div class="flex items-center gap-2 text-xs pl-5">
+                        <span class="text-text-secondary">📎</span>
+                        <a href="{% url 'tickets:attachment_download' att.pk %}" class="text-primary hover:underline truncate">{{ att.filename }}</a>
+                        <span class="text-text-secondary text-[0.6rem]">({{ att.size|filesizeformat }})</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Attachments grouped: Agent attachments -->
+            {% if agent_attachments %}
+            <div class="pt-2 border-t" style="border-color: var(--color-border);">
+                <button class="flex items-center gap-1 text-xs font-medium w-full text-left cursor-pointer" style="color: var(--color-text-primary);"
+                        onclick="this.nextElementSibling.classList.toggle('hidden'); this.querySelector('.chevron').classList.toggle('rotate-90')">
+                    {% lucide "chevron-right" size=14 class="chevron transition-transform" %}
+                    Sent by Support Team
+                    <span class="text-text-secondary text-[0.6rem] ml-1">({{ agent_attachments|length }})</span>
+                </button>
+                <div class="hidden mt-2 space-y-1">
+                    {% for att in agent_attachments %}
+                    <div class="flex items-center gap-2 text-xs pl-5">
+                        <span class="text-text-secondary">📎</span>
+                        <a href="{% url 'tickets:attachment_download' att.pk %}" class="text-primary hover:underline truncate">{{ att.filename }}</a>
+                        <span class="text-text-secondary text-[0.6rem]">({{ att.size|filesizeformat }})</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
             {% endif %}
         </div>
-        <p class="text-xs" style="color: var(--color-text-primary);">{{ comment.body|linebreaks }}</p>
+
+        <!-- Comments preview (max 2‑3 recent, minified) -->
+        <div>
+            <p class="text-[0.65rem] font-semibold uppercase tracking-wider text-text-secondary mb-2">Recent Activity</p>
+            <div class="space-y-2">
+                {% with recent_comments=comments|slice:":3" %}
+                    {% for comment in recent_comments %}
+                        {% if comment.visibility == 'INTERNAL' %}
+                            <div class="flex justify-end">
+                                <div class="max-w-[80%] text-xs px-3 py-1.5 rounded-md bg-warning/10 border border-warning/30" style="color: var(--color-text-primary);">
+                                    <span class="font-semibold text-warning">Internal Note</span>
+                                    <span class="text-text-secondary text-[0.6rem] ml-2">{{ comment.author.get_full_name }} · {{ comment.created_at|timesince }} ago</span>
+                                    <div class="mt-0.5">{{ comment.body|truncatechars:120 }}</div>
+                                </div>
+                            </div>
+                        {% else %}
+                            <div class="flex {% if comment.author == ticket.requester %}justify-start{% else %}justify-end{% endif %}">
+                                <div class="max-w-[80%] text-xs px-3 py-1.5 rounded-md {% if comment.author == ticket.requester %}bg-gray-100 dark:bg-gray-800{% else %}bg-primary{% endif %}" style="color: var(--color-text-primary);">
+                                    <span class="font-medium">{{ comment.author.get_full_name|default:comment.author.email.split.0 }}</span>
+                                    <span class="text-text-secondary text-[0.6rem] ml-2">{{ comment.created_at|timesince }} ago</span>
+                                    <div class="mt-0.5">{{ comment.body|truncatechars:120 }}</div>
+                                </div>
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                {% endwith %}
+                {% if comments|length > 3 %}
+                    <div class="text-center text-xs text-primary mt-2">
+                        <a href="{% url 'tickets:conversation' ticket.pk %}" target="_blank" class="hover:underline">View all {{ comments|length }} comments →</a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
     </div>
-    {% empty %}
-    <p class="text-xs text-text-secondary">No comments yet.</p>
-    {% endfor %}
+
+    <!-- Footer actions -->
+    <div class="border-t p-4 flex items-center justify-end gap-3" style="border-color: var(--color-border); background-color: var(--color-surface);">
+        <a href="{% url 'tickets:conversation' ticket.pk %}" class="btn-outline text-xs flex items-center gap-1 px-4 py-2">
+            {% lucide "message-square" size=14 %} Full Conversation
+        </a>
+        {% if not ticket.assigned_to %}
+        <button class="btn-primary text-xs flex items-center gap-1 px-4 py-2"
+                hx-post="{% url 'tickets:claim_ticket' ticket.pk %}"
+                hx-target="#ticketTable"
+                hx-swap="innerHTML"
+                hx-on::after-request="closeSlideover()">
+            {% lucide "user-plus" size=14 %} Claim Ticket
+        </button>
+        {% endif %}
+    </div>
 </div>

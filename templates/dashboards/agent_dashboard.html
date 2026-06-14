@@ -50,7 +50,9 @@
                 </a>
             </div>
             {% if recent_unassigned %}
-                {% include "partials/agent_ticket_table.html" with tickets=recent_unassigned %}
+                <div id="ticketTable">
+                    {% include "partials/agent_ticket_table.html" with tickets=recent_unassigned %}
+                </div>
             {% else %}
                 <div class="text-center py-6 text-xs" style="color: var(--color-text-secondary);">
                     No unassigned tickets. Great job!

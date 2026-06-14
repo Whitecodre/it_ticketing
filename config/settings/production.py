@@ -31,8 +31,15 @@ MIDDLEWARE.insert(1, 'whitenoise.middleware.WhiteNoiseMiddleware')
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-# Email (console for now)
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+# Brevo SMTP Configuration
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp-relay.brevo.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = os.environ.get('BREVO_SMTP_USER')      # e.g., 'your-brevo-login@email.com'
+EMAIL_HOST_PASSWORD = os.environ.get('BREVO_SMTP_PASSWORD')  # Your SMTP key
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@gemzsoftware.com')
+
 
 # Cloudinary file storage
 DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'

@@ -60,19 +60,40 @@
             {% endblock %}
         </nav>
 
-        {# Footer help button #}
-        <div class="border-t py-2 flex md:justify-center justify-start" style="border-color: var(--color-border);">
-            <a href="#"
-            class="sidebar-link flex items-center justify-center rounded-md p-2 transition"
-            data-tooltip="Contact Support"
-            style="color: var(--color-text-secondary);">
-                {% lucide "life-buoy" size=20 class="h-5 w-5" %}
-            </a>
+        {# Sidebar footer: user menu (button only) #}
+        <div class="border-t relative" style="border-color: var(--color-border);">
+            <button id="sidebarUserMenuButton"
+                    class="w-full flex items-center gap-1 p-2 text-left hover:bg-black/5 transition md:justify-center"
+                    style="background: transparent; border: none; cursor: pointer;"
+                    onclick="toggleSidebarUserMenu()">
+                <div class="shrink-0">
+                    {% if user.avatar %}
+                        <img src="{{ user.avatar.url }}" alt="Avatar" class="h-7 w-7 rounded-full object-cover">
+                    {% else %}
+                        <div class="flex h-7 w-7 items-center justify-center rounded-full text-white text-xs font-medium"
+                            style="background-color: var(--color-primary);">
+                            {{ user.email.0|upper }}
+                        </div>
+                    {% endif %}
+                </div>
+                {# Name, role, and chevron – hidden on desktop #}
+                <div class="flex-1 min-w-0 text-left md:hidden">
+                    <p class="text-xs font-medium truncate" style="color: var(--color-text-primary);">
+                        {{ user.get_full_name|default:user.email }}
+                    </p>
+                    <p class="text-[0.65rem] truncate" style="color: var(--color-text-secondary);">
+                        {% block role_label %}{% endblock %}
+                    </p>
+                </div>
+                <div class="shrink-0 md:hidden">
+                    {% lucide "chevron-up" size=14 class="h-3.5 w-3.5 transition-transform duration-200" id="sidebarUserChevron" style="color: var(--color-text-secondary);" %}
+                </div>
+            </button>
         </div>
     </aside>
 
     {# ========== MAIN CONTENT AREA ========== #}
-    <div class="flex flex-1 flex-col ml-0 md:ml-16 transition-all duration-300">
+    <div class="flex flex-1 flex-col min-w-0 ml-0 md:ml-16 transition-all duration-300">
         {# Hidden form to ensure CSRF token is set and available for HTMX #}
         <form style="display:none;">
             {% csrf_token %}
@@ -81,33 +102,34 @@
         <header class="sticky top-0 z-40 flex h-14 items-center justify-between border-b px-4 md:px-6"
                 style="background-color: var(--color-surface); border-color: var(--color-border);">
 
-            {# Left: hamburger (mobile) + brand (desktop) #}
-            <div class="flex items-center gap-3">
+            {# Left: hamburger (mobile) #}
+            <div class="flex items-center gap-3 md:w-1/3">
                 <button onclick="toggleSidebar()"
                         class="inline-flex items-center justify-center rounded-md p-1.5 text-text-secondary hover:bg-black/5 focus:outline-none md:hidden">
                     {% lucide "menu" size=20 class="h-5 w-5" %}
                 </button>
                 {# Brand on larger screens – hidden on mobile, visible from md #}
                 <span class="hidden md:inline-flex items-center gap-2">
-                    {% comment %} <img src="{% static 'img/gemz-logo.png' %}" alt="Gemz" class="h-7 w-auto"> {% endcomment %}
                     <span class="text-xl font-semibold text-primary">Gemz.Software</span>
                 </span>
             </div>
 
-            {# Right: utilities + search #}
-            <div class="flex items-center gap-2 md:gap-3">
-
-                {# ---- Desktop search (hidden on mobile) ---- #}
-                <div class="hidden md:flex items-center ml-6">
-                    <div class="relative">
+            {# Center: search (centered, wider on desktop) #}
+            <div class="flex-1 flex justify-center">
+                {# ---- Desktop search (centered) ---- #}
+                <div class="hidden md:flex items-center w-full max-w-lg">
+                    <div class="relative w-full">
                         {% lucide "search" size=16 class="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4" style="color: var(--color-text-secondary);" %}
                         <input type="search"
-                            class="w-48 lg:w-64 rounded-md border py-1.5 pl-8 pr-4 text-xs focus:outline-none focus:ring-2"
+                            class="w-full rounded-md border py-1.5 pl-8 pr-4 text-xs focus:outline-none focus:ring-2"
                             style="background-color: var(--color-background); border-color: var(--color-border); color: var(--color-text-primary); --tw-ring-color: var(--color-primary);"
                             placeholder="Search tickets, KB, users...">
                     </div>
                 </div>
+            </div>
 
+            {# Right: utilities + mobile search #}
+            <div class="flex items-center gap-2 md:gap-3 md:w-1/3 md:justify-end">
                 {# ---- Mobile expandable search ---- #}
                 <div class="md:hidden flex items-center" id="mobileSearchContainer">
                     <button type="button" id="toggleMobileSearchBtn"
@@ -115,7 +137,8 @@
                             style="color: var(--color-text-secondary);"
                             onclick="toggleMobileSearch()"
                             aria-label="Toggle search">
-                        {% lucide "search" size=18 class="h-4.5 w-4.5" %}
+                        <span id="searchIconSearch">{% lucide "search" size=18 class="h-4.5 w-4.5" %}</span>
+                        <span id="searchIconClose" class="hidden">{% lucide "search-x" size=18 class="h-4.5 w-4.5" %}</span>
                     </button>
                     <div id="mobileSearchInputWrapper"
                         class="overflow-hidden transition-all duration-300 ease-in-out w-0 ml-0">
@@ -147,47 +170,12 @@
                     </div>
                 </div>
 
-                {# User menu #}
-                <div class="relative">
-                    <button id="userMenuButton"
-                            class="flex items-center gap-2.5 p-1.5 rounded-full hover:bg-black/5 transition"
-                            style="background: transparent; border: none; cursor: pointer;"
-                            onclick="toggleUserMenu()">
-                        <div class="shrink-0">
-                            {% if user.avatar %}
-                                <img src="{{ user.avatar.url }}" alt="Avatar" class="h-7 w-7 rounded-full object-cover">
-                            {% else %}
-                                <div class="flex h-7 w-7 items-center justify-center rounded-full text-white text-xs font-medium"
-                                    style="background-color: var(--color-primary);">
-                                    {{ user.email.0|upper }}
-                                </div>
-                            {% endif %}
-                        </div>
-                        <div class="hidden sm:block text-left">
-                            <p class="text-xs font-medium truncate" style="color: var(--color-text-primary); max-width: 120px;">
-                                {{ user.get_full_name|default:user.email }}
-                            </p>
-                            <p class="text-[0.65rem] truncate" style="color: var(--color-text-secondary);">
-                                {% block role_label %}{% endblock %}
-                            </p>
-                        </div>
-                        {% lucide "chevron-down" size=14 class="h-3.5 w-3.5 transition-transform duration-200" id="userMenuChevron" style="color: var(--color-text-secondary);" %}
-                    </button>
-
-                    {# Dropdown #}
-                    <div id="userMenuDropdown"
-                        class="absolute top-full right-0 mt-1 w-40 rounded-md shadow-lg border overflow-hidden"
-                        style="background-color: var(--color-surface); border-color: var(--color-border); display: none; z-index: 50;">
-                        <form action="{% url 'accounts:logout' %}" method="post" class="m-0">
-                            {% csrf_token %}
-                            <button type="submit"
-                                    class="flex w-full items-center gap-2.5 px-4 py-2.5 text-xs transition hover:bg-black/5"
-                                    style="color: var(--color-text-primary); background: none; border: none; cursor: pointer;">
-                                {% lucide "log-out" size=14 class="h-3.5 w-3.5" style="color: var(--color-text-secondary);" %}
-                                Log Out
-                            </button>
-                        </form>
-                    </div>
+                {# Role badge for desktop #}
+                <div class="hidden md:flex items-center">
+                    <span class="text-xs font-medium px-2 py-1 rounded-full border"
+                        style="background-color: var(--color-surface); border-color: var(--color-border); color: var(--color-text-primary);">
+                        {{ user.get_role_display }}
+                    </span>
                 </div>
 
                 {# Theme toggle #}
@@ -205,7 +193,7 @@
         </header>
 
         {# Main content #}
-        <main class="flex-1 overflow-y-auto p-4 md:p-5">
+       <main class="flex-1 overflow-y-auto {% block main_content_class %}p-4 md:p-5{% endblock %}">
             {% block page_title_area %}
             <h1 class="text-xl font-semibold truncate mb-4" style="color: var(--color-text-primary);">
                 {% block page_title %}Dashboard{% endblock %}
@@ -213,6 +201,33 @@
             {% endblock page_title_area %}
             {% block dashboard_content %}{% endblock %}
         </main>
+
+        {# ========== SIDEBAR USER DROPDOWN (floats freely, outside sidebar) ========== #}
+        <div id="sidebarUserDropdown"
+             class="fixed rounded-sm shadow-md border overflow-hidden"
+             style="background-color: var(--color-surface); border-color: var(--color-border); display: none; z-index: 70; min-width: 10rem;">
+            <a href="{% url 'accounts:profile' %}"
+               class="flex items-center gap-2.5 px-4 py-2.5 text-xs transition hover:bg-black/5"
+               style="color: var(--color-text-primary);">
+                {% lucide "circle-user" size=14 class="h-3.5 w-3.5" style="color: var(--color-text-secondary);" %}
+                Profile
+            </a>
+            <a href="#" class="flex items-center gap-2.5 px-4 py-2.5 text-xs transition hover:bg-black/5"
+               style="color: var(--color-text-primary);">
+                {% lucide "life-buoy" size=14 class="h-3.5 w-3.5" style="color: var(--color-text-secondary);" %}
+                Contact Support
+            </a>
+            <form action="{% url 'accounts:logout' %}" method="post" class="m-0">
+                {% csrf_token %}
+                <button type="submit"
+                        class="flex w-full items-center gap-2.5 px-4 py-2.5 text-xs transition hover:bg-black/5"
+                        style="color: var(--color-text-primary); background: none; border: none; cursor: pointer;">
+                    {% lucide "log-out" size=14 class="h-3.5 w-3.5" style="color: var(--color-text-secondary);" %}
+                    Log Out
+                </button>
+            </form>
+        </div>
+
         {# ========== SLIDE-OVER PANEL (right) ========== #}
         <div id="slideoverBackdrop"
             class="fixed inset-0 z-50 bg-black/50 hidden transition-opacity duration-300"
@@ -240,5 +255,59 @@
     // Provide the notifications list URL (used by global.js)
     window.notificationsUrl = "{% url 'notifications:list' %}";
 </script>
+
+{# Sidebar user menu toggle #}
+<script>
+    // ----- Sidebar User Menu (fixed position) -----
+    function toggleSidebarUserMenu() {
+        const dropdown = document.getElementById('sidebarUserDropdown');
+        const chevron = document.getElementById('sidebarUserChevron');
+        const button = document.getElementById('sidebarUserMenuButton');
+        if (!dropdown || !chevron || !button) return;
+
+        if (dropdown.style.display === 'none' || dropdown.style.display === '') {
+            const rect = button.getBoundingClientRect();
+            const sidebar = document.getElementById('sidebar');
+            const sidebarRect = sidebar.getBoundingClientRect();
+
+            // Make dropdown visible first so we can measure its height
+            dropdown.style.visibility = 'hidden';
+            dropdown.style.display = 'block';
+
+            if (window.innerWidth >= 768) {
+                // Desktop: bottom of the viewport, aligned to sidebar edge
+                dropdown.style.bottom = '10px';
+                dropdown.style.top = 'auto';
+                dropdown.style.left = (sidebarRect.right + 10) + 'px';
+                dropdown.style.right = 'auto';
+            } else {
+                // Mobile: above the button
+                const dropdownHeight = dropdown.offsetHeight;
+                dropdown.style.bottom = (window.innerHeight - rect.top + 8) + 'px';
+                dropdown.style.top = 'auto';
+                dropdown.style.left = (rect.left) + 'px';
+                dropdown.style.right = 'auto';
+            }
+
+            dropdown.style.visibility = 'visible';
+            chevron.style.transform = 'rotate(180deg)';
+        } else {
+            dropdown.style.display = 'none';
+            chevron.style.transform = 'rotate(0deg)';
+        }
+    }
+
+    // Close sidebar user menu when clicking outside
+    document.addEventListener('click', function(event) {
+        const button = document.getElementById('sidebarUserMenuButton');
+        const dropdown = document.getElementById('sidebarUserDropdown');
+        if (button && dropdown && !button.contains(event.target) && !dropdown.contains(event.target)) {
+            dropdown.style.display = 'none';
+            const chevron = document.getElementById('sidebarUserChevron');
+            if (chevron) chevron.style.transform = 'rotate(0deg)';
+        }
+    });
+</script>
+
 {% block extra_scripts %}{% endblock %}
 {% endblock %}

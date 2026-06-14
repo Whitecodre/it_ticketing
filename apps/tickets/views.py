@@ -1,4 +1,4 @@
-import random, hashlib, os
+import random, hashlib, os, re
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.core.exceptions import PermissionDenied
@@ -16,8 +16,40 @@ from .forms import TicketForm, CommentForm
 from .models import Ticket, TicketComment, Macro, TicketActivityLog, SLA, EscalationRule, BusinessCalendar, Attachment
 from apps.accounts.models import User
 from apps.common.models import Notification
+from bs4 import BeautifulSoup
 
 # ---------- Helpers ----------
+
+def clean_comment_body(body):
+    """Clean HTML comment body: remove empty tags, collapse multiple <br> and extra newlines.
+       Returns None if the body is empty after cleaning."""
+    if not body:
+        return None
+    soup = BeautifulSoup(body, 'html.parser')
+    
+    # Remove empty tags (e.g., <div></div>, <p></p>, <span></span>)
+    for tag in soup.find_all():
+        if tag.name in ['div', 'p', 'span', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6']:
+            if not tag.get_text(strip=True) and not tag.find_all(['strong', 'em', 'br']):
+                tag.decompose()
+    
+    # Replace <br> with a newline marker, then collapse multiple consecutive <br>
+    # Convert all <br> tags to '\n'
+    for br in soup.find_all('br'):
+        br.replace_with('\n')
+    
+    # Get the HTML string (BeautifulSoup will convert <br> replacements to text)
+    cleaned = str(soup)
+    # Collapse multiple newlines (including those from removed tags)
+    cleaned = re.sub(r'\n\s*\n+', '\n', cleaned)
+    # Trim leading/trailing whitespace
+    cleaned = cleaned.strip()
+    
+    # If after cleaning only whitespace or empty tags remain, return None
+    if not cleaned or cleaned == '':
+        return None
+    return cleaned
+
 def get_sidebar_template(user):
     mapping = {
         'END_USER': 'partials/sidebar_end_user.html',
@@ -217,17 +249,19 @@ def ticket_detail(request, pk):
     if request.user != ticket.requester and request.user.role not in ['AGENT', 'TEAM_LEAD', 'ADMIN', 'SUPERADMIN']:
         return redirect('dashboard')
 
-    comments = ticket.comments.filter(visibility=TicketComment.Visibility.PUBLIC).order_by('created_at')
-    initial_attachments = ticket.attachments.filter(comment__isnull=True)
-    form = CommentForm()
-
+    # Handle POST (comment submission from requester)
     if request.method == 'POST' and request.headers.get('HX-Request'):
         form = CommentForm(request.POST)
         if form.is_valid():
             comment = form.save(commit=False)
             comment.ticket = ticket
             comment.author = request.user
-            comment.visibility = TicketComment.Visibility.PUBLIC
+            comment.visibility = 'PUBLIC'   # Requesters only send public comments
+            # Clean the body
+            cleaned_body = clean_comment_body(comment.body)
+            if cleaned_body is None:
+                return HttpResponse(status=400)   # empty message
+            comment.body = cleaned_body
             comment.save()
 
             # Attachments
@@ -235,29 +269,45 @@ def ticket_detail(request, pk):
             if files:
                 save_attachments(ticket, files, request.user, comment=comment)
 
+            # Update status if pending user
             if ticket.status == Ticket.Status.PENDING_USER:
                 ticket.status = Ticket.Status.IN_PROGRESS
                 ticket.save()
-            TicketActivityLog.objects.create(
-                ticket=ticket, action='status_changed', actor=request.user,
-                details={'from': Ticket.Status.PENDING_USER, 'to': Ticket.Status.IN_PROGRESS}
-            )
-            comments = ticket.comments.filter(visibility=TicketComment.Visibility.PUBLIC).order_by('created_at')
-            initial_attachments = ticket.attachments.filter(comment__isnull=True)   # already there
-            return render(request, 'partials/comment_thread.html', {
+                TicketActivityLog.objects.create(
+                    ticket=ticket, action='status_changed', actor=request.user,
+                    details={'from': Ticket.Status.PENDING_USER, 'to': Ticket.Status.IN_PROGRESS}
+                )
+
+            # Return only the updated timeline partial
+            comments = ticket.comments.prefetch_related('attachment_set').all().order_by('created_at')
+            initial_attachments = ticket.attachments.filter(comment__isnull=True)
+            return render(request, 'partials/conversation_timeline.html', {
                 'ticket': ticket,
                 'comments': comments,
-                'initial_attachments': initial_attachments,   # ← added
+                'initial_attachments': initial_attachments,
             })
         else:
-            return render(request, 'partials/comment_form.html', {'form': form, 'ticket': ticket}, status=422)
+            return HttpResponse(status=422)
 
-    return render(request, 'requester/ticket_detail.html', {
+    # GET request – display conversation page
+    comments = ticket.comments.all().order_by('created_at')
+    initial_attachments = ticket.attachments.filter(comment__isnull=True)
+    user_attachments = ticket.attachments.filter(uploaded_by__role='END_USER')
+    agent_attachments = ticket.attachments.filter(
+        uploaded_by__role__in=['AGENT', 'TEAM_LEAD', 'ADMIN', 'SUPERADMIN']
+    )
+    form = CommentForm()
+    is_agent = request.user.role in ['AGENT', 'TEAM_LEAD', 'ADMIN', 'SUPERADMIN']
+
+    return render(request, 'agent/ticket_conversation.html', {
         'ticket': ticket,
         'comments': comments,
         'form': form,
         'initial_attachments': initial_attachments,
+        'user_attachments': user_attachments,
+        'agent_attachments': agent_attachments,
         'sidebar_template': get_sidebar_template(request.user),
+        'is_agent': is_agent,
     })
 
 # ---------- Unassigned Queue ----------
@@ -269,7 +319,7 @@ def unassigned_queue(request):
         status__in=[Ticket.Status.RESOLVED, Ticket.Status.CLOSED, Ticket.Status.PENDING_APPROVAL]
     ).order_by('-created_at')
 
-    assignable_agents = User.objects.filter(role__in=['AGENT', 'TEAM_LEAD']).only('pk', 'first_name', 'last_name', 'email')
+    assignable_agents = User.objects.filter(role__in=['AGENT', 'TEAM_LEAD', 'ADMIN', 'SUPERADMIN']).only('pk', 'first_name', 'last_name', 'email')
 
     context = {
         'tickets': tickets,
@@ -288,7 +338,7 @@ def assigned_to_me(request):
         status__in=[Ticket.Status.RESOLVED, Ticket.Status.CLOSED, Ticket.Status.PENDING_APPROVAL]
     ).order_by('-created_at')
 
-    assignable_agents = User.objects.filter(role__in=['AGENT', 'TEAM_LEAD']).only('pk', 'first_name', 'last_name', 'email')
+    assignable_agents = User.objects.filter(role__in=['AGENT', 'TEAM_LEAD', 'ADMIN', 'SUPERADMIN']).only('pk', 'first_name', 'last_name', 'email')
 
     context = {
         'tickets': tickets,
@@ -313,7 +363,16 @@ def claim_ticket(request, pk):
     tickets = Ticket.objects.filter(assigned_to__isnull=True).exclude(
         status__in=[Ticket.Status.RESOLVED, Ticket.Status.CLOSED, Ticket.Status.PENDING_APPROVAL]
     ).order_by('-created_at')
-    return render(request, 'partials/agent_ticket_table.html', {'tickets': tickets})
+
+    assignable_agents = User.objects.filter(
+        role__in=['AGENT', 'TEAM_LEAD', 'ADMIN', 'SUPERADMIN']
+    ).only('pk', 'first_name', 'last_name', 'email')
+
+    return render(request, 'partials/agent_ticket_table.html', {
+        'tickets': tickets,
+        'assignable_agents': assignable_agents,
+        'status_choices': Ticket.Status.choices,
+    })
 
 # ---------- Agent Ticket Detail (Slide‑over) ----------
 @login_required
@@ -322,9 +381,15 @@ def agent_ticket_detail(request, pk):
     if request.user.role not in [User.Role.AGENT, User.Role.TEAM_LEAD, User.Role.ADMIN, User.Role.SUPERADMIN]:
         return HttpResponse(status=403)
     comments = ticket.comments.all().order_by('created_at')
+    user_attachments = ticket.attachments.filter(uploaded_by__role='END_USER')
+    agent_attachments = ticket.attachments.filter(
+        uploaded_by__role__in=['AGENT', 'TEAM_LEAD', 'ADMIN', 'SUPERADMIN']
+    )
     return render(request, 'partials/ticket_slideover.html', {
         'ticket': ticket,
         'comments': comments,
+        'user_attachments': user_attachments,
+        'agent_attachments': agent_attachments,
     })
 
 # ---------- Agent Conversation Page ----------
@@ -340,7 +405,6 @@ def agent_ticket_conversation(request, pk):
     agent_attachments = ticket.attachments.filter(
         uploaded_by__role__in=['AGENT', 'TEAM_LEAD', 'ADMIN', 'SUPERADMIN']
     )
-
     return render(request, 'agent/ticket_conversation.html', {
         'ticket': ticket,
         'comments': comments,
@@ -349,6 +413,7 @@ def agent_ticket_conversation(request, pk):
         'user_attachments': user_attachments,
         'agent_attachments': agent_attachments,
         'sidebar_template': get_sidebar_template(request.user),
+        'is_agent': True,
     })
 
 # ---------- Add Comment (Conversation) ----------
@@ -364,6 +429,11 @@ def add_comment_conversation(request, pk):
         comment.visibility = request.POST.get('visibility', 'PUBLIC').upper()
         if comment.visibility not in ['PUBLIC', 'INTERNAL']:
             comment.visibility = 'PUBLIC'
+        # Clean the body
+        cleaned_body = clean_comment_body(comment.body)
+        if cleaned_body is None:
+            return HttpResponse(status=400)
+        comment.body = cleaned_body
         comment.save()
         # Debug
         print("Files received:", request.FILES.getlist('attachments'))
@@ -407,6 +477,10 @@ def add_comment_conversation(request, pk):
 @require_POST
 def update_status(request, pk):
     ticket = get_object_or_404(Ticket, pk=pk)
+    # Restrict to agents, team leads, admins, superadmins
+    if request.user.role not in [User.Role.AGENT, User.Role.TEAM_LEAD, User.Role.ADMIN, User.Role.SUPERADMIN]:
+        return HttpResponse(status=403)
+    
     previous_status = ticket.status
     new_status = request.GET.get('status')
     if new_status and new_status in dict(Ticket.Status.choices):
@@ -449,7 +523,7 @@ def edit_subject(request, pk):
 @login_required
 def assign_popover(request, pk):
     ticket = get_object_or_404(Ticket, pk=pk)
-    agents = User.objects.filter(role__in=['AGENT', 'TEAM_LEAD'])[:10]
+    agents = User.objects.filter(role__in=['AGENT', 'TEAM_LEAD', 'ADMIN', 'SUPERADMIN'])[:10]
     return render(request, 'partials/popovers/assign_popover.html', {'ticket': ticket, 'agents': agents})
 
 # ---------- Assign to Me ----------
@@ -547,7 +621,7 @@ def bulk_action(request):
         ).exclude(status__in=[Ticket.Status.RESOLVED, Ticket.Status.CLOSED]
         ).order_by('-created_at')
 
-    assignable_agents = User.objects.filter(role__in=['AGENT', 'TEAM_LEAD']).only('pk', 'first_name', 'last_name', 'email')
+    assignable_agents = User.objects.filter(role__in=['AGENT', 'TEAM_LEAD', 'ADMIN', 'SUPERADMIN']).only('pk', 'first_name', 'last_name', 'email')
     return render(request, 'partials/agent_ticket_table.html', {
         'tickets': tickets,
         'assignable_agents': assignable_agents,

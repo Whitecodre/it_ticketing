@@ -2,8 +2,10 @@
 {% load static %}
 {% load lucide %}
 
+{% block main_content_class %}p-0 md:p-0{% endblock %}
 {% block dashboard_title %}Ticket {{ ticket.number }}{% endblock %}
-{% block page_title %}{{ ticket.number }}{% endblock %}
+{% block page_title_area %}{% endblock %}
+
 {% block role_label %}{{ request.user.get_role_display }}{% endblock %}
 {% block role_badge %}{{ request.user.get_role_display|upper }}{% endblock %}
 
@@ -13,17 +15,15 @@
 
 {% block topbar_search %}{% endblock %}
 
-{% block page_title_area %}{% endblock %}
-
 {% block dashboard_content %}
-<div class="flex flex-col h-full -m-4 md:-m-5">
-    <div class="flex flex-1 min-h-0">
+<div class="flex flex-col h-full">
+    <div class="flex flex-1 min-h-0 overflow-hidden">
 
-        {# ========== MAIN CONVERSATION COLUMN ========== #}
-        <div class="flex flex-col flex-1 min-w-0">
+        {# MAIN CONVERSATION COLUMN #}
+        <div class="flex flex-col flex-1 min-w-0 overflow-hidden">
 
-            {# Header (compact) #}
-            <div class="px-4 py-3 border-b flex items-center justify-between"
+            {# Header #}
+            <div class="px-4 py-3 border-b flex items-center justify-between shrink-0"
                  style="background-color: var(--color-surface); border-color: var(--color-border);">
                 <div class="flex-1 min-w-0">
                     <h2 class="text-sm font-semibold truncate" style="color: var(--color-text-primary);">{{ ticket.title }}</h2>
@@ -33,6 +33,7 @@
                         <span id="ticketStatusChip">
                             <span class="status-chip {{ ticket.status|lower }} text-xs">{{ ticket.get_status_display }}</span>
                         </span>
+                        {% if is_agent %}
                         <div id="slaBadgeContainer"
                             hx-get="{% url 'tickets:sla_badge' ticket.pk %}"
                             hx-trigger="every 5s"
@@ -50,11 +51,13 @@
                                 {% endwith %}
                             </span>
                         </div>
+                        {% endif %}
                         <span>•</span>
                         <span>{{ ticket.get_priority_display }}</span>
                     </div>
                 </div>
                 <div class="flex items-center gap-2 ml-3">
+                    {% if is_agent %}
                     <div class="relative" id="statusDropdown">
                         <button id="statusDropdownBtn" class="btn-ghost text-xs px-2 py-1 flex items-center gap-1"
                                 onclick="toggleStatusDropdown()">
@@ -73,22 +76,24 @@
                     <button class="btn-ghost p-1.5 element-link" onclick="toggleDetailsPanel()" data-tooltip="Toggle Details">
                         {% lucide "panel-right" size=18 %}
                     </button>
+                    {% else %}
+                    <a href="{% url 'tickets:my_list' %}" class="btn-ghost text-xs flex items-center gap-1">
+                        {% lucide "arrow-left" size=14 %} Back
+                    </a>
+                    {% endif %}
                 </div>
             </div>
 
-            {# Quick Actions Bar #}
-            <div class="px-4 py-2 border-b flex items-center gap-2"
+            {# Quick Actions Bar (only for agents) #}
+            {% if is_agent %}
+            <div class="px-4 py-2 border-b flex items-center gap-2 shrink-0"
                 style="background-color: var(--color-surface); border-color: var(--color-border);">
-                {% comment %} <button class="btn-outline text-xs flex items-center gap-1"
-                        hx-get="{% url 'tickets:assign_popover' ticket.pk %}"
-                        hx-target="body"
-                        hx-swap="beforeend"
-                        hx-on::after-request="document.getElementById('assignModal').classList.remove('hidden')">
-                    {% lucide "user-plus" size=14 %} Assign
-                </button> {% endcomment %}
-                {% comment %} <button class="btn-ghost text-xs flex items-center gap-1 element-link" data-tooltip="Coming soon">
-                    {% lucide "paperclip" size=14 %} Attach
-                </button> {% endcomment %}
+                <button class="btn-success text-xs flex items-center gap-1"
+                        hx-post="{% url 'tickets:update_status' ticket.pk %}?status=RESOLVED"
+                        hx-swap="none"
+                        hx-on::after-request="location.reload()">
+                    {% lucide "check-circle" size=14 %} Resolve
+                </button>
                 <button class="btn-ghost text-xs flex items-center gap-1" onclick="toggleDetailsPanel()">
                     {% lucide "panel-right" size=14 %} Toggle Details
                 </button>
@@ -99,25 +104,31 @@
                     </button>
                 </form>
             </div>
+            {% endif %}
 
-            {# Message Timeline (scrollable) #}
-            <div class="flex-1 overflow-y-auto px-4 py-3 space-y-3" id="commentTimeline"
+            {# Message Timeline #}
+            <div class="flex-1 overflow-y-auto px-4 pt-3 space-y-3" id="commentTimeline"
                  style="background-color: var(--color-background);">
                 {% include "partials/conversation_timeline.html" %}
             </div>
 
-            {# Composer (bottom) #}
-            <div class="px-4 py-3 border-t"
-                style="background-color: var(--color-surface); border-color: var(--color-border);">
+            {# Composer #}
+            <div class="shrink-0 border-t" style="background-color: var(--color-surface); border-color: var(--color-border);">
                 <form id="commentForm"
+                    {% if is_agent %}
                     hx-post="{% url 'tickets:add_comment_conversation' ticket.pk %}"
                     hx-target="#commentTimeline"
+                    {% else %}
+                    hx-post="{% url 'tickets:detail' ticket.pk %}"
+                    hx-target="#commentTimeline"
+                    {% endif %}
                     hx-swap="innerHTML"
-                    hx-on::after-request="document.getElementById('commentBody').value = ''; scrollTimelineToBottom()"
-                    enctype="multipart/form-data">
+                    enctype="multipart/form-data"
+                    class="px-4 pt-3 pb-2 mb-0">
                     {% csrf_token %}
 
-                    <div class="flex items-center gap-2 mb-2" id="visibilityToggles">
+                    {% if is_agent %}
+                    <div class="flex items-center gap-2 mb-3" id="visibilityToggles">
                         <label class="text-xs font-semibold cursor-pointer" onclick="setActiveTab('public')">
                             <input type="radio" name="visibility" value="PUBLIC" checked class="sr-only">
                             <span id="tabPublic" class="px-3 py-1 rounded-full inline-block bg-primary text-white border border-primary">Public Reply</span>
@@ -127,55 +138,60 @@
                             <span id="tabInternal" class="px-3 py-1 rounded-full inline-block bg-background text-text-secondary border border-border">Internal Note</span>
                         </label>
                     </div>
+                    {% endif %}
 
-                    <div class="flex gap-2">
-                        <div class="flex-1">
-                            <textarea id="commentBody" name="body" rows="2" placeholder="Write a reply…"
-                            class="w-full rounded-lg border p-3 text-xs resize-none focus:outline-none focus:ring-2"
-                            style="background-color: var(--color-background); border-color: var(--color-border); color: var(--color-text-primary); --tw-ring-color: var(--color-primary);"
-                            required></textarea>
+                    <input type="hidden" name="body" id="commentBodyHidden">
+                    <div id="commentEditor"
+                         contenteditable="true"
+                         data-draft-key="draft_{{ ticket.pk }}"
+                         class="w-full rounded-lg border p-2 text-xs focus:outline-none focus:ring-2 overflow-y-auto"
+                         style="background-color: var(--color-background); border-color: var(--color-border); color: var(--color-text-primary); --tw-ring-color: var(--color-primary); height: 60px; resize: none;">
+                    </div>
 
-                            <div class="flex items-center gap-1 mt-1">
-                                <button type="button" class="btn-ghost p-1 text-xs element-link" data-tooltip="Bold">
-                                    {% lucide "bold" size=14 %}
+                    <div class="flex items-center justify-between gap-2 mt-2">
+                        <div class="flex items-center gap-1">
+                            <button type="button" class="btn-ghost p-1 text-xs element-link" data-tooltip="Bold" onclick="formatDocument('bold')">
+                                {% lucide "bold" size=14 %}
+                            </button>
+                            <button type="button" class="btn-ghost p-1 text-xs element-link" data-tooltip="Italic" onclick="formatDocument('italic')">
+                                {% lucide "italic" size=14 %}
+                            </button>
+                            <button type="button" class="btn-ghost p-1 text-xs element-link" data-tooltip="Insert KB Article">
+                                {% lucide "book-open" size=14 %}
+                            </button>
+                            {% if is_agent %}
+                            <div class="relative">
+                                <button type="button" class="btn-ghost p-1 text-xs element-link" data-tooltip="Macros"
+                                        onclick="document.getElementById('macroDropdown').classList.toggle('hidden'); htmx.trigger('#loadMacros', 'click')">
+                                    {% lucide "text-cursor-input" size=14 %}
                                 </button>
-                                <button type="button" class="btn-ghost p-1 text-xs element-link" data-tooltip="Italic">
-                                    {% lucide "italic" size=14 %}
-                                </button>
-                                <button type="button" class="btn-ghost p-1 text-xs element-link" data-tooltip="Insert KB Article">
-                                    {% lucide "book-open" size=14 %}
-                                </button>
-                                <div class="relative">
-                                    <button type="button" class="btn-ghost p-1 text-xs element-link" data-tooltip="Macros"
-                                            onclick="document.getElementById('macroDropdown').classList.toggle('hidden'); htmx.trigger('#loadMacros', 'click')">
-                                        {% lucide "text-cursor-input" size=14 %}
-                                    </button>
-                                    <div id="macroDropdown" class="absolute bottom-full left-0 mb-1 w-56 rounded-md shadow-lg border hidden"
-                                        style="background-color: var(--color-surface); border-color: var(--color-border); z-index: 60;">
-                                        <div id="macroDropdownContent"
-                                            hx-get="{% url 'tickets:macro_list' %}"
-                                            hx-trigger="click from:#loadMacros"
-                                            hx-swap="innerHTML"></div>
-                                    </div>
-                                    <button id="loadMacros" class="hidden"></button>
+                                <div id="macroDropdown" class="absolute bottom-full left-0 mb-1 w-56 rounded-md shadow-lg border hidden"
+                                    style="background-color: var(--color-surface); border-color: var(--color-border); z-index: 60;">
+                                    <div id="macroDropdownContent"
+                                        hx-get="{% url 'tickets:macro_list' %}"
+                                        hx-trigger="click from:#loadMacros"
+                                        hx-swap="innerHTML"></div>
                                 </div>
-                                {# File attachment via label #}
-                                <label class="btn-ghost p-1 text-xs element-link cursor-pointer" data-tooltip="Attach files">
-                                    {% lucide "paperclip" size=14 %}
-                                    <input type="file" name="attachments" multiple class="sr-only">
-                                </label>
+                                <button id="loadMacros" class="hidden"></button>
                             </div>
+                            {% endif %}
+                            <label class="btn-ghost p-1 text-xs element-link cursor-pointer" data-tooltip="Attach files">
+                                {% lucide "paperclip" size=14 %}
+                                <input type="file" name="attachments" multiple class="sr-only" id="attachmentsInput">
+                            </label>
                         </div>
-
-                        <button type="submit" class="btn-primary text-xs flex items-center gap-1 self-end px-4 py-2">
+                        <button type="submit" class="btn-primary text-xs flex items-center gap-1 px-4 py-2">
                             {% lucide "send" size=14 %} Send
                         </button>
                     </div>
+
+                    <div id="filePreviewContainer" class="inline-flex flex-wrap gap-1 mt-1"></div>
                 </form>
             </div>
         </div>
 
-        {# ========== RIGHT DETAILS PANEL (hidden by default) ========== #}
+        {# Right details panel (only for agents) #}
+        {% if is_agent %}
         <div id="detailsPanel" 
             class="shrink-0 border-l overflow-y-auto overflow-x-hidden transition-all duration-300 ease-in-out w-0"
             style="background-color: var(--color-surface); border-color: var(--color-border);">
@@ -183,6 +199,7 @@
                 {% include "partials/ticket_details_panel.html" %}
             </div>
         </div>
+        {% endif %}
     </div>
 </div>
 {% endblock %}
@@ -190,24 +207,14 @@
 {% block scripts %}
 {{ block.super }}
 <script>
-    // ====== ALL CONVERSATION FUNCTIONS INLINE ======
-
-    // Details Panel Toggle
+    // Only define agent-specific functions if is_agent
+    {% if is_agent %}
     function toggleDetailsPanel() {
         const panel = document.getElementById('detailsPanel');
         if (!panel) return;
-        if (panel.classList.contains('w-0')) {
-            // Open
-            panel.classList.remove('w-0');
-            panel.classList.add('w-80');
-        } else {
-            // Close
-            panel.classList.remove('w-80');
-            panel.classList.add('w-0');
-        }
+        panel.classList.toggle('w-0');
+        panel.classList.toggle('w-80');
     }
-
-    // Status Dropdown
     function toggleStatusDropdown() {
         const menu = document.getElementById('statusMenu');
         const chevron = document.getElementById('statusChevron');
@@ -223,8 +230,8 @@
             chevron.classList.remove('rotate-180');
         }
     });
+    {% endif %}
 
-    // Scroll Timeline to Bottom
     function scrollTimelineToBottom() {
         const el = document.getElementById('commentTimeline');
         if (el) el.scrollTop = el.scrollHeight;
@@ -236,7 +243,7 @@
         }
     });
 
-    // Active Tab (Public/Internal)
+    {% if is_agent %}
     function setActiveTab(mode) {
         const publicSpan = document.getElementById('tabPublic');
         const internalSpan = document.getElementById('tabInternal');
@@ -251,11 +258,10 @@
         }
     }
 
-    // Macros
-    function insertMacro(body, visibility) {
-        const textarea = document.getElementById('commentBody');
-        if (textarea) {
-            textarea.value = body;
+    window.insertMacro = function(body, visibility) {
+        const editor = document.getElementById('commentEditor');
+        if (editor) {
+            editor.innerHTML = body;
             setActiveTab(visibility.toLowerCase());
             const radios = document.getElementsByName('visibility');
             for (let radio of radios) {
@@ -263,58 +269,36 @@
             }
             document.getElementById('macroDropdown').classList.add('hidden');
         }
-    }
+    };
+
     document.addEventListener('click', function(event) {
         const dropdown = document.getElementById('macroDropdown');
-        const button = document.querySelector('[title="Macros"]');
-        if (dropdown && !dropdown.classList.contains('hidden') && !dropdown.contains(event.target) && !button.contains(event.target)) {
+        const button = document.querySelector('[data-tooltip="Macros"]');
+        if (dropdown && !dropdown.classList.contains('hidden') && !dropdown.contains(event.target) && button && !button.contains(event.target)) {
             dropdown.classList.add('hidden');
         }
     });
-        // ====== Auto‑save draft (after ticketData is ready) ======
-    // Use Django template variable directly – no dependency on ticketData
+    {% endif %}
+
     const draftKey = `draft_{{ ticket.pk }}`;
-    const draftTextarea = document.getElementById('commentBody');
-
-    if (draftTextarea) {
-        // Restore saved draft
+    const editor = document.getElementById('commentEditor');
+    if (editor) {
         const saved = localStorage.getItem(draftKey);
-        if (saved) {
-            draftTextarea.value = saved;
-        }
-
-        // Save on every keystroke
-        draftTextarea.addEventListener('input', function() {
-            localStorage.setItem(draftKey, draftTextarea.value);
+        if (saved) editor.innerHTML = saved;
+        editor.addEventListener('input', function() {
+            localStorage.setItem(draftKey, editor.innerHTML);
         });
-
-        // Clear draft after successful form submission
         document.getElementById('commentForm').addEventListener('htmx:afterRequest', function() {
             localStorage.removeItem(draftKey);
+            editor.innerHTML = '';
         });
     }
 
-    // File preview chips – remove & add‑more (working version)
     (function() {
-        const fileInput = document.querySelector('input[name="attachments"]');
+        const fileInput = document.getElementById('attachmentsInput');
         if (!fileInput) return;
-
-        const textarea = document.getElementById('commentBody');
-        if (!textarea) return;
-
-        const previewContainer = document.createElement('div');
-        previewContainer.className = 'inline-flex flex-wrap gap-1 mb-1';
-        textarea.parentNode.insertBefore(previewContainer, textarea);
-
-        // Add‑more icon button
-        const addMoreBtn = document.createElement('button');
-        addMoreBtn.type = 'button';
-        addMoreBtn.className = 'inline items-center justify-center ml-1 w-6 h-6 rounded border border-dashed text-text-secondary hover:text-primary hover:border-primary transition';
-        addMoreBtn.style.borderColor = 'var(--color-border)';
-        addMoreBtn.innerHTML = '&#x2B;';
-        addMoreBtn.addEventListener('click', () => fileInput.click());
-        previewContainer.after(addMoreBtn);
-        addMoreBtn.style.display = 'none';
+        const previewContainer = document.getElementById('filePreviewContainer');
+        if (!previewContainer) return;
 
         let fileList = [];
 
@@ -331,7 +315,6 @@
                 chip.className = 'inline-flex items-center gap-1 text-xs bg-gray-700 text-white rounded-full pl-2 pr-1 py-1';
                 const sizeKB = (file.size / 1024).toFixed(1);
                 chip.innerHTML = `📎 ${file.name} (${sizeKB} KB)`;
-
                 const removeBtn = document.createElement('button');
                 removeBtn.type = 'button';
                 removeBtn.className = 'text-white/60 hover:text-white transition ml-1';
@@ -344,7 +327,6 @@
                 chip.appendChild(removeBtn);
                 previewContainer.appendChild(chip);
             });
-            addMoreBtn.style.display = fileList.length > 0 ? 'inline-flex' : 'none';
         }
 
         fileInput.addEventListener('change', function() {
@@ -354,20 +336,31 @@
             renderPreview();
         });
 
-        // Ensure the input has the latest files right before the form is submitted
         const commentForm = document.getElementById('commentForm');
-        commentForm.addEventListener('submit', function() {
-            syncInput();
-        });
-
-        // Reset after successful HTMX request
-        commentForm.addEventListener('htmx:afterRequest', function() {
+        commentForm.addEventListener('submit', () => syncInput());
+        commentForm.addEventListener('htmx:afterRequest', () => {
             fileList = [];
             syncInput();
             previewContainer.innerHTML = '';
-            addMoreBtn.style.display = 'none';
         });
     })();
 
+    document.addEventListener('DOMContentLoaded', function() {
+        initRichTextEditor('commentEditor', 'commentBodyHidden');
+
+        const form = document.getElementById('commentForm');
+        form.addEventListener('htmx:configRequest', function(event) {
+            const editorDiv = document.getElementById('commentEditor');
+            const hiddenInput = document.getElementById('commentBodyHidden');
+            if (editorDiv && hiddenInput) {
+                hiddenInput.value = editorDiv.innerHTML;
+            }
+        });
+
+        form.addEventListener('htmx:afterRequest', function() {
+            const editorDiv = document.getElementById('commentEditor');
+            if (editorDiv) editorDiv.innerHTML = '';
+        });
+    });
 </script>
 {% endblock %}
