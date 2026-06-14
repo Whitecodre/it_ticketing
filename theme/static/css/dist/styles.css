@@ -442,9 +442,6 @@
   .h-2 {
     height: calc(var(--spacing) * 2);
   }
-  .h-3 {
-    height: calc(var(--spacing) * 3);
-  }
   .h-3\.5 {
     height: calc(var(--spacing) * 3.5);
   }
@@ -501,9 +498,6 @@
   }
   .w-2 {
     width: calc(var(--spacing) * 2);
-  }
-  .w-3 {
-    width: calc(var(--spacing) * 3);
   }
   .w-3\.5 {
     width: calc(var(--spacing) * 3.5);
@@ -1107,18 +1101,6 @@
       color: color-mix(in oklab, var(--color-white) 60%, transparent);
     }
   }
-  .text-white\/70 {
-    color: color-mix(in srgb, #fff 70%, transparent);
-    @supports (color: color-mix(in lab, red, red)) {
-      color: color-mix(in oklab, var(--color-white) 70%, transparent);
-    }
-  }
-  .text-white\/80 {
-    color: color-mix(in srgb, #fff 80%, transparent);
-    @supports (color: color-mix(in lab, red, red)) {
-      color: color-mix(in oklab, var(--color-white) 80%, transparent);
-    }
-  }
   .uppercase {
     text-transform: uppercase;
   }
@@ -1224,11 +1206,6 @@
       margin-right: calc(var(--spacing) * 4);
     }
   }
-  .file\:rounded {
-    &::file-selector-button {
-      border-radius: 0.25rem;
-    }
-  }
   .file\:rounded-lg {
     &::file-selector-button {
       border-radius: var(--radius-lg);
@@ -1240,19 +1217,9 @@
       border-width: 0px;
     }
   }
-  .file\:px-2 {
-    &::file-selector-button {
-      padding-inline: calc(var(--spacing) * 2);
-    }
-  }
   .file\:px-4 {
     &::file-selector-button {
       padding-inline: calc(var(--spacing) * 4);
-    }
-  }
-  .file\:py-1 {
-    &::file-selector-button {
-      padding-block: calc(var(--spacing) * 1);
     }
   }
   .file\:py-2 {
@@ -1264,12 +1231,6 @@
     &::file-selector-button {
       font-size: var(--text-sm);
       line-height: var(--tw-leading, var(--text-sm--line-height));
-    }
-  }
-  .file\:text-xs {
-    &::file-selector-button {
-      font-size: var(--text-xs);
-      line-height: var(--tw-leading, var(--text-xs--line-height));
     }
   }
   .file\:font-semibold {
