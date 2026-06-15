@@ -10,7 +10,9 @@ from django.views.decorators.csrf import csrf_exempt
 from django.db.models import Count, Avg, Q, F
 from django.db.models.functions import TruncDate
 from django.utils import timezone
+from django.utils.html import strip_tags
 from django.urls import reverse
+from django.template.loader import render_to_string
 from datetime import timedelta
 from django.core.mail import send_mail
 from django.conf import settings
@@ -1079,14 +1081,22 @@ def request_remote_session(request, pk):
 
     # Send email notification to the requester
     accept_url = request.build_absolute_uri(reverse('tickets:remote_session_detail', args=[session.pk]))
+    reject_url = request.build_absolute_uri(reverse('tickets:remote_session_detail', args=[session.pk])) + '?action=reject'  # You can add a GET param if needed, or just use same URL but with POST later.
+
+    html_message = render_to_string('emails/remote_session_request.html', {
+        'requester_name': ticket.requester.get_full_name() or ticket.requester.email,
+        'ticket_number': ticket.number,
+        'accept_url': accept_url,
+        'reject_url': reject_url,
+    })
+    plain_message = strip_tags(html_message)  # fallback
+
     send_mail(
         subject=f"Remote Session Request – Ticket {ticket.number}",
-        message=f"An agent has requested a remote session to help you with ticket {ticket.number}.\n\n"
-                f"Please click the link below to accept and view instructions:\n{accept_url}\n\n"
-                f"If you did not request this, please ignore this email.\n\n"
-                f"– IT Support Team",
+        message=plain_message,
         from_email=settings.DEFAULT_FROM_EMAIL,
         recipient_list=[ticket.requester.email],
+        html_message=html_message,
         fail_silently=True,
     )
     
@@ -1172,13 +1182,19 @@ def remote_session_detail(request, session_pk):
                         visibility='PUBLIC'
                     )
                     # Send email to requester
+                    html_message = render_to_string('emails/remote_session_code.html', {
+                        'requester_name': session.requester.get_full_name() or session.requester.email,
+                        'ticket_number': session.ticket.number,
+                        'code': code,
+                    })
+                    plain_message = strip_tags(html_message)
+
                     send_mail(
                         subject=f"Remote Session Code – Ticket {session.ticket.number}",
-                        message=f"The support agent has started a remote session. Use this code in Quick Assist: {code}\n\n"
-                                f"Quick Assist instructions:\n{session.connector.instructions_for_requester}\n\n"
-                                f"If you didn't request this, please ignore.",
+                        message=plain_message,
                         from_email=settings.DEFAULT_FROM_EMAIL,
                         recipient_list=[session.requester.email],
+                        html_message=html_message,
                         fail_silently=True,
                     )
                     TicketActivityLog.objects.create(
