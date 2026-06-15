@@ -5,52 +5,61 @@ from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.core.management import call_command
 from django.http import JsonResponse, HttpResponse, FileResponse
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_POST, require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 from django.db.models import Count, Avg, Q, F
 from django.db.models.functions import TruncDate
 from django.utils import timezone
 from django.urls import reverse
 from datetime import timedelta
+from django.core.mail import send_mail
+from django.conf import settings
 from .forms import TicketForm, CommentForm
-from .models import Ticket, TicketComment, Macro, TicketActivityLog, SLA, EscalationRule, BusinessCalendar, Attachment
+from .models import Ticket, TicketComment, Macro, TicketActivityLog, SLA, EscalationRule, BusinessCalendar, Attachment, Asset, RemoteConnector, RemoteSession
 from apps.accounts.models import User
 from apps.common.models import Notification
 from bs4 import BeautifulSoup
 
-# ---------- Helpers ----------
+# ==========================================================================
+# HELPER FUNCTIONS
+# ==========================================================================
 
 def clean_comment_body(body):
-    """Clean HTML comment body: remove empty tags, collapse multiple <br> and extra newlines.
-       Returns None if the body is empty after cleaning."""
+    """
+    Cleans HTML content from the rich text editor before saving.
+    - Removes empty div/p/span tags.
+    - Replaces <br> tags with newlines.
+    - Collapses multiple consecutive newlines into a single newline.
+    - Strips leading/trailing whitespace.
+    Returns None if the cleaned body is empty (used to reject empty comments).
+    """
     if not body:
         return None
     soup = BeautifulSoup(body, 'html.parser')
     
-    # Remove empty tags (e.g., <div></div>, <p></p>, <span></span>)
+    # Remove empty block tags that contain no text and no formatting children
     for tag in soup.find_all():
         if tag.name in ['div', 'p', 'span', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6']:
             if not tag.get_text(strip=True) and not tag.find_all(['strong', 'em', 'br']):
                 tag.decompose()
     
-    # Replace <br> with a newline marker, then collapse multiple consecutive <br>
-    # Convert all <br> tags to '\n'
+    # Replace <br> with newline characters (they will be turned back into <br> by linebreaksbr filter)
     for br in soup.find_all('br'):
         br.replace_with('\n')
     
-    # Get the HTML string (BeautifulSoup will convert <br> replacements to text)
     cleaned = str(soup)
-    # Collapse multiple newlines (including those from removed tags)
     cleaned = re.sub(r'\n\s*\n+', '\n', cleaned)
-    # Trim leading/trailing whitespace
     cleaned = cleaned.strip()
     
-    # If after cleaning only whitespace or empty tags remain, return None
     if not cleaned or cleaned == '':
         return None
     return cleaned
 
 def get_sidebar_template(user):
+    """
+    Returns the correct sidebar partial template based on the user's role.
+    Used in all dashboard views to load the appropriate navigation sidebar.
+    """
     mapping = {
         'END_USER': 'partials/sidebar_end_user.html',
         'AGENT': 'partials/sidebar_agent.html',
@@ -62,7 +71,11 @@ def get_sidebar_template(user):
     return mapping.get(user.role, 'partials/sidebar_end_user.html')
 
 def apply_sla(ticket):
-    """Set SLA due dates based on the ticket priority."""
+    """
+    Sets the response_due_at and resolution_due_at fields on a ticket
+    based on the SLA policy configured for its priority.
+    Called after ticket creation and when priority changes.
+    """
     try:
         sla = SLA.objects.get(priority=ticket.priority)
     except SLA.DoesNotExist:
@@ -72,7 +85,7 @@ def apply_sla(ticket):
     ticket.resolution_due_at = now + timedelta(minutes=sla.resolution_minutes)
     ticket.save(update_fields=['response_due_at', 'resolution_due_at'])
 
-# ---------- Attachment validation ----------
+# Allowed MIME types for file attachments
 ALLOWED_MIMES = [
     'image/jpeg', 'image/png', 'image/gif', 'image/webp',
     'application/pdf',
@@ -86,15 +99,20 @@ ALLOWED_MIMES = [
 MAX_SIZE_MB = 10
 
 def save_attachments(ticket, files, author, comment=None):
-    """Validate and save file attachments. Returns list of created Attachment objects."""
+    """
+    Validates and saves uploaded file attachments.
+    - Skips files that exceed MAX_SIZE_MB or have disallowed MIME types.
+    - Computes SHA-256 hash for integrity checking.
+    - Associates attachments with a ticket and optionally a specific comment.
+    Returns list of created Attachment objects.
+    """
     created = []
     for f in files:
         if f.size > MAX_SIZE_MB * 1024 * 1024:
-            continue   # silently skip oversized files
+            continue
         mime = f.content_type.split(';')[0].strip().lower()
         if mime not in ALLOWED_MIMES:
-            continue   # silently skip disallowed types
-        # Compute SHA‑256 hash
+            continue
         sha = hashlib.sha256()
         for chunk in f.chunks():
             sha.update(chunk)
@@ -112,9 +130,18 @@ def save_attachments(ticket, files, author, comment=None):
         created.append(att)
     return created
 
-# ---------- Ticket Creation ----------
+# ==========================================================================
+# TICKET CREATION & LISTING VIEWS (End Users)
+# ==========================================================================
+
 @login_required
 def create_ticket(request):
+    """
+    Handles creation of a new ticket (incident or service request).
+    - GET: displays the appropriate form (incident_form or service_request_form).
+    - POST: validates form, generates a unique ticket number, saves ticket,
+            attaches files, applies SLA, and redirects to ticket detail page.
+    """
     ticket_type = request.GET.get('type', 'INCIDENT').upper()
     if ticket_type not in ['INCIDENT', 'SERVICE_REQUEST']:
         ticket_type = 'INCIDENT'
@@ -126,7 +153,7 @@ def create_ticket(request):
             ticket.requester = request.user
             ticket.type = ticket_type
 
-            # Generate unique number
+            # Generate unique ticket number (e.g., TK#1234 or SRV#5678)
             prefix = 'TK' if ticket.type == Ticket.Type.INCIDENT else 'SRV'
             for _ in range(20):
                 suffix = str(random.randint(0, 9999)).zfill(4)
@@ -140,12 +167,11 @@ def create_ticket(request):
 
             ticket.save()
 
-            # Attachments
             files = request.FILES.getlist('attachments')
             if files:
                 save_attachments(ticket, files, request.user)
 
-            # SLA & routing
+            # If it's a service request, set status to PENDING_APPROVAL
             if ticket.type == Ticket.Type.SERVICE_REQUEST:
                 ticket.status = Ticket.Status.PENDING_APPROVAL
                 ticket.save(update_fields=['status'])
@@ -158,10 +184,14 @@ def create_ticket(request):
     template = 'requester/incident_form.html' if ticket_type == 'INCIDENT' else 'requester/service_request_form.html'
     return render(request, template, {'form': form, 'ticket_type': ticket_type})
 
-# ---------- Cancel Ticket ----------
 @login_required
 @require_POST
 def cancel_ticket(request, pk):
+    """
+    Allows an end user to cancel a ticket that is still in NEW or TRIAGED status.
+    - Closes the ticket and logs the action.
+    - If the request is HTMX, returns the updated ticket list partial.
+    """
     ticket = get_object_or_404(Ticket, pk=pk)
     if request.user != ticket.requester:
         return HttpResponse(status=403)
@@ -192,9 +222,13 @@ def cancel_ticket(request, pk):
         return render(request, 'partials/ticket_list_partial.html', context)
     return redirect('tickets:my_list')
 
-# ---------- My Tickets List ----------
 @login_required
 def my_ticket_list(request):
+    """
+    Displays a list of tickets created by the logged‑in end user.
+    Supports filtering by status (OPEN/CLOSED or specific status).
+    Uses HTMX for pagination and filter updates.
+    """
     tickets = Ticket.objects.filter(requester=request.user).order_by('-created_at')
     status_filter = request.GET.get('status', '')
     base = request.GET.get('base', '')
@@ -215,7 +249,6 @@ def my_ticket_list(request):
     except (PageNotAnInteger, EmptyPage):
         page_obj = paginator.page(1)
 
-    # Choose chips
     all_choices = Ticket.Status.choices
     if base == 'OPEN':
         status_choices = [('NEW','New'), ('TRIAGED','Triaged'), ('ASSIGNED','Assigned'),
@@ -242,34 +275,38 @@ def my_ticket_list(request):
         return render(request, 'partials/ticket_list_partial.html', context)
     return render(request, 'requester/ticket_list.html', context)
 
-# ---------- Ticket Detail (Requester) ----------
 @login_required
 def ticket_detail(request, pk):
+    """
+    Unified ticket conversation page for both requesters and agents.
+    - GET: displays the conversation timeline and comment form.
+    - POST (HTMX): accepts a new public comment from the requester,
+      cleans the HTML body, saves attachments, updates ticket status if needed,
+      and returns the updated timeline partial.
+    The 'is_agent' flag controls visibility of agent‑only UI elements.
+    """
     ticket = get_object_or_404(Ticket, pk=pk)
     if request.user != ticket.requester and request.user.role not in ['AGENT', 'TEAM_LEAD', 'ADMIN', 'SUPERADMIN']:
         return redirect('dashboard')
 
-    # Handle POST (comment submission from requester)
+    # Handle comment submission from requester
     if request.method == 'POST' and request.headers.get('HX-Request'):
         form = CommentForm(request.POST)
         if form.is_valid():
             comment = form.save(commit=False)
             comment.ticket = ticket
             comment.author = request.user
-            comment.visibility = 'PUBLIC'   # Requesters only send public comments
-            # Clean the body
+            comment.visibility = 'PUBLIC'
             cleaned_body = clean_comment_body(comment.body)
             if cleaned_body is None:
                 return HttpResponse(status=400)   # empty message
             comment.body = cleaned_body
             comment.save()
 
-            # Attachments
             files = request.FILES.getlist('attachments')
             if files:
                 save_attachments(ticket, files, request.user, comment=comment)
 
-            # Update status if pending user
             if ticket.status == Ticket.Status.PENDING_USER:
                 ticket.status = Ticket.Status.IN_PROGRESS
                 ticket.save()
@@ -278,7 +315,6 @@ def ticket_detail(request, pk):
                     details={'from': Ticket.Status.PENDING_USER, 'to': Ticket.Status.IN_PROGRESS}
                 )
 
-            # Return only the updated timeline partial
             comments = ticket.comments.prefetch_related('attachment_set').all().order_by('created_at')
             initial_attachments = ticket.attachments.filter(comment__isnull=True)
             return render(request, 'partials/conversation_timeline.html', {
@@ -289,7 +325,7 @@ def ticket_detail(request, pk):
         else:
             return HttpResponse(status=422)
 
-    # GET request – display conversation page
+    # GET request – render conversation page
     comments = ticket.comments.all().order_by('created_at')
     initial_attachments = ticket.attachments.filter(comment__isnull=True)
     user_attachments = ticket.attachments.filter(uploaded_by__role='END_USER')
@@ -310,9 +346,17 @@ def ticket_detail(request, pk):
         'is_agent': is_agent,
     })
 
-# ---------- Unassigned Queue ----------
+# ==========================================================================
+# AGENT QUEUES & TICKET MANAGEMENT
+# ==========================================================================
+
 @login_required
 def unassigned_queue(request):
+    """
+    Displays all tickets that are not assigned to anyone,
+    excluding resolved, closed, and pending approval tickets.
+    Agents can claim tickets directly from this view.
+    """
     tickets = Ticket.objects.filter(
         assigned_to__isnull=True
     ).exclude(
@@ -329,9 +373,12 @@ def unassigned_queue(request):
     }
     return render(request, 'agent/unassigned_queue.html', context)
 
-# ---------- Assigned to Me ----------
 @login_required
 def assigned_to_me(request):
+    """
+    Displays all tickets assigned to the logged‑in agent,
+    excluding resolved, closed, and pending approval tickets.
+    """
     tickets = Ticket.objects.filter(
         assigned_to=request.user
     ).exclude(
@@ -348,9 +395,13 @@ def assigned_to_me(request):
     }
     return render(request, 'agent/assigned_to_me.html', context)
 
-# ---------- Claim Ticket ----------
 @login_required
 def claim_ticket(request, pk):
+    """
+    Allows an agent to claim an unassigned ticket.
+    Assigns the ticket to the current user and sets status to ASSIGNED.
+    Returns the updated agent ticket table partial (HTMX).
+    """
     ticket = get_object_or_404(Ticket, pk=pk)
     if ticket.assigned_to is None:
         ticket.assigned_to = request.user
@@ -374,9 +425,12 @@ def claim_ticket(request, pk):
         'status_choices': Ticket.Status.choices,
     })
 
-# ---------- Agent Ticket Detail (Slide‑over) ----------
 @login_required
 def agent_ticket_detail(request, pk):
+    """
+    Returns a slide‑over panel with ticket details and comments.
+    Used when an agent clicks the "eye" icon on a ticket row.
+    """
     ticket = get_object_or_404(Ticket, pk=pk)
     if request.user.role not in [User.Role.AGENT, User.Role.TEAM_LEAD, User.Role.ADMIN, User.Role.SUPERADMIN]:
         return HttpResponse(status=403)
@@ -392,9 +446,12 @@ def agent_ticket_detail(request, pk):
         'agent_attachments': agent_attachments,
     })
 
-# ---------- Agent Conversation Page ----------
 @login_required
 def agent_ticket_conversation(request, pk):
+    """
+    Full‑page conversation view for agents (and admins).
+    Renders the same template as ticket_detail but with is_agent=True.
+    """
     ticket = get_object_or_404(Ticket, pk=pk)
     if request.user.role not in [User.Role.AGENT, User.Role.TEAM_LEAD, User.Role.ADMIN, User.Role.SUPERADMIN]:
         return HttpResponse(status=403)
@@ -416,10 +473,16 @@ def agent_ticket_conversation(request, pk):
         'is_agent': True,
     })
 
-# ---------- Add Comment (Conversation) ----------
 @login_required
 @require_POST
 def add_comment_conversation(request, pk):
+    """
+    Handles agent comments (public or internal) on a ticket.
+    - Cleans the HTML body using BeautifulSoup.
+    - Saves attachments.
+    - Updates ticket status to IN_PROGRESS if a public comment is added.
+    - Returns the updated conversation timeline partial (HTMX).
+    """
     ticket = get_object_or_404(Ticket, pk=pk)
     form = CommentForm(request.POST)
     if form.is_valid():
@@ -429,22 +492,15 @@ def add_comment_conversation(request, pk):
         comment.visibility = request.POST.get('visibility', 'PUBLIC').upper()
         if comment.visibility not in ['PUBLIC', 'INTERNAL']:
             comment.visibility = 'PUBLIC'
-        # Clean the body
         cleaned_body = clean_comment_body(comment.body)
         if cleaned_body is None:
             return HttpResponse(status=400)
         comment.body = cleaned_body
         comment.save()
-        # Debug
-        print("Files received:", request.FILES.getlist('attachments'))
 
-        # Attachments
         files = request.FILES.getlist('attachments')
         if files:
-            print("Attempting to save", len(files), "file(s)")
             created = save_attachments(ticket, files, request.user, comment=comment)
-            print("Attachments saved:", [a.filename for a in created])
-            # Force a fresh copy of the comment so its attachments manager is populated
             comment = TicketComment.objects.get(pk=comment.pk)
 
         TicketActivityLog.objects.create(
@@ -472,12 +528,15 @@ def add_comment_conversation(request, pk):
         'initial_attachments': initial_attachments, 
     })
 
-# ---------- Update Ticket Status ----------
 @login_required
 @require_POST
 def update_status(request, pk):
+    """
+    Changes the status of a ticket. Only agents, team leads, admins, and superadmins can do this.
+    The new status is passed as a GET parameter 'status'.
+    Logs the change in TicketActivityLog.
+    """
     ticket = get_object_or_404(Ticket, pk=pk)
-    # Restrict to agents, team leads, admins, superadmins
     if request.user.role not in [User.Role.AGENT, User.Role.TEAM_LEAD, User.Role.ADMIN, User.Role.SUPERADMIN]:
         return HttpResponse(status=403)
     
@@ -492,9 +551,16 @@ def update_status(request, pk):
         )
     return HttpResponse(status=204)
 
-# ---------- Ticket Details Panel ----------
+# ==========================================================================
+# TICKET DETAILS PANEL & METADATA EDITING
+# ==========================================================================
+
 @login_required
 def ticket_details_panel(request, pk):
+    """
+    Returns the right‑hand details panel (assignee, metadata, attachments)
+    that slides in on the conversation page.
+    """
     ticket = get_object_or_404(Ticket, pk=pk)
     followers = User.objects.filter(role__in=['AGENT','TEAM_LEAD'])[:5]
     user_attachments = ticket.attachments.filter(uploaded_by__role='END_USER')
@@ -508,10 +574,13 @@ def ticket_details_panel(request, pk):
         'agent_attachments': agent_attachments,
     })
 
-# ---------- Edit Subject ----------
 @login_required
 @require_POST
 def edit_subject(request, pk):
+    """
+    Edits the ticket title inline (subject).
+    Returns the updated subject display partial.
+    """
     ticket = get_object_or_404(Ticket, pk=pk)
     new_title = request.POST.get('title', '').strip()
     if new_title:
@@ -519,33 +588,49 @@ def edit_subject(request, pk):
         ticket.save()
     return render(request, 'partials/subject_display.html', {'ticket': ticket})
 
-# ---------- Assign Popover ----------
+# ==========================================================================
+# ASSIGNMENT POPOVERS AND ACTIONS
+# ==========================================================================
+
 @login_required
 def assign_popover(request, pk):
+    """
+    Returns a popover with a list of assignable agents (Agent, Team Lead, Admin, Superadmin)
+    so the agent can reassign the ticket.
+    """
     ticket = get_object_or_404(Ticket, pk=pk)
     agents = User.objects.filter(role__in=['AGENT', 'TEAM_LEAD', 'ADMIN', 'SUPERADMIN'])[:10]
     return render(request, 'partials/popovers/assign_popover.html', {'ticket': ticket, 'agents': agents})
 
-# ---------- Assign to Me ----------
 @login_required
 @require_POST
 def assign_to_me(request, pk):
+    """
+    Assigns the ticket to the current user.
+    Returns the updated assignee display partial.
+    """
     ticket = get_object_or_404(Ticket, pk=pk)
     ticket.assigned_to = request.user
     ticket.save()
     return render(request, 'partials/ticket_details_assignee.html', {'ticket': ticket})
 
-# ---------- Assign Specific ----------
 @login_required
 @require_POST
 def assign_specific(request, pk, user_pk):
+    """
+    Assigns the ticket to a specific user (by primary key).
+    Returns the updated assignee display partial.
+    """
     ticket = get_object_or_404(Ticket, pk=pk)
     agent = get_object_or_404(User, pk=user_pk)
     ticket.assigned_to = agent
     ticket.save()
     return render(request, 'partials/ticket_details_assignee.html', {'ticket': ticket})
 
-# ---------- Followers (stubs) ----------
+# ==========================================================================
+# FOLLOWER STUBS (not fully implemented)
+# ==========================================================================
+
 @login_required
 @require_POST
 def remove_follower(request, ticket_pk, user_pk):
@@ -558,23 +643,38 @@ def add_follower_popover(request, ticket_pk):
         'agents': User.objects.filter(role__in=['AGENT','TEAM_LEAD'])[:10],
     })
 
-# Popover stubs
+# Placeholder popovers
 def edit_group_popover(request, pk): return render(request, 'partials/popovers/empty.html')
 def edit_type_popover(request, pk): return render(request, 'partials/popovers/empty.html')
 def edit_priority_popover(request, pk): return render(request, 'partials/popovers/empty.html')
 def add_tag_popover(request, pk): return render(request, 'partials/popovers/empty.html')
 def remove_tag(request, pk, tag_pk): return HttpResponse(status=204)
 
-# ---------- Macros ----------
+# ==========================================================================
+# MACROS
+# ==========================================================================
+
 @login_required
 def macro_list(request):
+    """
+    Returns a dropdown list of macros (predefined reply templates) for agents.
+    Used in the conversation composer.
+    """
     macros = Macro.objects.all()
     return render(request, 'partials/macro_dropdown.html', {'macros': macros})
 
-# ---------- Bulk Action ----------
+# ==========================================================================
+# BULK ACTIONS (for ticket queues)
+# ==========================================================================
+
 @login_required
 @require_POST
 def bulk_action(request):
+    """
+    Performs bulk status change or assignment on multiple tickets.
+    Only Team Leads, Admins, and Superadmins can bulk‑assign.
+    Returns the updated agent ticket table partial.
+    """
     ticket_ids_str = request.POST.get('ticket_ids', '')
     action = request.POST.get('action', '')
     value = request.POST.get('value', '')
@@ -628,9 +728,16 @@ def bulk_action(request):
         'status_choices': Ticket.Status.choices,
     })
 
-# ---------- Team Queue ----------
+# ==========================================================================
+# TEAM LEAD QUEUE & REASSIGNMENT
+# ==========================================================================
+
 @login_required
 def team_queue(request):
+    """
+    Team Lead view: shows all tickets assigned to agents in the same department.
+    Allows filtering by individual agent.
+    """
     if request.user.role != 'TEAM_LEAD':
         return HttpResponse(status=403)
     team_members = User.objects.filter(department=request.user.department, role='AGENT')
@@ -649,10 +756,13 @@ def team_queue(request):
     }
     return render(request, 'partials/team_queue.html', context)
 
-# ---------- Team Reassign ----------
 @login_required
 @require_POST
 def team_reassign(request, pk):
+    """
+    Allows a Team Lead to reassign a ticket to another agent in their team.
+    Returns JSON status.
+    """
     if request.user.role != 'TEAM_LEAD':
         return HttpResponse(status=403)
     ticket = get_object_or_404(Ticket, pk=pk)
@@ -668,9 +778,17 @@ def team_reassign(request, pk):
     )
     return JsonResponse({'status': 'ok'})
 
-# ---------- Audit Log ----------
+# ==========================================================================
+# AUDIT LOG
+# ==========================================================================
+
 @login_required
 def audit_log(request):
+    """
+    Displays the audit trail (ticket activity log) for users with sufficient permissions.
+    Team Leads see only activity on tickets from their department.
+    Admins and Superadmins see all activity.
+    """
     if request.user.role not in ['TEAM_LEAD', 'ADMIN', 'SUPERADMIN']:
         return HttpResponse(status=403)
     logs = TicketActivityLog.objects.select_related('ticket', 'actor').all()
@@ -691,9 +809,16 @@ def audit_log(request):
     }
     return render(request, 'partials/audit_log.html', context)
 
-# ---------- Reports Dashboard ----------
+# ==========================================================================
+# REPORTS DASHBOARD (Charts & KPIs)
+# ==========================================================================
+
 @login_required
 def reports_dashboard(request):
+    """
+    Renders the reports page with SLA compliance, ticket volume, and priority charts.
+    Data is filtered by role (Admin/Superadmin see all, Team Lead sees only their team).
+    """
     user = request.user
     if user.role not in ['ADMIN', 'SUPERADMIN', 'TEAM_LEAD']:
         return HttpResponse(status=403)
@@ -772,9 +897,16 @@ def reports_dashboard(request):
     }
     return render(request, 'dashboards/reports.html', context)
 
-# ---------- SLA Trigger (external cron) ----------
+# ==========================================================================
+# EXTERNAL CRON TRIGGERS (SLA & CLEANUP)
+# ==========================================================================
+
 @csrf_exempt
 def trigger_sla_processing(request):
+    """
+    External endpoint (secured with a secret) to trigger the SLA processing command.
+    Used by cron‑job.org to automate SLA monitoring.
+    """
     secret = request.GET.get('secret')
     if secret != 'jkeihwihivkgyg678448bhct36gysyvy!!gygrv':
         return HttpResponse(status=403)
@@ -784,9 +916,11 @@ def trigger_sla_processing(request):
     except Exception as e:
         return HttpResponse(f'Error: {str(e)}', status=500)
 
-# ---------- Auto-Delete User Trigger ----------
 @csrf_exempt
 def trigger_cleanup(request):
+    """
+    External endpoint to trigger the cleanup of inactive users.
+    """
     secret = request.GET.get('secret')
     if secret != 'jkeihwihivkgyg678448bhct36gysyvy!!gygrv':
         return HttpResponse(status=403)
@@ -796,7 +930,10 @@ def trigger_cleanup(request):
     except Exception as e:
         return HttpResponse(f'Error: {str(e)}', status=500)
 
-# ---------- Placeholder / Static Pages ----------
+# ==========================================================================
+# PLACEHOLDER / STATIC PAGES
+# ==========================================================================
+
 @login_required
 def catalogue(request):
     if request.user.role not in ['ADMIN', 'SUPERADMIN']: return HttpResponse(status=403)
@@ -804,21 +941,310 @@ def catalogue(request):
 
 @login_required
 def connectors(request):
-    if request.user.role not in ['ADMIN', 'SUPERADMIN']: return HttpResponse(status=403)
-    return render(request, 'admin/connectors.html', {'sidebar_template': get_sidebar_template(request.user)})
+    """
+    Admin/Superadmin configuration page for remote connectors (Quick Assist, etc.).
+    Lists all connectors and allows editing.
+    """
+    if request.user.role not in ['ADMIN', 'SUPERADMIN']:
+        return HttpResponse(status=403)
+    connectors_list = RemoteConnector.objects.all().order_by('name')
+    return render(request, 'admin/connectors.html', {
+        'connectors': connectors_list,
+        'sidebar_template': get_sidebar_template(request.user),
+    })
+
+@login_required
+@require_http_methods(['GET', 'POST'])
+def connector_edit(request, pk):
+    """
+    Edit a specific remote connector: enable/disable and update instructions.
+    """
+    if request.user.role not in ['ADMIN', 'SUPERADMIN']:
+        return HttpResponse(status=403)
+    connector = get_object_or_404(RemoteConnector, pk=pk)
+    if request.method == 'POST':
+        connector.is_active = request.POST.get('is_active') == 'on'
+        connector.instructions_for_requester = request.POST.get('instructions_for_requester', '')
+        connector.instructions_for_agent = request.POST.get('instructions_for_agent', '')
+        connector.save()
+        return redirect('tickets:connectors')
+    return render(request, 'admin/connector_form.html', {
+        'connector': connector,
+        'sidebar_template': get_sidebar_template(request.user),
+    })
 
 @login_required
 def assets(request):
-    return render(request, 'placeholders/coming_soon.html', {'title': 'Assets', 'sidebar_template': get_sidebar_template(request.user)})
+    """
+    Asset list (CMDB‑lite) – view all assets. Accessible to Agents, Team Leads, Admins, Superadmins.
+    """
+    if request.user.role not in ['ADMIN', 'SUPERADMIN', 'AGENT', 'TEAM_LEAD']:
+        return HttpResponse(status=403)
+    assets_list = Asset.objects.all().order_by('-created_at')
+    paginator = Paginator(assets_list, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    return render(request, 'tickets/asset_list.html', {
+        'assets': page_obj,
+        'sidebar_template': get_sidebar_template(request.user),
+    })
 
 @login_required
-def remote_sessions(request):
-    return render(request, 'placeholders/coming_soon.html', {'title': 'Remote Sessions', 'sidebar_template': get_sidebar_template(request.user)})
+@require_http_methods(['GET', 'POST'])
+def asset_create(request):
+    """
+    Create a new asset (Admin/Superadmin only).
+    """
+    if request.user.role not in ['ADMIN', 'SUPERADMIN']:
+        return HttpResponse(status=403)
+    if request.method == 'POST':
+        name = request.POST.get('name')
+        asset_type = request.POST.get('asset_type')
+        serial = request.POST.get('serial_number')
+        assigned_to_id = request.POST.get('assigned_to')
+        status = request.POST.get('status')
+        purchase_date = request.POST.get('purchase_date') or None
+        notes = request.POST.get('notes')
+        Asset.objects.create(
+            name=name, asset_type=asset_type, serial_number=serial,
+            assigned_to_id=assigned_to_id or None, status=status,
+            purchase_date=purchase_date, notes=notes
+        )
+        return redirect('tickets:assets')
+    users = User.objects.filter(role__in=['END_USER', 'AGENT'])
+    return render(request, 'tickets/asset_form.html', {
+        'users': users,
+        'sidebar_template': get_sidebar_template(request.user),
+    })
+
+@login_required
+def asset_edit(request, pk):
+    """
+    (Optional) Edit an existing asset. Not yet implemented.
+    """
+    pass
+
+# ==========================================================================
+# REMOTE SESSION REQUESTS (Quick Assist integration)
+# ==========================================================================
+
+@login_required
+@require_POST
+def request_remote_session(request, pk):
+    """
+    Initiates a remote session request from an agent to the ticket requester.
+    - Creates a RemoteSession record (status=REQUESTED).
+    - Adds a public comment on the ticket.
+    - Sends an in‑app notification to the requester.
+    - Sends an email to the requester with a link to accept the session.
+    - Logs the action in the activity log.
+    Only agents, team leads, admins, and superadmins can call this.
+    """
+    ticket = get_object_or_404(Ticket, pk=pk)
+    if request.user.role not in [User.Role.AGENT, User.Role.TEAM_LEAD, User.Role.ADMIN, User.Role.SUPERADMIN]:
+        return HttpResponse(status=403)
+
+    # Get the first active remote connector (e.g., Quick Assist)
+    connector = RemoteConnector.objects.filter(is_active=True).first()
+    if not connector:
+        return HttpResponse("No active remote connector configured.", status=400)
+
+    # Check if there's already a pending or active session for this ticket
+    existing = RemoteSession.objects.filter(ticket=ticket, status__in=['REQUESTED', 'ACCEPTED', 'STARTED']).first()
+    if existing:
+        return JsonResponse({'error': 'A remote session is already pending or in progress.'}, status=400)
+    
+    session = RemoteSession.objects.create(
+        ticket=ticket,
+        requester=ticket.requester,
+        agent=request.user,
+        connector=connector,
+        status='REQUESTED'
+    )
+
+    # Add a public comment to the ticket timeline
+    TicketComment.objects.create(
+        ticket=ticket,
+        author=request.user,
+        body=f"Remote session requested via {connector.name}. Please check your notifications to accept.",
+        visibility='PUBLIC'
+    )
+
+    # Send in‑app notification
+    Notification.objects.create(
+        recipient=ticket.requester,
+        message=f"Remote session requested for ticket {ticket.number}. Click to accept.",
+        url=reverse('tickets:remote_session_detail', args=[session.pk])
+    )
+
+    # Send email notification to the requester
+    accept_url = request.build_absolute_uri(reverse('tickets:remote_session_detail', args=[session.pk]))
+    send_mail(
+        subject=f"Remote Session Request – Ticket {ticket.number}",
+        message=f"An agent has requested a remote session to help you with ticket {ticket.number}.\n\n"
+                f"Please click the link below to accept and view instructions:\n{accept_url}\n\n"
+                f"If you did not request this, please ignore this email.\n\n"
+                f"– IT Support Team",
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[ticket.requester.email],
+        fail_silently=True,
+    )
+    
+    TicketActivityLog.objects.create(
+        ticket=ticket,
+        action='remote_session_requested',
+        actor=request.user,
+        details={'connector': connector.name, 'session_id': session.pk}
+    )
+    
+    return JsonResponse({'session_id': session.pk, 'status': 'requested'})
+
+@login_required
+def remote_session_detail(request, session_pk):
+    session = get_object_or_404(RemoteSession, pk=session_pk)
+    user = request.user
+    if user != session.requester and user != session.agent:
+        return HttpResponse(status=403)
+    
+    if user == session.agent:
+        instructions = session.connector.instructions_for_agent
+        role = 'agent'
+    else:
+        instructions = session.connector.instructions_for_requester
+        role = 'requester'
+    
+    if request.method == 'POST':
+        new_status = request.POST.get('status')
+        if new_status in dict(RemoteSession.STATUS_CHOICES):
+            old_status = session.status
+            # Handle REJECT from requester
+            if new_status == 'REJECTED' and role == 'requester':
+                session.status = 'REJECTED'
+                session.save()
+                # Notify agent
+                Notification.objects.create(
+                    recipient=session.agent,
+                    message=f"{session.requester.get_full_name()} rejected the remote session for ticket {session.ticket.number}.",
+                    url=reverse('tickets:remote_session_detail', args=[session.pk])
+                )
+                TicketActivityLog.objects.create(
+                    ticket=session.ticket,
+                    action='remote_session_status_change',
+                    actor=user,
+                    details={'from': old_status, 'to': 'REJECTED', 'session_id': session.pk}
+                )
+                return redirect('tickets:remote_session_detail', session_pk=session.pk)
+            
+            # Handle ACCEPT from requester
+            elif new_status == 'ACCEPTED' and role == 'requester' and old_status == 'REQUESTED':
+                session.status = 'ACCEPTED'
+                session.save()
+                # Notify agent
+                Notification.objects.create(
+                    recipient=session.agent,
+                    message=f"{session.requester.get_full_name()} accepted the remote session for ticket {session.ticket.number}.",
+                    url=reverse('tickets:remote_session_detail', args=[session.pk])
+                )
+                TicketActivityLog.objects.create(
+                    ticket=session.ticket,
+                    action='remote_session_status_change',
+                    actor=user,
+                    details={'from': old_status, 'to': 'ACCEPTED', 'session_id': session.pk}
+                )
+                return redirect('tickets:remote_session_detail', session_pk=session.pk)
+            
+            # Handle START with code from agent
+            elif new_status == 'STARTED' and role == 'agent' and old_status == 'ACCEPTED':
+                code = request.POST.get('quick_assist_code', '').strip()
+                if not code or len(code) < 6:
+                    # Optionally show error message
+                    pass
+                else:
+                    session.session_code = code
+                    session.status = 'STARTED'
+                    session.started_at = timezone.now()
+                    session.save()
+                    # Send automatic public comment on ticket
+                    TicketComment.objects.create(
+                        ticket=session.ticket,
+                        author=request.user,
+                        body=f"Remote session code: {code}. Please use this code in Quick Assist to start the session.",
+                        visibility='PUBLIC'
+                    )
+                    # Send email to requester
+                    send_mail(
+                        subject=f"Remote Session Code – Ticket {session.ticket.number}",
+                        message=f"The support agent has started a remote session. Use this code in Quick Assist: {code}\n\n"
+                                f"Quick Assist instructions:\n{session.connector.instructions_for_requester}\n\n"
+                                f"If you didn't request this, please ignore.",
+                        from_email=settings.DEFAULT_FROM_EMAIL,
+                        recipient_list=[session.requester.email],
+                        fail_silently=True,
+                    )
+                    TicketActivityLog.objects.create(
+                        ticket=session.ticket,
+                        action='remote_session_status_change',
+                        actor=user,
+                        details={'from': old_status, 'to': 'STARTED', 'session_id': session.pk, 'code': code}
+                    )
+                    return redirect('tickets:remote_session_detail', session_pk=session.pk)
+            
+            # Handle END from agent
+            elif new_status == 'ENDED' and role == 'agent' and old_status == 'STARTED':
+                session.status = 'ENDED'
+                session.ended_at = timezone.now()
+                session.save()
+                TicketActivityLog.objects.create(
+                    ticket=session.ticket,
+                    action='remote_session_status_change',
+                    actor=user,
+                    details={'from': old_status, 'to': 'ENDED', 'session_id': session.pk}
+                )
+                return redirect('tickets:remote_session_detail', session_pk=session.pk)
+    
+    context = {
+        'session': session,
+        'instructions': instructions,
+        'role': role,
+        'sidebar_template': get_sidebar_template(request.user),
+    }
+    return render(request, 'tickets/remote_session_detail.html', context)
+
+@login_required
+def remote_sessions_list(request):
+    """
+    List all remote sessions relevant to the logged‑in user.
+    - Agents see sessions they initiated (as agent).
+    - Requesters see sessions requested for their tickets.
+    - Admins/Superadmins see all sessions (optional, but we'll filter by role).
+    """
+    user = request.user
+    if user.role in ['ADMIN', 'SUPERADMIN']:
+        sessions = RemoteSession.objects.all().order_by('-created_at')
+    elif user.role in ['AGENT', 'TEAM_LEAD']:
+        sessions = RemoteSession.objects.filter(agent=user).order_by('-created_at')
+    else:
+        sessions = RemoteSession.objects.filter(requester=user).order_by('-created_at')
+    
+    # Pagination
+    paginator = Paginator(sessions, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    context = {
+        'sessions': page_obj,
+        'sidebar_template': get_sidebar_template(request.user),
+    }
+    return render(request, 'tickets/remote_sessions_list.html', context)
+
 
 def kb_suggestions(request):
     return render(request, 'partials/kb_suggestions.html', {'articles': []})
 
-# ---------- Approver Views ----------
+# ==========================================================================
+# APPROVER VIEWS (for service requests)
+# ==========================================================================
+
 @login_required
 def approver_dashboard(request):
     if request.user.role != User.Role.APPROVER: return HttpResponse(status=403)
@@ -882,9 +1308,15 @@ def reject_ticket(request, pk):
     )
     return redirect('tickets:approver_pending')
 
-# ---------- Attachment Download ----------
+# ==========================================================================
+# ATTACHMENT DOWNLOAD
+# ==========================================================================
+
 @login_required
 def attachment_download(request, pk):
+    """
+    Serves a file attachment. Only the ticket requester or agents/leads/admins can download.
+    """
     attachment = get_object_or_404(Attachment, pk=pk)
     ticket = attachment.ticket
     if request.user != ticket.requester and request.user.role not in ['AGENT', 'TEAM_LEAD', 'ADMIN', 'SUPERADMIN']:
@@ -893,7 +1325,10 @@ def attachment_download(request, pk):
     response['Content-Disposition'] = f'attachment; filename="{attachment.filename}"'
     return response
 
-# ---------- SLA Management (Admin & Superadmin) ----------
+# ==========================================================================
+# SLA MANAGEMENT (Admin & Superadmin only)
+# ==========================================================================
+
 def is_admin(user): return user.role in ['ADMIN', 'SUPERADMIN']
 
 @login_required

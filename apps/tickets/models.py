@@ -288,3 +288,68 @@ class Macro(models.Model):
 
     def __str__(self):
         return self.title
+
+class Asset(models.Model):
+    class AssetType(models.TextChoices):
+        COMPUTER = 'COMPUTER', 'Computer'
+        LAPTOP = 'LAPTOP', 'Laptop'
+        SERVER = 'SERVER', 'Server'
+        NETWORK = 'NETWORK', 'Network Device'
+        PRINTER = 'PRINTER', 'Printer'
+        SOFTWARE = 'SOFTWARE', 'Software License'
+        OTHER = 'OTHER', 'Other'
+
+    name = models.CharField(max_length=200)
+    asset_type = models.CharField(max_length=20, choices=AssetType.choices, default=AssetType.COMPUTER)
+    serial_number = models.CharField(max_length=100, blank=True)
+    assigned_to = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_assets')
+    status = models.CharField(max_length=20, choices=[('ACTIVE', 'Active'), ('MAINTENANCE', 'Maintenance'), ('RETIRED', 'Retired')], default='ACTIVE')
+    purchase_date = models.DateField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.name
+
+class RemoteConnector(models.Model):
+    name = models.CharField(max_length=50, unique=True)
+    is_active = models.BooleanField(default=False)
+    instructions_for_requester = models.TextField(
+        default="1. Open Quick Assist (search in Windows start menu).\n2. Click 'Get assistance'.\n3. Wait for the agent to provide a 6-digit code.\n4. Enter the code and allow screen sharing.\n5. The session will begin."
+    )
+    instructions_for_agent = models.TextField(
+        default="1. Open Quick Assist.\n2. Click 'Help someone'.\n3. A 6-digit code appears – share it with the user.\n4. The code expires in about 10 minutes.\n5. Once the user enters the code, you will have control."
+    )
+    # Future fields for API connectors (not used now)
+    api_endpoint = models.CharField(max_length=200, blank=True)
+    api_key = models.CharField(max_length=200, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.name
+
+class RemoteSession(models.Model):
+    STATUS_CHOICES = [
+        ('REQUESTED', 'Requested'),
+        ('ACCEPTED', 'Accepted'),
+        ('REJECTED', 'Rejected'),
+        ('STARTED', 'Started'),
+        ('ENDED', 'Ended'),
+        ('EXPIRED', 'Expired'),   # optional, if code expires
+    ]
+    ticket = models.ForeignKey('Ticket', on_delete=models.CASCADE, related_name='remote_sessions')
+    requester = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='requested_remote_sessions')
+    agent = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='agent_remote_sessions')
+    connector = models.ForeignKey(RemoteConnector, on_delete=models.PROTECT)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='REQUESTED')
+    session_code = models.CharField(max_length=20, blank=True)   # agent can store the code (optional)
+    started_at = models.DateTimeField(null=True, blank=True)
+    ended_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Remote session for ticket {self.ticket.number} ({self.status})"
+

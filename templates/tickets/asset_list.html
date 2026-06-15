@@ -1,0 +1,66 @@
+{% extends "base_dashboard.html" %}
+{% load static %}
+{% load lucide %}
+
+{% block dashboard_title %}Assets{% endblock %}
+{% block page_title %}Asset Management{% endblock %}
+{% block role_label %}{{ user.get_role_display }}{% endblock %}
+{% block role_badge %}{{ user.get_role_display|upper }}{% endblock %}
+
+{% block sidebar_nav %}
+    {% include sidebar_template %}
+{% endblock %}
+
+{% block dashboard_content %}
+<div class="w-full">
+    <div class="flex justify-between items-center mb-4">
+        {% comment %} <h2 class="text-base font-semibold" style="color: var(--color-text-primary);">Assets</h2> {% endcomment %}
+        {% if user.role in 'ADMIN,SUPERADMIN' %}
+        <a href="{% url 'tickets:asset_create' %}" class="btn-primary text-xs px-3 py-1 rounded-lg">+ Add Asset</a>
+        {% endif %}
+    </div>
+    <div class="dashboard-card p-0 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="data-table w-full text-xs">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Type</th>
+                        <th>Serial</th>
+                        <th>Assigned To</th>
+                        <th>Status</th>
+                        <th>Purchase Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for asset in assets %}
+                    <tr>
+                        <td class="font-medium">{{ asset.name }}</td>
+                        <td>{{ asset.get_asset_type_display }}</td>
+                        <td>{{ asset.serial_number|default:"—" }}</td>
+                        <td>{{ asset.assigned_to.get_full_name|default:"—" }}</td>
+                        <td><span class="status-chip {{ asset.status|lower }}">{{ asset.get_status_display }}</span></td>
+                        <td>{{ asset.purchase_date|date:"Y-m-d"|default:"—" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="6" class="text-center py-6">No assets found.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if assets.has_other_pages %}
+        <div class="px-4 py-3 border-t flex justify-between">
+            <span>Page {{ assets.number }} of {{ assets.paginator.num_pages }}</span>
+            <div class="flex gap-2">
+                {% if assets.has_previous %}
+                <a href="?page={{ assets.previous_page_number }}" class="btn-ghost text-xs">← Prev</a>
+                {% endif %}
+                {% if assets.has_next %}
+                <a href="?page={{ assets.next_page_number }}" class="btn-ghost text-xs">Next →</a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

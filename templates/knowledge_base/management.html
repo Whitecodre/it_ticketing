@@ -126,22 +126,32 @@
 {% block scripts %}
 {{ block.super }}
 <script>
-    // Tab switching
+    // Tab switching with persistence
+    const activeTab = sessionStorage.getItem('kbActiveTab') || 'drafts';
+
+    function activateTab(tabId) {
+        // Update UI
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.style.borderColor = 'transparent';
+            btn.style.color = 'var(--color-text-secondary)';
+        });
+        const activeBtn = document.querySelector(`.tab-btn[data-tab="${tabId}"]`);
+        if (activeBtn) {
+            activeBtn.style.borderColor = 'var(--color-primary)';
+            activeBtn.style.color = 'var(--color-primary)';
+        }
+        document.querySelectorAll('.tab-content').forEach(content => content.classList.add('hidden'));
+        document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+        sessionStorage.setItem('kbActiveTab', tabId);
+    }
+
     document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            // Deactivate all tabs
-            document.querySelectorAll('.tab-btn').forEach(b => {
-                b.style.borderColor = 'transparent';
-                b.style.color = 'var(--color-text-secondary)';
-            });
-            // Activate clicked
-            this.style.borderColor = 'var(--color-primary)';
-            this.style.color = 'var(--color-primary)';
-            // Hide all content
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
-            // Show target
-            document.getElementById('tab-' + this.dataset.tab).classList.remove('hidden');
+        btn.addEventListener('click', function(e) {
+            activateTab(this.dataset.tab);
         });
     });
+
+    // Restore saved tab on page load
+    activateTab(activeTab);
 </script>
 {% endblock %}

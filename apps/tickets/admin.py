@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Ticket, TicketComment, Attachment, TicketActivityLog, Macro
+from .models import Ticket, TicketComment, Attachment, TicketActivityLog, Macro, RemoteConnector, Asset, RemoteSession
 
 class CommentInline(admin.TabularInline):
     model = TicketComment
@@ -37,3 +37,20 @@ class ActivityLogAdmin(admin.ModelAdmin):
 @admin.register(Macro)
 class MacroAdmin(admin.ModelAdmin):
     list_display = ['title', 'visibility', 'created_by', 'created_at']
+
+
+@admin.register(RemoteConnector)
+class RemoteConnectorAdmin(admin.ModelAdmin):
+    list_display = ['name', 'is_active', 'created_at']
+
+@admin.register(Asset)
+class AssetAdmin(admin.ModelAdmin):
+    list_display = ['name', 'asset_type', 'serial_number', 'assigned_to', 'status', 'created_at']
+    list_filter = ['asset_type', 'status']
+    search_fields = ['name', 'serial_number']
+
+@admin.register(RemoteSession)
+class RemoteSessionAdmin(admin.ModelAdmin):
+    list_display = ['ticket', 'requester', 'agent', 'connector', 'status', 'created_at']
+    list_filter = ['status', 'connector']
+    readonly_fields = ['created_at', 'updated_at', 'started_at', 'ended_at']
