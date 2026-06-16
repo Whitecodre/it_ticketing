@@ -39,6 +39,7 @@ urlpatterns = [
             template_name='registration/password_reset_complete.html'
         ),
         name='password_reset_complete'),
+    path('resend-verification/', views.resend_verification, name='resend_verification'),
     path('profile/', views.profile, name='profile'),
     path('admin/users/', admin_user_list, name='admin_users'),
     path('admin/users/create/', admin_user_create, name='admin_user_create'),

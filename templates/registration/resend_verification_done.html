@@ -1,0 +1,29 @@
+{% extends "base_registration.html" %}
+{% load static %}
+{% load lucide %}
+
+{% block title %}Verification Email Sent{% endblock %}
+{% block content %}
+<div class="flex min-h-screen items-center justify-center px-4 py-12">
+    <div class="w-full max-w-md text-center space-y-4">
+        <img src="{% static 'img/gemz-logo.png' %}" alt="Gemz Software Logo" class="mx-auto h-10 w-auto">
+        <div class="flex justify-center">
+            <div class="flex h-16 w-16 items-center justify-center rounded-full" style="background-color: rgba(16, 185, 129, 0.1);">
+                {% if success %}
+                    {% lucide "mail-check" size=32 class="h-8 w-8" style="color: var(--color-success);" %}
+                {% else %}
+                    {% lucide "x-circle" size=32 class="h-8 w-8" style="color: var(--color-error);" %}
+                {% endif %}
+            </div>
+        </div>
+        <h2 class="text-2xl font-bold {% if success %}text-success{% else %}text-error{% endif %}">
+            {% if success %}Email Sent{% else %}Error{% endif %}
+        </h2>
+        <p class="text-text-secondary">{{ message }}</p>
+        {% if success %}
+            <p class="text-sm text-text-secondary">Check your inbox and spam folder.</p>
+        {% endif %}
+        <a href="{% url 'accounts:login' %}" class="btn-login inline-block rounded-full px-6 py-3 text-white">Go to Login</a>
+    </div>
+</div>
+{% endblock %}

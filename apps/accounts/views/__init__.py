@@ -1,3 +1,4 @@
+import logging
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect
@@ -9,6 +10,7 @@ from django.template.loader import render_to_string
 from django.conf import settings
 from django.contrib.auth.views import LoginView
 from django.utils import timezone
+from django.utils.html import strip_tags
 from django.db.models import F, DurationField, ExpressionWrapper, Count, Q
 from datetime import timedelta
 from ..forms import RegistrationForm, ProfileForm, EmailAuthenticationForm
@@ -135,6 +137,8 @@ def dashboard(request):
         
     return render(request, template, context)
 
+logger = logging.getLogger(__name__)
+
 def register(request):
     if request.method == 'POST':
         form = RegistrationForm(request.POST)
@@ -151,10 +155,26 @@ def register(request):
                 'user': user,
                 'link': verification_link,
             })
-            # For development, print to console; replace with real email backend later
-            print(f"Verification link: {verification_link}")
-            user.email_user(subject, '', html_message=html_message)
-            return render(request, 'registration/register_done.html')
+            plain_message = strip_tags(html_message)
+            email_error = False
+            try:
+                send_mail(
+                    subject=subject,
+                    message=plain_message,
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[user.email],
+                    html_message=html_message,
+                    fail_silently=False,
+                )
+            except Exception as e:
+                logger.error(f"Failed to send verification email to {user.email}: {str(e)}")
+                email_error = True
+
+            return render(request, 'registration/register_done.html', {
+                'email_error': email_error,
+                'user_email': user.email,
+                'user_id': user.pk,
+            })
     else:
         form = RegistrationForm()
     return render(request, 'registration/register.html', {'form': form})
@@ -172,6 +192,45 @@ def verify_email(request, uidb64, token):
         return render(request, 'registration/verify_email_done.html')
     else:
         return render(request, 'registration/verify_email_failed.html')
+
+def resend_verification(request):
+    if request.method == 'POST':
+        email = request.POST.get('email')
+        try:
+            user = User.objects.get(email=email, is_active=False)
+            token = default_token_generator.make_token(user)
+            uid = urlsafe_base64_encode(force_bytes(user.pk))
+            verification_link = request.build_absolute_uri(
+                f'/accounts/verify/{uid}/{token}/'
+            )
+            subject = "Verify your email address"
+            html_message = render_to_string('registration/verification_email.html', {
+                'user': user,
+                'link': verification_link,
+            })
+            plain_message = strip_tags(html_message)
+            send_mail(
+                subject=subject,
+                message=plain_message,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[user.email],
+                html_message=html_message,
+                fail_silently=False,
+            )
+            message = "Verification email sent. Please check your inbox."
+            success = True
+        except User.DoesNotExist:
+            message = "No inactive user found with that email."
+            success = False
+        except Exception as e:
+            logger.error(f"Resend verification error: {str(e)}")
+            message = f"Failed to send email: {str(e)}"
+            success = False
+        return render(request, 'registration/resend_verification_done.html', {
+            'message': message,
+            'success': success,
+        })
+    return render(request, 'registration/resend_verification.html')
 
 @login_required
 def profile(request):

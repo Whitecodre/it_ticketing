@@ -1,5 +1,7 @@
 {% extends "base_registration.html" %}
 {% load static %}
+{% load lucide %}
+
 {% block title %}Verify Your Email{% endblock %}
 {% block content %}
 <div class="flex min-h-screen items-center justify-center px-4 py-12">
@@ -11,8 +13,20 @@
             </div>
         </div>
         <h2 class="text-2xl font-bold text-primary">Check your email</h2>
-        <p class="text-text-secondary">We've sent a verification link to your email address. Please click the link to activate your account.</p>
+        <p class="text-text-secondary">We've sent a verification link to <strong>{{ user_email }}</strong>.</p>
+        {% if email_error %}
+        <div class="bg-warning/10 p-4 rounded-lg border border-warning/30 text-left">
+            <p class="text-sm text-warning font-semibold">⚠️ Email delivery issue</p>
+            <p class="text-xs text-text-secondary mt-1">
+                We could not send the verification email. You can try the 
+                <a href="{% url 'accounts:resend_verification' %}" class="text-primary underline">resend verification</a> page, or contact support.
+            </p>
+        </div>
+        {% endif %}
         <p class="text-sm text-text-secondary">Didn't receive it? Check your spam folder.</p>
+        <p class="text-sm text-text-secondary">
+            <a href="{% url 'accounts:resend_verification' %}" class="text-primary underline">Resend verification email</a>
+        </p>
     </div>
 </div>
 {% endblock %}
