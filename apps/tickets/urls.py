@@ -44,7 +44,7 @@ urlpatterns = [
     path('assets/create/', views.asset_create, name='asset_create'),
     path('<int:pk>/request-remote-session/', views.request_remote_session, name='request_remote_session'),
     path('remote-session/<int:session_pk>/', views.remote_session_detail, name='remote_session_detail'),
-    path('remote-sessions/', views.remote_sessions_list, name='remote_sessions'),
+    path('remote-sessions/', views.remote_sessions_list, name='remote_sessions_list'),
     path('kb-suggestions/', views.kb_suggestions, name='kb_suggestions'),
     # future: detail, list
 
