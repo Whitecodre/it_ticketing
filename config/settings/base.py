@@ -117,6 +117,8 @@ REST_FRAMEWORK = {
 # Email (console backend for development)
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
+NPM_BIN_PATH = r"C:\Program Files\nodejs\npm.cmd"
+
 # Authentication Redirects
 LOGIN_URL = 'accounts:login'
 LOGIN_REDIRECT_URL = 'dashboard'   # will be changed later to dashboard

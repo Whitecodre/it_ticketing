@@ -50,5 +50,7 @@ CLOUDINARY_STORAGE = {
     'API_SECRET': env('CLOUDINARY_API_SECRET', default=''),
 }
 
+NPM_BIN_PATH = r"C:\Program Files\nodejs\npm.cmd"
+
 # CSRF trusted origins
 CSRF_TRUSTED_ORIGINS = env.list('CSRF_TRUSTED_ORIGINS', default=['https://*.onrender.com'])
