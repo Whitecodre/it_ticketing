@@ -8,7 +8,7 @@
 {% block role_badge %}{{ user.get_role_display|upper }}{% endblock %}
 
 {% block sidebar_nav %}
-    {% include "partials/sidebar_end_user.html" %}
+    {% include sidebar_template %}
 {% endblock %}
 
 {% block topbar_search %}{% endblock %}

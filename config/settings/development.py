@@ -16,5 +16,14 @@ DATABASES = {
 
 STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
 
-# Email (print to console for development)
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+# Use SMTP for development if EMAIL_HOST is set in environment, otherwise console
+if env('EMAIL_HOST', default=None):
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+    EMAIL_HOST = env('EMAIL_HOST')
+    EMAIL_PORT = env('EMAIL_PORT', default=587)
+    EMAIL_USE_TLS = env('EMAIL_USE_TLS', default=True)
+    EMAIL_HOST_USER = env('BREVO_SMTP_USER')
+    EMAIL_HOST_PASSWORD = env('BREVO_SMTP_PASSWORD')
+    DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL')
+else:
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
