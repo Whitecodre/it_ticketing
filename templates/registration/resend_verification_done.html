@@ -6,7 +6,7 @@
 {% block content %}
 <div class="flex min-h-screen items-center justify-center px-4 py-12">
     <div class="w-full max-w-md text-center space-y-4">
-        <img src="{% static 'img/gemz-logo.png' %}" alt="Gemz Software Logo" class="mx-auto h-10 w-auto">
+        <!-- <img src="{% static 'img/gemz-logo.png' %}" alt="Gemz Software Logo" class="mx-auto h-10 w-auto"> -->
         <div class="flex justify-center">
             <div class="flex h-16 w-16 items-center justify-center rounded-full" style="background-color: rgba(16, 185, 129, 0.1);">
                 {% if success %}
@@ -23,7 +23,12 @@
         {% if success %}
             <p class="text-sm text-text-secondary">Check your inbox and spam folder.</p>
         {% endif %}
-        <a href="{% url 'accounts:login' %}" class="btn-login inline-block rounded-full px-6 py-3 text-white">Go to Login</a>
+
+        {% if success %}
+            <a href="{% url 'accounts:login' %}" class="btn-login inline-block rounded-full px-6 py-3 text-white">Go to Login</a>
+        {% else %}
+            <a href="{% url 'accounts:resend_verification' %}" class="btn-login inline-block rounded-full px-6 py-3 text-white">Resend link</a>
+        {% endif %}
     </div>
 </div>
 {% endblock %}

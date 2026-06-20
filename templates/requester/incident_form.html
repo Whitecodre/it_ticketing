@@ -42,7 +42,9 @@
                         hx-get="{% url 'tickets:kb_suggestions' %}"
                         hx-target="#kb-suggestions"
                         hx-trigger="change">
-                    <option value="">---------</option>
+                    <!-- Disabled placeholder – cannot be submitted -->
+                    <option value="" disabled selected>---Select a category---</option>
+                    <!-- The empty_label from the form will provide the placeholder -->
                     {% for value, label in form.category.field.choices %}
                         <option value="{{ value }}" {% if form.category.value == value %}selected{% endif %}>{{ label }}</option>
                     {% endfor %}

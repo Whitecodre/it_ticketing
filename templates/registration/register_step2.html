@@ -1,0 +1,125 @@
+{% extends "base_registration.html" %}
+{% load static %}
+{% load lucide %}
+
+{% block title %}Sign Up - Step 2 of 2{% endblock %}
+
+{% block content %}
+<div class="flex min-h-screen items-center justify-center px-4 py-12 sm:px-6 lg:px-8">
+    <div class="w-full max-w-md md:max-w-sm space-y-6">
+        
+        <div class="text-center">
+            <img src="{% static 'img/gemz-logo.png' %}" alt="Gemz Software Logo" class="mx-auto h-10 w-auto">
+            <h2 class="mt-3 text-center text-3xl font-bold tracking-wide text-primary">Create Account</h2>
+            <p class="mt-1 text-sm text-text-secondary">Step 2 of 2</p>
+            <div class="flex justify-center gap-1 mt-2">
+                <span class="h-1.5 w-12 rounded-full bg-primary"></span>
+                <span class="h-1.5 w-12 rounded-full bg-primary"></span>
+            </div>
+        </div>
+
+        <form method="post" class="space-y-4">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="2">
+
+            <!-- Password -->
+            <div>
+                <label for="id_password1" class="block text-sm font-medium mb-1 text-text-primary">Password</label>
+                <div class="relative">
+                    <input type="password" name="password1" id="id_password1" required
+                        class="block w-full rounded-lg border py-3 px-4 pr-12 text-base transition duration-200 focus:outline-none focus:ring-2 sm:py-3 sm:text-sm bg-background border-border text-text-primary ring-primary"
+                        placeholder="Password"
+                        hx-get="{% url 'accounts:validate_password' %}"
+                        hx-trigger="keyup changed delay:300ms"
+                        hx-target="#password_strength"
+                        hx-swap="innerHTML">
+                    <button type="button" class="password-toggle absolute inset-y-0 right-3 flex items-center cursor-pointer text-text-secondary hover:text-primary transition"
+                            data-target="id_password1">
+                        <span class="eye-icon">{% lucide "eye" size=18 class="h-5 w-5 sm:h-4 sm:w-4" %}</span>
+                        <span class="eye-off-icon hidden">{% lucide "eye-off" size=18 class="h-5 w-5 sm:h-4 sm:w-4" %}</span>
+                    </button>
+                </div>
+                <div id="password_strength" class="mt-2"></div>
+            </div>
+
+            <!-- Confirm Password -->
+            <div>
+                <label for="id_password2" class="block text-sm font-medium mb-1 text-text-primary">Confirm password</label>
+                <div class="relative">
+                    <input type="password" name="password2" id="id_password2" required
+                        class="block w-full rounded-lg border py-3 px-4 pr-12 text-base transition duration-200 focus:outline-none focus:ring-2 sm:py-3 sm:text-sm bg-background border-border text-text-primary ring-primary"
+                        placeholder="Confirm password">
+                    <button type="button" class="password-toggle absolute inset-y-0 right-3 flex items-center cursor-pointer text-text-secondary hover:text-primary transition"
+                            data-target="id_password2">
+                        <span class="eye-icon">{% lucide "eye" size=18 class="h-5 w-5 sm:h-4 sm:w-4" %}</span>
+                        <span class="eye-off-icon hidden">{% lucide "eye-off" size=18 class="h-5 w-5 sm:h-4 sm:w-4" %}</span>
+                    </button>
+                </div>
+                <div id="password2_error" class="text-xs mt-1 text-error"></div>
+            </div>
+
+            <!-- Terms -->
+            <div class="text-xs text-start text-text-secondary">
+                <p>By creating an account, you agree to Gemz's 
+                   <a href="#" class="underline transition text-primary hover:opacity-80">Terms of Use</a> and 
+                   <a href="#" class="underline transition text-primary hover:opacity-80">Privacy Policy</a>
+                </p>
+            </div>
+
+            <div class="flex gap-3">
+                <a href="{% url 'accounts:register' %}?step=1" class="flex-1 text-center rounded-lg px-4 py-4 text-base font-semibold border border-border hover:bg-black/5 transition sm:py-3 sm:text-sm" style="color: var(--color-text-primary);">← Back</a>
+                <button type="submit" class="flex-1 flex justify-center rounded-lg px-4 py-4 text-base font-semibold text-white shadow-sm transition duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 btn-login cursor-pointer sm:py-3 sm:text-sm">
+                    Create Account
+                </button>
+            </div>
+
+            <p class="text-center text-sm text-text-secondary">
+                Already have an account? <a href="{% url 'accounts:login' %}" class="font-medium text-primary hover:opacity-80">Log in</a>
+            </p>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ block.super }}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.password-toggle').forEach(function(btn) {
+            var input = document.getElementById(btn.getAttribute('data-target'));
+            var eye = btn.querySelector('.eye-icon');
+            var eyeOff = btn.querySelector('.eye-off-icon');
+            if (!input || !eye || !eyeOff) return;
+            btn.addEventListener('click', function() {
+                if (input.type === 'password') {
+                    input.type = 'text';
+                    eye.classList.add('hidden');
+                    eyeOff.classList.remove('hidden');
+                } else {
+                    input.type = 'password';
+                    eye.classList.remove('hidden');
+                    eyeOff.classList.add('hidden');
+                }
+            });
+        });
+
+        // Password confirmation check
+        const password1 = document.getElementById('id_password1');
+        const password2 = document.getElementById('id_password2');
+        const errorDiv = document.getElementById('password2_error');
+
+        if (password1 && password2) {
+            function checkMatch() {
+                if (password2.value && password2.value !== password1.value) {
+                    errorDiv.textContent = 'Passwords do not match.';
+                    errorDiv.className = 'text-xs mt-1 text-error';
+                } else {
+                    errorDiv.textContent = '';
+                }
+            }
+            password1.addEventListener('input', checkMatch);
+            password2.addEventListener('input', checkMatch);
+        }
+    });
+</script>
+{% endblock %}

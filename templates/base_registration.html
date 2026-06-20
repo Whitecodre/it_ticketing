@@ -106,6 +106,22 @@
                 if (this.checked) setTheme('dark');
             });
         })();
+        // Error message Time-out
+        document.addEventListener('DOMContentLoaded', function() {
+            // Find all alert/message containers with class 'alert-message'
+            const messages = document.querySelectorAll('.alert-message, .alert-error, .alert-success, .alert-warning');
+            messages.forEach(function(msg) {
+                // Auto-dismiss after 5 seconds (5000ms)
+                setTimeout(function() {
+                    msg.style.transition = 'opacity 0.5s ease';
+                    msg.style.opacity = '0';
+                    // Remove from DOM after fade
+                    setTimeout(function() {
+                        msg.remove();
+                    }, 500);
+                }, 5000);
+            });
+        });
     </script>
     {{ block.super }}
     {% endblock scripts %}

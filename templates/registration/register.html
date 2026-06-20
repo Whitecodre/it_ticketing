@@ -8,129 +8,124 @@
 <div class="flex min-h-screen items-center justify-center px-4 py-12 sm:px-6 lg:px-8">
     <div class="w-full max-w-md md:max-w-sm space-y-6">
         
-        <!-- Logo and Heading -->
         <div class="text-center">
             <img src="{% static 'img/gemz-logo.png' %}" alt="Gemz Software Logo" class="mx-auto h-10 w-auto">
-            <h2 class="mt-3 text-center text-3xl font-bold tracking-wide text-primary">
-                Create Account
-            </h2>
+            <h2 class="mt-3 text-center text-3xl font-bold tracking-wide text-primary">Create Account</h2>
         </div>
 
-        <!-- Registration Card -->
-        <form class="space-y-4" method="post" novalidate>
+        <form class="space-y-4" method="post" novalidate id="registerForm">
             {% csrf_token %}
 
-            {% if form.errors %}
-            <div class="rounded-md bg-red-50 p-4">
-                <ul class="text-sm text-red-800 list-disc list-inside">
-                    {% for field in form %}
-                        {% for error in field.errors %}
-                            <li>{{ error }}</li>
-                        {% endfor %}
-                    {% endfor %}
-                    {% for error in form.non_field_errors %}
-                        <li>{{ error }}</li>
-                    {% endfor %}
-                </ul>
+            {% if form.non_field_errors %}
+            <div class="rounded-md bg-red-50 p-4 alert-message alert-error">
+                {% for error in form.non_field_errors %}
+                    <p class="text-sm text-red-800">{{ error|safe }}</p>
+                {% endfor %}
             </div>
             {% endif %}
-        
+
             <!-- First Name -->
             <div>
-                <label for="id_first_name" class="sr-only">First Name</label>
-                <div class="relative">
-                    <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-text-secondary">
-                        {% lucide "user" size=20 class="h-5 w-5 sm:h-4 sm:w-4" %}
-                    </div>
-                    <input type="text" name="first_name" id="id_first_name" required
-                           value="{{ form.first_name.value|default:'' }}"
-                           class="block w-full rounded-full border py-4 pl-11 pr-4 text-base placeholder-gray-400 transition duration-200 focus:outline-none focus:ring-2 sm:py-3 sm:text-sm bg-background border-border text-text-primary ring-primary"
-                           placeholder="First Name">
-                </div>
+                <label for="id_first_name" class="block text-sm font-medium mb-1 text-text-primary">First Name</label>
+                <input type="text" name="first_name" id="id_first_name" required
+                       value="{{ form.first_name.value|default:'' }}"
+                       class="block w-full rounded-lg border py-3 px-4 text-base transition duration-200 focus:outline-none focus:ring-2 sm:py-3 sm:text-sm bg-background border-border text-text-primary ring-primary"
+                       placeholder="First Name">
+                <div id="first_name_error" class="text-xs mt-1 text-error"></div>
+                {% if form.first_name.errors %}
+                <div class="text-xs mt-1 text-error">{{ form.first_name.errors.0 }}</div>
+                {% endif %}
             </div>
-        
+
             <!-- Last Name -->
             <div>
-                <label for="id_last_name" class="sr-only">Last Name</label>
-                <div class="relative">
-                    <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-text-secondary">
-                        {% lucide "user" size=20 class="h-5 w-5 sm:h-4 sm:w-4" %}
-                    </div>
-                    <input type="text" name="last_name" id="id_last_name" required
-                           value="{{ form.last_name.value|default:'' }}"
-                           class="block w-full rounded-full border py-4 pl-11 pr-4 text-base placeholder-gray-400 transition duration-200 focus:outline-none focus:ring-2 sm:py-3 sm:text-sm bg-background border-border text-text-primary ring-primary"
-                           placeholder="Last Name">
-                </div>
+                <label for="id_last_name" class="block text-sm font-medium mb-1 text-text-primary">Last Name</label>
+                <input type="text" name="last_name" id="id_last_name" required
+                       value="{{ form.last_name.value|default:'' }}"
+                       class="block w-full rounded-lg border py-3 px-4 text-base transition duration-200 focus:outline-none focus:ring-2 sm:py-3 sm:text-sm bg-background border-border text-text-primary ring-primary"
+                       placeholder="Last Name">
+                <div id="last_name_error" class="text-xs mt-1 text-error"></div>
+                {% if form.last_name.errors %}
+                <div class="text-xs mt-1 text-error">{{ form.last_name.errors.0 }}</div>
+                {% endif %}
             </div>
-        
-            <!-- Email -->
+
+            <!-- Email with HTMX validation -->
             <div>
-                <label for="id_email" class="sr-only">Email address</label>
-                <div class="relative">
-                    <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-text-secondary">
-                        {% lucide "mail" size=20 class="h-5 w-5 sm:h-4 sm:w-4" %}
-                    </div>
-                    <input type="email" name="email" id="id_email" required
-                           value="{{ form.email.value|default:'' }}"
-                           class="block w-full rounded-full border py-4 pl-11 pr-4 text-base placeholder-gray-400 transition duration-200 focus:outline-none focus:ring-2 sm:py-3 sm:text-sm bg-background border-border text-text-primary ring-primary"
-                           placeholder="Email address">
-                </div>
+                <label for="id_email" class="block text-sm font-medium mb-1 text-text-primary">Email address</label>
+                <input type="email" name="email" id="id_email" required
+                       value="{{ form.email.value|default:'' }}"
+                       class="block w-full rounded-lg border py-3 px-4 text-base transition duration-200 focus:outline-none focus:ring-2 sm:py-3 sm:text-sm bg-background border-border text-text-primary ring-primary"
+                       placeholder="Email address"
+                       hx-get="{% url 'accounts:validate_email' %}"
+                       hx-trigger="keyup changed delay:500ms"
+                       hx-target="#email_error"
+                       hx-swap="innerHTML">
+                <div id="email_error" class="text-xs mt-1 text-error"></div>
+                {% if form.email.errors %}
+                <div class="text-xs mt-1 text-error">{{ form.email.errors.0 }}</div>
+                {% endif %}
             </div>
-        
+
             <!-- Department Dropdown -->
             <div>
-                <label for="id_department" class="sr-only">Department</label>
-                <div class="relative">
-                    <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-text-secondary">
-                        {% lucide "building" size=20 class="h-5 w-5 sm:h-4 sm:w-4" %}
-                    </div>
-                    <select name="department" id="id_department" required
-                            class="block w-full rounded-full border py-4 pl-11 pr-4 text-base placeholder-gray-400 transition duration-200 focus:outline-none focus:ring-2 sm:py-3 sm:text-sm bg-background border-border text-text-primary ring-primary">
-                        <option value="">Select Department</option>
-                        {% for value, label in form.department.field.choices %}
-                            <option value="{{ value }}" {% if form.department.value == value %}selected{% endif %}>{{ label }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
+                <label for="id_department" class="block text-sm font-medium mb-1 text-text-primary">Department</label>
+                <select name="department" id="id_department" required
+                        class="block w-full rounded-lg border py-3 px-4 text-base transition duration-200 focus:outline-none focus:ring-2 sm:py-3 sm:text-sm bg-background border-border text-text-primary ring-primary">
+                    <option value="">Select Department</option>
+                    {% for value, label in form.department.field.choices %}
+                        <option value="{{ value }}" {% if form.department.value == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+                <div id="department_error" class="text-xs mt-1 text-error"></div>
+                {% if form.department.errors %}
+                <div class="text-xs mt-1 text-error">{{ form.department.errors.0 }}</div>
+                {% endif %}
             </div>
-        
-            <!-- Password1 (with toggle) -->
+
+            <!-- Password with HTMX strength -->
             <div>
-                <label for="id_password1" class="sr-only">Password</label>
+                <label for="id_password1" class="block text-sm font-medium mb-1 text-text-primary">Password</label>
                 <div class="relative">
-                    <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-text-secondary">
-                        {% lucide "lock" size=20 class="h-5 w-5 sm:h-4 sm:w-4" %}
-                    </div>
                     <input type="password" name="password1" id="id_password1" required
-                        class="block w-full rounded-full border py-4 pl-11 pr-12 text-base placeholder-gray-400 transition duration-200 focus:outline-none focus:ring-2 sm:py-3 sm:text-sm bg-background border-border text-text-primary ring-primary"
-                        placeholder="Password">
+                        class="block w-full rounded-lg border py-3 px-4 pr-12 text-base transition duration-200 focus:outline-none focus:ring-2 sm:py-3 sm:text-sm bg-background border-border text-text-primary ring-primary"
+                        placeholder="Password"
+                        hx-get="{% url 'accounts:validate_password' %}"
+                        hx-trigger="keyup changed delay:300ms"
+                        hx-target="#password_strength"
+                        hx-swap="innerHTML">
                     <button type="button" class="password-toggle absolute inset-y-0 right-3 flex items-center cursor-pointer text-text-secondary hover:text-primary transition"
                             data-target="id_password1">
-                        <span class="eye-icon">{% lucide "eye" size=20 class="h-5 w-5 sm:h-4 sm:w-4" %}</span>
-                        <span class="eye-off-icon hidden">{% lucide "eye-off" size=20 class="h-5 w-5 sm:h-4 sm:w-4" %}</span>
+                        <span class="eye-icon">{% lucide "eye" size=18 class="h-5 w-5 sm:h-4 sm:w-4" %}</span>
+                        <span class="eye-off-icon hidden">{% lucide "eye-off" size=18 class="h-5 w-5 sm:h-4 sm:w-4" %}</span>
                     </button>
                 </div>
+                <div id="password_strength" class="mt-2"></div>
+                {% if form.password1.errors %}
+                <div class="text-xs mt-1 text-error">{{ form.password1.errors.0 }}</div>
+                {% endif %}
             </div>
-        
-            <!-- Password2 (with toggle) -->
+
+            <!-- Confirm Password -->
             <div>
-                <label for="id_password2" class="sr-only">Confirm password</label>
+                <label for="id_password2" class="block text-sm font-medium mb-1 text-text-primary">Confirm password</label>
                 <div class="relative">
-                    <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-text-secondary">
-                        {% lucide "lock-keyhole" size=20 class="h-5 w-5 sm:h-4 sm:w-4" %}
-                    </div>
                     <input type="password" name="password2" id="id_password2" required
-                        class="block w-full rounded-full border py-4 pl-11 pr-12 text-base placeholder-gray-400 transition duration-200 focus:outline-none focus:ring-2 sm:py-3 sm:text-sm bg-background border-border text-text-primary ring-primary"
+                        class="block w-full rounded-lg border py-3 px-4 pr-12 text-base transition duration-200 focus:outline-none focus:ring-2 sm:py-3 sm:text-sm bg-background border-border text-text-primary ring-primary"
                         placeholder="Confirm password">
                     <button type="button" class="password-toggle absolute inset-y-0 right-3 flex items-center cursor-pointer text-text-secondary hover:text-primary transition"
                             data-target="id_password2">
-                        <span class="eye-icon">{% lucide "eye" size=20 class="h-5 w-5 sm:h-4 sm:w-4" %}</span>
-                        <span class="eye-off-icon hidden">{% lucide "eye-off" size=20 class="h-5 w-5 sm:h-4 sm:w-4" %}</span>
+                        <span class="eye-icon">{% lucide "eye" size=18 class="h-5 w-5 sm:h-4 sm:w-4" %}</span>
+                        <span class="eye-off-icon hidden">{% lucide "eye-off" size=18 class="h-5 w-5 sm:h-4 sm:w-4" %}</span>
                     </button>
                 </div>
+                <div id="password2_error" class="text-xs mt-1 text-error"></div>
+                {% if form.password2.errors %}
+                <div class="text-xs mt-1 text-error">{{ form.password2.errors.0 }}</div>
+                {% endif %}
             </div>
-        
-            <!-- Terms and Policy Consent -->
+
+            <!-- Terms -->
             <div class="text-xs text-start text-text-secondary">
                 <p>By creating an account, you agree to Gemz's 
                    <a href="#" class="underline transition text-primary hover:opacity-80">Terms of Use</a> and 
@@ -138,9 +133,9 @@
                 </p>
             </div>
 
-            <!-- Submit Button -->
+            <!-- Submit -->
             <button type="submit" 
-                    class="flex w-full justify-center rounded-full px-4 py-4 text-base font-semibold text-white shadow-sm transition duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 btn-login cursor-pointer sm:py-3 sm:text-sm ring-primary ring-offset-surface">
+                    class="flex w-full justify-center rounded-lg px-4 py-4 text-base font-semibold text-white shadow-sm transition duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 btn-login cursor-pointer sm:py-3 sm:text-sm ring-primary ring-offset-surface">
                 Create Account
             </button>
             
@@ -162,7 +157,6 @@
             var eye = btn.querySelector('.eye-icon');
             var eyeOff = btn.querySelector('.eye-off-icon');
             if (!input || !eye || !eyeOff) return;
-
             btn.addEventListener('click', function() {
                 if (input.type === 'password') {
                     input.type = 'text';
@@ -175,6 +169,24 @@
                 }
             });
         });
+
+        // Client‑side password confirmation check
+        const password1 = document.getElementById('id_password1');
+        const password2 = document.getElementById('id_password2');
+        const errorDiv = document.getElementById('password2_error');
+
+        if (password1 && password2) {
+            function checkMatch() {
+                if (password2.value && password2.value !== password1.value) {
+                    errorDiv.textContent = 'Passwords do not match.';
+                    errorDiv.className = 'text-xs mt-1 text-error';
+                } else {
+                    errorDiv.textContent = '';
+                }
+            }
+            password1.addEventListener('input', checkMatch);
+            password2.addEventListener('input', checkMatch);
+        }
     });
 </script>
 {% endblock %}

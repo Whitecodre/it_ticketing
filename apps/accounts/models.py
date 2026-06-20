@@ -10,6 +10,7 @@ class UserManager(BaseUserManager):
         if not email:
             raise ValueError("The Email field must be set")
         email = self.normalize_email(email)
+        email = email.lower()
         user = self.model(email=email, **extra_fields)
         user.set_password(password)
         user.save(using=self._db)
@@ -53,7 +54,6 @@ class User(AbstractUser):
     )
 
     DEPARTMENT_CHOICES = [
-        ('ALL', 'All'),
         ('MARINE', 'Marine'),
         ('IT', 'IT'),
         ('ACCOUNTING', 'Accounting'),
@@ -76,6 +76,7 @@ class User(AbstractUser):
     )
 
     avatar = models.ImageField(upload_to='avatars/', blank=True, null=True)
+    email_verified = models.BooleanField(default=False)
     created_by = models.ForeignKey(
         'self',
         on_delete=models.SET_NULL,

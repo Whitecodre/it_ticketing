@@ -20,11 +20,11 @@
         <form class="space-y-5" method="post">
             {% csrf_token %}
 
-            {% if form.errors %}
-            <div class="rounded-md bg-red-50 p-4">
-                <p class="text-sm text-red-800">
-                    Your email and password didn't match. Please try again.
-                </p>
+            {% if form.non_field_errors %}
+            <div class="rounded-md bg-red-50 p-4 alert-message alert-error">
+                {% for error in form.non_field_errors %}
+                    <p class="text-sm text-red-800">{{ error|safe }}</p>
+                {% endfor %}
             </div>
             {% endif %}
             
@@ -35,8 +35,9 @@
                     <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-text-secondary">
                         {% lucide "mail" size=20 class="h-5 w-5 sm:h-4 sm:w-4" %}
                     </div>
-                    <input id="username" name="username" type="text" autocomplete="email" required 
-                           class="block w-full rounded-full border py-4 pl-11 pr-4 text-base placeholder-gray-400 transition duration-200 focus:outline-none focus:ring-2 sm:py-3 sm:text-sm bg-background border-border text-text-primary ring-primary"
+                    <input id="username" name="username" type="text" autocomplete="email" required
+                           value="{{ username|default:'' }}"
+                           class="block w-full rounded-lg border py-4 pl-11 pr-4 text-base placeholder-gray-400 transition duration-200 focus:outline-none focus:ring-2 sm:py-3 sm:text-sm bg-background border-border text-text-primary ring-primary"
                            placeholder="Email address">
                 </div>
             </div>
@@ -49,7 +50,7 @@
                         {% lucide "lock" size=20 class="h-5 w-5 sm:h-4 sm:w-4" %}
                     </div>
                     <input id="password" name="password" type="password" autocomplete="current-password" required 
-                           class="block w-full rounded-full border py-4 pl-11 pr-12 text-base placeholder-gray-400 transition duration-200 focus:outline-none focus:ring-2 sm:py-3 sm:text-sm bg-background border-border text-text-primary ring-primary"
+                           class="block w-full rounded-lg border py-4 pl-11 pr-12 text-base placeholder-gray-400 transition duration-200 focus:outline-none focus:ring-2 sm:py-3 sm:text-sm bg-background border-border text-text-primary ring-primary"
                            placeholder="Password">
                     <button type="button" id="togglePasswordBtn"
                             class="absolute inset-y-0 right-3 flex items-center cursor-pointer text-text-secondary hover:text-primary transition"
@@ -81,7 +82,7 @@
 
             <!-- Submit Button -->
             <button type="submit" 
-                    class="flex w-full justify-center rounded-full px-4 py-4 text-base font-semibold text-white shadow-sm transition duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 btn-login cursor-pointer sm:py-3 sm:text-sm ring-primary ring-offset-surface">
+                    class="flex w-full justify-center rounded-lg px-4 py-4 text-base font-semibold text-white shadow-sm transition duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 btn-login cursor-pointer sm:py-3 sm:text-sm ring-primary ring-offset-surface">
                 Log in
             </button>
         </form>
@@ -114,6 +115,19 @@
                 eye.classList.remove('hidden');
                 eyeOff.classList.add('hidden');
             }
+        });
+    });
+    // Spinner on form submit
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('form[method="post"]').forEach(function(form) {
+            form.addEventListener('submit', function() {
+                const submitBtn = form.querySelector('button[type="submit"], input[type="submit"]');
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<span class="inline-flex items-center"><svg class="animate-spin h-4 w-4 mr-2 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> </span>';
+                    submitBtn.classList.add('opacity-70');
+                }
+            });
         });
     });
 </script>

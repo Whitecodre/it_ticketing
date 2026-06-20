@@ -1,0 +1,107 @@
+{% extends "base_registration.html" %}
+{% load static %}
+{% load lucide %}
+
+{% block title %}Sign Up - Step 1 of 2{% endblock %}
+
+{% block content %}
+<div class="flex min-h-screen items-center justify-center px-4 py-12 sm:px-6 lg:px-8">
+    <div class="w-full max-w-md md:max-w-sm space-y-6">
+        
+        <div class="text-center">
+            <img src="{% static 'img/gemz-logo.png' %}" alt="Gemz Software Logo" class="mx-auto h-10 w-auto">
+            <h2 class="mt-3 text-center text-3xl font-bold tracking-wide text-primary">Create Account</h2>
+            <p class="mt-1 text-sm text-text-secondary">Step 1 of 2</p>
+            <div class="flex justify-center gap-1 mt-2">
+                <span class="h-1.5 w-12 rounded-full bg-primary"></span>
+                <span class="h-1.5 w-12 rounded-full bg-border"></span>
+            </div>
+        </div>
+
+        <form method="post" class="space-y-4">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="1">
+
+            <!-- Display non-field errors (if any) -->
+            {% if form.non_field_errors %}
+            <div class="rounded-md bg-red-50 p-4 alert-message alert-error">
+                {% for error in form.non_field_errors %}
+                    <p class="text-sm text-red-800">{{ error|safe }}</p>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- First Name -->
+            <div>
+                <label for="id_first_name" class="block text-sm font-medium mb-1 text-text-primary">First Name</label>
+                <input type="text" name="first_name" id="id_first_name" required
+                       value="{{ form.first_name.value|default:'' }}"
+                       class="block w-full rounded-lg border py-3 px-4 text-base transition duration-200 focus:outline-none focus:ring-2 sm:py-3 sm:text-sm bg-background border-border text-text-primary ring-primary"
+                       placeholder="First Name">
+                {% if form.first_name.errors %}
+                <div class="text-xs mt-1 text-error">{{ form.first_name.errors.0 }}</div>
+                {% endif %}
+            </div>
+
+            <!-- Last Name -->
+            <div>
+                <label for="id_last_name" class="block text-sm font-medium mb-1 text-text-primary">Last Name</label>
+                <input type="text" name="last_name" id="id_last_name" required
+                       value="{{ form.last_name.value|default:'' }}"
+                       class="block w-full rounded-lg border py-3 px-4 text-base transition duration-200 focus:outline-none focus:ring-2 sm:py-3 sm:text-sm bg-background border-border text-text-primary ring-primary"
+                       placeholder="Last Name">
+                {% if form.last_name.errors %}
+                <div class="text-xs mt-1 text-error">{{ form.last_name.errors.0 }}</div>
+                {% endif %}
+            </div>
+
+            <!-- Email -->
+            <div>
+                <label for="id_email" class="block text-sm font-medium mb-1 text-text-primary">Email address</label>
+                <input type="email" name="email" id="id_email" required
+                       value="{{ form.email.value|default:'' }}"
+                       class="block w-full rounded-lg border py-3 px-4 text-base transition duration-200 focus:outline-none focus:ring-2 sm:py-3 sm:text-sm bg-background border-border text-text-primary ring-primary"
+                       placeholder="Email address"
+                       hx-get="{% url 'accounts:validate_email' %}"
+                       hx-trigger="keyup changed delay:500ms"
+                       hx-target="#email_error"
+                       hx-swap="innerHTML">
+                <div id="email_error" class="text-xs mt-1"></div>
+                {% if form.email.errors %}
+                <div class="text-xs mt-1 text-error">{{ form.email.errors.0 }}</div>
+                {% endif %}
+            </div>
+
+            <!-- Department -->
+            <div>
+                <label for="id_department" class="block text-sm font-medium mb-1 text-text-primary">Department</label>
+                <select name="department" id="id_department" required
+                        class="block w-full rounded-lg border py-3 px-4 text-base transition duration-200 focus:outline-none focus:ring-2 sm:py-3 sm:text-sm bg-background border-border text-text-primary ring-primary">
+                    <option value="">Select Department</option>
+                    {% for value, label in form.department.field.choices %}
+                        <option value="{{ value }}" {% if form.department.value == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+                {% if form.department.errors %}
+                <div class="text-xs mt-1 text-error">{{ form.department.errors.0 }}</div>
+                {% endif %}
+            </div>
+
+            <button type="submit" class="flex w-full justify-center rounded-lg px-4 py-4 text-base font-semibold text-white shadow-sm transition duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 btn-login cursor-pointer sm:py-3 sm:text-sm">
+                Next → Set Password
+            </button>
+
+            <p class="text-center text-sm text-text-secondary">
+                Already have an account? <a href="{% url 'accounts:login' %}" class="font-medium text-primary hover:opacity-80">Log in</a>
+            </p>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ block.super }}
+<script>
+    // Password toggle is not needed in step 1
+</script>
+{% endblock %}

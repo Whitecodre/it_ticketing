@@ -12,15 +12,19 @@ class Command(BaseCommand):
             self.stderr.write("SUPERUSER_EMAIL and SUPERUSER_PASSWORD must be set.")
             return
 
-        if User.objects.filter(role=User.Role.SUPERADMIN).exists():
+        # Check if any superuser already exists
+        if User.objects.filter(is_superuser=True).exists():
             self.stdout.write("Superuser already exists. Nothing to do.")
             return
 
-        User.objects.create_superuser(
+        # Create the superuser (this sets is_superuser=True, is_staff=True)
+        user = User.objects.create_superuser(
             email=email,
             password=password,
             first_name='Super',
             last_name='Admin',
-            department='IT',
         )
+        # If your User model has a 'role' field, set it to SUPERADMIN
+        user.role = User.Role.SUPERADMIN
+        user.save()
         self.stdout.write(f"Superuser {email} created.")

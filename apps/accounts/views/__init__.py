@@ -3,19 +3,30 @@ from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect
 from django.contrib.auth.tokens import default_token_generator
+from django.contrib.auth.password_validation import validate_password
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
+from django.urls import reverse
 from django.core.mail import send_mail
+# from django.core.exceptions import ValidationError
 from django.template.loader import render_to_string
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.contrib.auth.views import LoginView
+from django.http import HttpResponse
 from django.utils import timezone
 from django.utils.html import strip_tags
 from django.db.models import F, DurationField, ExpressionWrapper, Count, Q
 from datetime import timedelta
-from ..forms import RegistrationForm, ProfileForm, EmailAuthenticationForm
+from ..forms import ProfileForm, EmailAuthenticationForm, RegistrationStep1Form, RegistrationStep2Form
 from ..models import User
+from ..utils import validate_password_strength
 from apps.tickets.models import Ticket, TicketActivityLog, SLA, BusinessCalendar, EscalationRule, TicketActivityLog
+
+
+User = get_user_model()
+logger = logging.getLogger(__name__)
+
 
 class CustomLoginView(LoginView):
     template_name = 'registration/login.html'
@@ -25,12 +36,49 @@ class CustomLoginView(LoginView):
     def form_valid(self, form):
         remember_me = self.request.POST.get('remember_me')
         if remember_me:
-            # Set session to expire in 30 days (or whatever you prefer)
-            self.request.session.set_expiry(30 * 24 * 60 * 60)  # 30 days in seconds
+            self.request.session.set_expiry(30 * 24 * 60 * 60)
         else:
-            # Session expires when the browser closes
             self.request.session.set_expiry(0)
         return super().form_valid(form)
+
+    def form_invalid(self, form):
+        # Pass the submitted username back to the template
+        return self.render_to_response(
+            self.get_context_data(
+                form=form,
+                username=form.data.get('username', '')
+            )
+        )
+
+def validate_email_ajax(request):
+    email = request.GET.get('email', '').strip()
+    if not email:
+        return render(request, 'partials/email_validation.html', {
+            'valid': False,
+            'message': 'Email is required.'
+        })
+    if User.objects.filter(email=email).exists():
+        return render(request, 'partials/email_validation.html', {
+            'valid': False,
+            'message': 'This email is already registered.'
+        })
+    return render(request, 'partials/email_validation.html', {
+        'valid': True,
+        'message': 'Email is available.'
+    })
+
+def validate_password_ajax(request):
+    password = request.GET.get('password') or request.GET.get('password1', '')
+    if not password:
+        return HttpResponse('')
+    result = validate_password_strength(password)
+    try:
+        from django.contrib.auth.password_validation import validate_password
+        validate_password(password)
+        result['valid'] = True
+    except Exception:
+        result['valid'] = False
+    return render(request, 'partials/password_strength.html', result)
 
 @login_required
 def dashboard(request):
@@ -137,47 +185,85 @@ def dashboard(request):
         
     return render(request, template, context)
 
-logger = logging.getLogger(__name__)
-
 def register(request):
+    step = request.GET.get('step', '1')
+    
     if request.method == 'POST':
-        form = RegistrationForm(request.POST)
-        if form.is_valid():
-            user = form.save()
-            # Send verification email
-            token = default_token_generator.make_token(user)
-            uid = urlsafe_base64_encode(force_bytes(user.pk))
-            verification_link = request.build_absolute_uri(
-                f'/accounts/verify/{uid}/{token}/'
-            )
-            subject = "Verify your email address"
-            html_message = render_to_string('registration/verification_email.html', {
-                'user': user,
-                'link': verification_link,
-            })
-            plain_message = strip_tags(html_message)
-            email_error = False
-            try:
-                send_mail(
-                    subject=subject,
-                    message=plain_message,
-                    from_email=settings.DEFAULT_FROM_EMAIL,
-                    recipient_list=[user.email],
-                    html_message=html_message,
-                    fail_silently=False,
+        if step == '1':
+            form = RegistrationStep1Form(request.POST)
+            if form.is_valid():
+                # Explicitly lowercase email
+                email = form.cleaned_data['email'].lower()
+                request.session['registration_data'] = {
+                    'first_name': form.cleaned_data['first_name'],
+                    'last_name': form.cleaned_data['last_name'],
+                    'email': form.cleaned_data['email'],
+                    'department': form.cleaned_data['department'],
+                }
+                return redirect(reverse('accounts:register') + '?step=2')
+            else:
+                return render(request, 'registration/register_step1.html', {'form': form})
+        else:
+            data = request.session.get('registration_data')
+            if not data:
+                return redirect('accounts:register')
+            form = RegistrationStep2Form(request.POST)
+            if form.is_valid():
+                email = data.get('email', '').lower()   # extra safety
+                user = User.objects.create_user(
+                    email=email,
+                    password=form.cleaned_data['password1'],
+                    first_name=data.get('first_name'),
+                    last_name=data.get('last_name'),
+                    department=data.get('department'),
+                    is_active=False,
+                    email_verified=False
                 )
-            except Exception as e:
-                logger.error(f"Failed to send verification email to {user.email}: {str(e)}")
-                email_error = True
+                # Send verification email
+                token = default_token_generator.make_token(user)
+                uid = urlsafe_base64_encode(force_bytes(user.pk))
+                verification_link = request.build_absolute_uri(
+                    f'/accounts/verify/{uid}/{token}/'
+                )
+                subject = "Verify your email address"
+                html_message = render_to_string('registration/verification_email.html', {
+                    'user': user,
+                    'link': verification_link,
+                })
+                plain_message = strip_tags(html_message)
+                email_error = False
+                try:
+                    send_mail(
+                        subject=subject,
+                        message=plain_message,
+                        from_email=settings.DEFAULT_FROM_EMAIL,
+                        recipient_list=[user.email],
+                        html_message=html_message,
+                        fail_silently=False,
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to send verification email to {user.email}: {str(e)}")
+                    email_error = True
 
-            return render(request, 'registration/register_done.html', {
-                'email_error': email_error,
-                'user_email': user.email,
-                'user_id': user.pk,
-            })
+                request.session.pop('registration_data', None)
+                return render(request, 'registration/register_done.html', {
+                    'email_error': email_error,
+                    'user_email': user.email,
+                    'user_id': user.pk,
+                })
+            else:
+                return render(request, 'registration/register_step2.html', {'form': form})
+    
+    # GET request – show current step
+    if step == '1':
+        # Pre‑fill with session data if it exists
+        initial = request.session.get('registration_data', {})
+        form = RegistrationStep1Form(initial=initial)
+        return render(request, 'registration/register_step1.html', {'form': form})
     else:
-        form = RegistrationForm()
-    return render(request, 'registration/register.html', {'form': form})
+        if not request.session.get('registration_data'):
+            return redirect('accounts:register')
+        return render(request, 'registration/register_step2.html', {'form': RegistrationStep2Form()})
 
 def verify_email(request, uidb64, token):
     try:
@@ -188,6 +274,7 @@ def verify_email(request, uidb64, token):
 
     if user is not None and default_token_generator.check_token(user, token):
         user.is_active = True
+        user.email_verified = True
         user.save()
         return render(request, 'registration/verify_email_done.html')
     else:
@@ -195,9 +282,16 @@ def verify_email(request, uidb64, token):
 
 def resend_verification(request):
     if request.method == 'POST':
-        email = request.POST.get('email')
+        email = request.POST.get('email', '').strip()
+        if not email:
+            message = "Please enter your email address."
+            success = False
+            return render(request, 'registration/resend_verification_done.html', {
+                'message': message,
+                'success': success,
+            })
         try:
-            user = User.objects.get(email=email, is_active=False)
+            user = User.objects.get(email__iexact=email, is_active=False)
             token = default_token_generator.make_token(user)
             uid = urlsafe_base64_encode(force_bytes(user.pk))
             verification_link = request.build_absolute_uri(

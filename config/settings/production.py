@@ -36,9 +36,11 @@ EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = os.environ.get('EMAIL_HOST')
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = os.environ.get('BREVO_SMTP_USER')      # e.g., 'your-brevo-login@email.com'
-EMAIL_HOST_PASSWORD = os.environ.get('BREVO_SMTP_PASSWORD')  # Your SMTP key
-DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@demo-it-ticketing.onrender.com')
+EMAIL_HOST_USER = os.environ.get('GMAIL_SMTP_USER')      # e.g., 'your-gmail-address-name@gmail.com'
+EMAIL_HOST_PASSWORD = os.environ.get('GMAIL_SMTP_PASSWORD')  # Your Gmail APP Password
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply.gemzticketingsoftware@gmail.com')
+EMAIL_TIMEOUT = 10  # seconds
+
 
 
 # Cloudinary file storage

@@ -12,6 +12,8 @@ app_name = 'accounts'
 urlpatterns = [
     path('login/', views.CustomLoginView.as_view(), name='login'),
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
+    path('validate-email/', views.validate_email_ajax, name='validate_email'),
+    path('validate-password/', views.validate_password_ajax, name='validate_password'),
     path('register/', views.register, name='register'),
     path('verify/<uidb64>/<token>/', views.verify_email, name='verify_email'),
     # ---- Password Reset ----

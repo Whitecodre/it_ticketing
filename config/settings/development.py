@@ -1,3 +1,5 @@
+# config/settings/development.py
+
 from .base import *
 
 DEBUG = True
@@ -16,14 +18,15 @@ DATABASES = {
 
 STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
 
-# Use SMTP for development if EMAIL_HOST is set in environment, otherwise console
-if env('EMAIL_HOST', default=None):
-    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-    EMAIL_HOST = env('EMAIL_HOST')
-    EMAIL_PORT = env('EMAIL_PORT', default=587)
-    EMAIL_USE_TLS = env('EMAIL_USE_TLS', default=True)
-    EMAIL_HOST_USER = env('BREVO_SMTP_USER')
-    EMAIL_HOST_PASSWORD = env('BREVO_SMTP_PASSWORD')
-    DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL')
-else:
-    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+# if env('EMAIL_HOST', default=None):
+#     # ✅ Always use Gmail SMTP in development
+#     EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+#     EMAIL_HOST = env('EMAIL_HOST')
+#     EMAIL_PORT = env('EMAIL_PORT', default=587)
+#     EMAIL_USE_TLS = env('EMAIL_USE_TLS', default=True)
+#     EMAIL_HOST_USER = env('GMAIL_SMTP_USER')
+#     EMAIL_HOST_PASSWORD = env('GMAIL_SMTP_PASSWORD')   
+#     DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL')
+#     EMAIL_TIMEOUT = 10  # seconds
+# else:
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'

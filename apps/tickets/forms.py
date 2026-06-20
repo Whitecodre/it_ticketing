@@ -5,16 +5,16 @@ from apps.common.models import Category
 class TicketForm(forms.ModelForm):
     # Explicit field override to remove the blank option
     category = forms.ModelChoiceField(
-    queryset=Category.objects.all(),
-    empty_label="Select a category",   # ← friendly placeholder
-    required=False,
-    widget=forms.Select(attrs={
-        'class': 'block w-full rounded-lg border py-2.5 px-4 text-sm transition focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary',
-        'hx-get': '',
-        'hx-target': '#kb-suggestions',
-        'hx-trigger': 'change',
-    }),
-)
+        queryset=Category.objects.all(),
+        empty_label=None, 
+        required=True,
+        widget=forms.Select(attrs={
+            'class': 'block w-full rounded-lg border py-2.5 px-4 text-sm transition focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary',
+            'hx-get': '',
+            'hx-target': '#kb-suggestions',
+            'hx-trigger': 'change',
+        }),
+    )
 
     class Meta:
         model = Ticket
