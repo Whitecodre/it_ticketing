@@ -22,16 +22,16 @@
         {# MAIN CONVERSATION COLUMN #}
         <div class="flex flex-col flex-1 min-w-0 overflow-hidden">
 
-            {# Header #}
-            <div class="px-4 py-3 border-b flex items-center justify-between shrink-0"
+            {# Header – responsive with better spacing #}
+            <div class="px-3 py-2.5 sm:px-4 sm:py-3 border-b flex flex-wrap items-start sm:items-center justify-between shrink-0 gap-1.5 sm:gap-0"
                  style="background-color: var(--color-surface); border-color: var(--color-border);">
                 <div class="flex-1 min-w-0">
-                    <h2 class="text-sm font-semibold truncate" style="color: var(--color-text-primary);">{{ ticket.title }}</h2>
-                    <div class="flex items-center gap-2 text-xs mt-0.5" style="color: var(--color-text-secondary);">
+                    <h2 class="text-sm sm:text-base font-semibold truncate" style="color: var(--color-text-primary);">{{ ticket.title }}</h2>
+                    <div class="flex flex-wrap items-center gap-1.5 sm:gap-2 text-xs mt-0.5" style="color: var(--color-text-secondary);">
                         <span>{{ ticket.number }}</span>
                         <span>•</span>
                         <span id="ticketStatusChip">
-                            <span class="status-chip {{ ticket.status|lower }} text-xs">{{ ticket.get_status_display }}</span>
+                            <span class="status-chip {{ ticket.status|lower }} text-[0.65rem] sm:text-xs">{{ ticket.get_status_display }}</span>
                         </span>
                         {% if is_agent %}
                         <div id="slaBadgeContainer"
@@ -40,7 +40,7 @@
                             hx-swap="innerHTML">
                             <span id="slaBadgeInner">
                                 {% with sla_info=ticket.sla_status %}
-                                <span class="text-[0.6rem] px-2 py-0.5 rounded-full 
+                                <span class="text-[0.55rem] sm:text-[0.6rem] px-1.5 sm:px-2 py-0.5 rounded-full 
                                     {% if sla_info.overall == 'breached' %}bg-error/10 text-error
                                     {% elif sla_info.overall == 'warning' %}bg-warning/10 text-warning
                                     {% else %}bg-success/10 text-success{% endif %}">
@@ -56,10 +56,10 @@
                         <span>{{ ticket.get_priority_display }}</span>
                     </div>
                 </div>
-                <div class="flex items-center gap-2 ml-3">
+                <div class="flex items-center gap-1 sm:gap-2 ml-0 sm:ml-3 self-end sm:self-center">
                     {% if is_agent %}
                     <div class="relative" id="statusDropdown">
-                        <button id="statusDropdownBtn" class="btn-ghost text-xs px-2 py-1 flex items-center gap-1"
+                        <button id="statusDropdownBtn" class="btn-ghost text-xs px-1.5 sm:px-2 py-1 flex items-center gap-0.5 sm:gap-1 min-h-[36px] sm:min-h-[40px]"
                                 onclick="toggleStatusDropdown()">
                             Status {% lucide "chevron-down" size=14 class="transition-transform duration-200" id="statusChevron" %}
                         </button>
@@ -73,31 +73,31 @@
                             {% endfor %}
                         </div>
                     </div>
-                    <button class="btn-ghost p-1.5 element-link" onclick="toggleDetailsPanel()" data-tooltip="Toggle Details">
+                    <button class="btn-ghost p-1.5 element-link min-h-[36px] sm:min-h-[40px]" onclick="toggleDetailsPanel()" data-tooltip="Toggle Details">
                         {% lucide "panel-right" size=18 %}
                     </button>
                     {% else %}
-                    <a href="{% url 'tickets:my_list' %}" class="btn-ghost text-xs flex items-center gap-1">
+                    <a href="{% url 'tickets:my_list' %}" class="btn-ghost text-xs flex items-center gap-1 min-h-[36px] sm:min-h-[40px]">
                         {% lucide "arrow-left" size=14 %} Back
                     </a>
                     {% endif %}
                 </div>
             </div>
 
-            {# Quick Actions Bar (only for agents) #}
+            {# Quick Actions Bar (only for agents) – responsive #}
             {% if is_agent %}
-            <div class="px-4 py-2 border-b flex items-center gap-2 shrink-0"
+            <div class="px-3 py-1.5 sm:px-4 sm:py-2 border-b flex flex-wrap items-center gap-1.5 sm:gap-2 shrink-0"
                 style="background-color: var(--color-surface); border-color: var(--color-border);">
-                <button class="btn-success text-xs flex items-center gap-1"
+                <button class="btn-success text-[0.65rem] sm:text-xs flex items-center gap-1 px-2 py-1 sm:px-3 sm:py-1.5 rounded min-h-[32px] sm:min-h-[36px]"
                         hx-post="{% url 'tickets:update_status' ticket.pk %}?status=RESOLVED"
                         hx-swap="none"
                         hx-on::after-request="location.reload()">
                     {% lucide "check-circle" size=14 %} Resolve
                 </button>
-                <button class="btn-ghost text-xs flex items-center gap-1" onclick="toggleDetailsPanel()">
+                <button class="btn-ghost text-[0.65rem] sm:text-xs flex items-center gap-1 px-2 py-1 sm:px-3 sm:py-1.5 rounded min-h-[32px] sm:min-h-[36px]" onclick="toggleDetailsPanel()">
                     {% lucide "panel-right" size=14 %} Toggle Details
                 </button>
-                <button class="btn-ghost text-xs flex items-center gap-1"
+                <button class="btn-ghost text-[0.65rem] sm:text-xs flex items-center gap-1 px-2 py-1 sm:px-3 sm:py-1.5 rounded min-h-[32px] sm:min-h-[36px]"
                         hx-post="{% url 'tickets:request_remote_session' ticket.pk %}"
                         hx-swap="none"
                         hx-on::after-request="if(event.detail.successful) { location.reload(); } else { alert('Request failed. Active connector needed?'); }">
@@ -105,20 +105,20 @@
                 </button>
                 <form method="post" action="{% url 'kb:convert_ticket' ticket.pk %}" class="inline">
                     {% csrf_token %}
-                    <button type="submit" class="btn-ghost text-xs flex items-center gap-1">
+                    <button type="submit" class="btn-ghost text-[0.65rem] sm:text-xs flex items-center gap-1 px-2 py-1 sm:px-3 sm:py-1.5 rounded min-h-[32px] sm:min-h-[36px]">
                         {% lucide "file-plus" size=14 %} Convert to KB
                     </button>
                 </form>
             </div>
             {% endif %}
 
-            {# Message Timeline #}
-            <div class="flex-1 overflow-y-auto px-4 pt-3 space-y-3" id="commentTimeline"
+            {# Message Timeline – with bottom padding #}
+            <div class="flex-1 overflow-y-auto px-2 sm:px-4 pt-2 sm:pt-3 pb-2 sm:pb-3 space-y-3" id="commentTimeline"
                  style="background-color: var(--color-background);">
                 {% include "partials/conversation_timeline.html" %}
             </div>
 
-            {# Composer #}
+            {# Composer – responsive #}
             <div class="shrink-0 border-t" style="background-color: var(--color-surface); border-color: var(--color-border);">
                 <form id="commentForm"
                     {% if is_agent %}
@@ -130,18 +130,18 @@
                     {% endif %}
                     hx-swap="innerHTML"
                     enctype="multipart/form-data"
-                    class="px-4 pt-3 pb-2 mb-0">
+                    class="px-3 sm:px-4 pt-2 sm:pt-3 pb-2 mb-0">
                     {% csrf_token %}
 
                     {% if is_agent %}
-                    <div class="flex items-center gap-2 mb-3" id="visibilityToggles">
-                        <label class="text-xs font-semibold cursor-pointer" onclick="setActiveTab('public')">
+                    <div class="flex items-center gap-2 mb-2 sm:mb-3" id="visibilityToggles">
+                        <label class="text-[0.65rem] sm:text-xs font-semibold cursor-pointer" onclick="setActiveTab('public')">
                             <input type="radio" name="visibility" value="PUBLIC" checked class="sr-only">
-                            <span id="tabPublic" class="px-3 py-1 rounded-full inline-block bg-primary text-white border border-primary">Public Reply</span>
+                            <span id="tabPublic" class="px-2.5 py-1 sm:px-3 rounded-full inline-block bg-primary text-white border border-primary text-[0.65rem] sm:text-xs">Public Reply</span>
                         </label>
-                        <label class="text-xs font-semibold cursor-pointer" onclick="setActiveTab('internal')">
+                        <label class="text-[0.65rem] sm:text-xs font-semibold cursor-pointer" onclick="setActiveTab('internal')">
                             <input type="radio" name="visibility" value="INTERNAL" class="sr-only">
-                            <span id="tabInternal" class="px-3 py-1 rounded-full inline-block bg-background text-text-secondary border border-border">Internal Note</span>
+                            <span id="tabInternal" class="px-2.5 py-1 sm:px-3 rounded-full inline-block bg-background text-text-secondary border border-border text-[0.65rem] sm:text-xs">Internal Note</span>
                         </label>
                     </div>
                     {% endif %}
@@ -150,24 +150,24 @@
                     <div id="commentEditor"
                          contenteditable="true"
                          data-draft-key="draft_{{ ticket.pk }}"
-                         class="w-full rounded-lg border p-2 text-xs focus:outline-none focus:ring-2 overflow-y-auto"
-                         style="background-color: var(--color-background); border-color: var(--color-border); color: var(--color-text-primary); --tw-ring-color: var(--color-primary); height: 60px; resize: none;">
+                         class="w-full rounded-lg border p-2 text-sm focus:outline-none focus:ring-2 overflow-y-auto"
+                         style="background-color: var(--color-background); border-color: var(--color-border); color: var(--color-text-primary); --tw-ring-color: var(--color-primary); height: 80px; max-height: 180px; resize: none;">
                     </div>
 
-                    <div class="flex items-center justify-between gap-2 mt-2">
-                        <div class="flex items-center gap-1">
-                            <button type="button" class="btn-ghost p-1 text-xs element-link" data-tooltip="Bold" onclick="formatDocument('bold')">
+                    <div class="flex flex-wrap items-start sm:items-center justify-between gap-2 mt-2">
+                        <div class="flex flex-wrap items-center gap-0.5 sm:gap-1">
+                            <button type="button" class="btn-ghost p-1.5 sm:p-1 text-xs element-link min-h-[36px] sm:min-h-[32px] flex items-center justify-center" data-tooltip="Bold" onclick="formatDocument('bold')">
                                 {% lucide "bold" size=14 %}
                             </button>
-                            <button type="button" class="btn-ghost p-1 text-xs element-link" data-tooltip="Italic" onclick="formatDocument('italic')">
+                            <button type="button" class="btn-ghost p-1.5 sm:p-1 text-xs element-link min-h-[36px] sm:min-h-[32px] flex items-center justify-center" data-tooltip="Italic" onclick="formatDocument('italic')">
                                 {% lucide "italic" size=14 %}
                             </button>
-                            <button type="button" class="btn-ghost p-1 text-xs element-link" data-tooltip="Insert KB Article">
+                            <button type="button" class="btn-ghost p-1.5 sm:p-1 text-xs element-link min-h-[36px] sm:min-h-[32px] flex items-center justify-center" data-tooltip="Insert KB Article">
                                 {% lucide "book-open" size=14 %}
                             </button>
                             {% if is_agent %}
                             <div class="relative">
-                                <button type="button" class="btn-ghost p-1 text-xs element-link" data-tooltip="Macros"
+                                <button type="button" class="btn-ghost p-1.5 sm:p-1 text-xs element-link min-h-[36px] sm:min-h-[32px] flex items-center justify-center" data-tooltip="Macros"
                                         onclick="document.getElementById('macroDropdown').classList.toggle('hidden'); htmx.trigger('#loadMacros', 'click')">
                                     {% lucide "text-cursor-input" size=14 %}
                                 </button>
@@ -181,27 +181,27 @@
                                 <button id="loadMacros" class="hidden"></button>
                             </div>
                             {% endif %}
-                            <label class="btn-ghost p-1 text-xs element-link cursor-pointer" data-tooltip="Attach files">
+                            <label class="btn-ghost p-1.5 sm:p-1 text-xs element-link cursor-pointer min-h-[36px] sm:min-h-[32px] flex items-center justify-center" data-tooltip="Attach files">
                                 {% lucide "paperclip" size=14 %}
                                 <input type="file" name="attachments" multiple class="sr-only" id="attachmentsInput">
                             </label>
                         </div>
-                        <button type="submit" class="btn-primary text-xs flex items-center gap-1 px-4 py-2">
+                        <button type="submit" class="btn-primary text-xs sm:text-sm flex items-center gap-1 px-4 py-2 min-h-[40px] sm:min-h-[36px] rounded-lg">
                             {% lucide "send" size=14 %} Send
                         </button>
                     </div>
 
-                    <div id="filePreviewContainer" class="inline-flex flex-wrap gap-1 mt-1"></div>
+                    <div id="filePreviewContainer" class="flex flex-wrap gap-1 mt-1"></div>
                 </form>
             </div>
         </div>
 
-        {# Right details panel (only for agents) #}
+        {# Right details panel (only for agents) – responsive: full width on small screens #}
         {% if is_agent %}
         <div id="detailsPanel" 
-            class="shrink-0 border-l overflow-y-auto overflow-x-hidden transition-all duration-300 ease-in-out w-0"
+            class="shrink-0 border-l overflow-y-auto overflow-x-hidden transition-all duration-300 ease-in-out w-0 sm:w-0"
             style="background-color: var(--color-surface); border-color: var(--color-border);">
-            <div id="detailsPanelContent" class="w-auto max-w-90">
+            <div id="detailsPanelContent" class="w-full max-w-90 sm:max-w-sm md:max-w-md lg:max-w-lg">
                 {% include "partials/ticket_details_panel.html" %}
             </div>
         </div>
@@ -218,8 +218,15 @@
     function toggleDetailsPanel() {
         const panel = document.getElementById('detailsPanel');
         if (!panel) return;
-        panel.classList.toggle('w-0');
-        panel.classList.toggle('w-80');
+        if (window.innerWidth < 640) {
+            // On small screens, toggle full width overlay
+            panel.classList.toggle('w-0');
+            panel.classList.toggle('w-full');
+        } else {
+            panel.classList.toggle('w-0');
+            panel.classList.toggle('w-80');
+            panel.classList.toggle('w-96');
+        }
     }
     function toggleStatusDropdown() {
         const menu = document.getElementById('statusMenu');
