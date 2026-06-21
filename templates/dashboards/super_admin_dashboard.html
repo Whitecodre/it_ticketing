@@ -8,160 +8,197 @@
 {% block role_badge %}SUPER ADMIN{% endblock %}
 
 {% block sidebar_nav %}
-    {% include "partials/sidebar_superadmin.html" %}
+    {% include "partials/sidebar_admin.html" %}
 {% endblock %}
 
 {% block dashboard_content %}
 
 {# KPI Row #}
-<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-    <div class="kpi-card">
-        <p class="kpi-label">Total Tickets (This Month)</p>
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+    <div class="kpi-card border-l-4" style="border-left-color: var(--color-primary);">
+        <div class="flex items-center justify-between">
+            <p class="kpi-label">Total Tickets (This Month)</p>
+            {% lucide "ticket" size=14 class="text-text-secondary" %}
+        </div>
         <p class="kpi-value">{{ total_tickets_month }}</p>
         <p class="kpi-trend up">Volume</p>
     </div>
-    <div class="kpi-card">
-        <p class="kpi-label">SLA Compliance</p>
+    <div class="kpi-card border-l-4" style="border-left-color: var(--color-success);">
+        <div class="flex items-center justify-between">
+            <p class="kpi-label">SLA Compliance</p>
+            {% lucide "check-circle" size=14 class="text-text-secondary" %}
+        </div>
         <p class="kpi-value" style="color: {% if sla_compliance >= 95 %}var(--color-success){% elif sla_compliance >= 80 %}var(--color-warning){% else %}var(--color-error){% endif %};">
             {{ sla_compliance }}%
         </p>
         <p class="kpi-trend up">Resolved within target</p>
     </div>
-    <div class="kpi-card">
-        <p class="kpi-label">Active Policies</p>
+    <div class="kpi-card border-l-4" style="border-left-color: var(--color-warning);">
+        <div class="flex items-center justify-between">
+            <p class="kpi-label">Active Policies</p>
+            {% lucide "sliders-horizontal" size=14 class="text-text-secondary" %}
+        </div>
         <p class="kpi-value">{{ slas|length }}</p>
         <p class="kpi-trend up">SLA rules configured</p>
     </div>
 </div>
 
-{# Main Two-Column Content #}
+{# Main Two-Column Area #}
 <div class="flex flex-col lg:flex-row gap-6">
-    
-    {# Left Column #}
-    <div class="flex-1 space-y-6 min-w-0">
-        
-        {# SLA Policies Summary #}
-        <div class="dashboard-card">
-            <div class="flex items-center justify-between mb-4">
-                <h3 class="dashboard-card-header" style="border-bottom: none; margin-bottom: 0; padding-bottom: 0;">SLA Policies</h3>
-                <a href="{% url 'tickets:sla_management' %}" class="text-xs font-medium" style="color: var(--color-primary);">Manage →</a>
+
+    {# Left Column – Tables #}
+    <div class="flex-1 min-w-0 space-y-6">
+
+        {# SLA Policies #}
+        <div class="dashboard-card p-0 overflow-hidden shadow-sm min-h-[100px]">
+            <div class="flex items-center justify-between px-5 py-3 border-b" style="border-color: var(--color-border);">
+                <h3 class="text-sm font-semibold" style="color: var(--color-text-primary);">SLA Policies</h3>
+                <a href="{% url 'tickets:sla_management' %}" class="text-xs font-medium text-primary hover:underline">Manage →</a>
             </div>
             {% if slas %}
             <div class="overflow-x-auto">
-                <table class="data-table w-full text-xs">
+                <table class="w-full text-sm">
                     <thead>
-                        <tr>
-                            <th>Priority</th>
-                            <th>Response</th>
-                            <th>Resolution</th>
-                            <th>Calendar</th>
+                        <tr class="border-b" style="border-color: var(--color-border);">
+                            <th class="text-left py-3 px-4 font-semibold text-text-secondary uppercase tracking-wider text-xs">Priority</th>
+                            <th class="text-left py-3 px-4 font-semibold text-text-secondary uppercase tracking-wider text-xs">Response</th>
+                            <th class="text-left py-3 px-4 font-semibold text-text-secondary uppercase tracking-wider text-xs">Resolution</th>
+                            <th class="text-left py-3 px-4 font-semibold text-text-secondary uppercase tracking-wider text-xs">Calendar</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for sla in slas %}
-                        <tr>
-                            <td><span class="priority-chip {% if sla.priority == 'P1' %}critical{% elif sla.priority == 'P2' %}high{% elif sla.priority == 'P3' %}medium{% else %}low{% endif %} text-[0.65rem]">{{ sla.get_priority_display }}</span></td>
-                            <td>{{ sla.response_minutes }} min</td>
-                            <td>{{ sla.resolution_minutes }} min</td>
-                            <td>{{ sla.calendar.name|default:"Default" }}</td>
+                        <tr class="border-b hover:bg-black/5 transition-colors" style="border-color: var(--color-border);">
+                            <td class="py-3 px-4">
+                                <span class="priority-chip 
+                                    {% if sla.priority == 'P1' %}critical
+                                    {% elif sla.priority == 'P2' %}high
+                                    {% elif sla.priority == 'P3' %}medium
+                                    {% else %}low{% endif %} text-xs">
+                                    {{ sla.get_priority_display }}
+                                </span>
+                            </td>
+                            <td class="py-3 px-4 text-text-secondary">{{ sla.response_minutes }} min</td>
+                            <td class="py-3 px-4 text-text-secondary">{{ sla.resolution_minutes }} min</td>
+                            <td class="py-3 px-4 text-text-secondary">{{ sla.calendar.name|default:"Default" }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
             {% else %}
-            <div class="text-center py-4 text-xs text-text-secondary">No SLA policies configured yet.</div>
+            <div class="text-center py-6 text-text-secondary text-sm">No SLA policies configured yet.</div>
             {% endif %}
         </div>
 
         {# Escalation Rules #}
-        <div class="dashboard-card">
-            <div class="flex items-center justify-between mb-4">
-                <h3 class="dashboard-card-header" style="border-bottom: none; margin-bottom: 0; padding-bottom: 0;">Escalation Rules</h3>
-                <a href="{% url 'tickets:sla_management' %}" class="text-xs font-medium" style="color: var(--color-primary);">Manage →</a>
+        <div class="dashboard-card p-0 overflow-hidden shadow-sm min-h-[100px]">
+            <div class="flex items-center justify-between px-5 py-3 border-b" style="border-color: var(--color-border);">
+                <h3 class="text-sm font-semibold" style="color: var(--color-text-primary);">Escalation Rules</h3>
+                <a href="{% url 'tickets:sla_management' %}" class="text-xs font-medium text-primary hover:underline">Manage →</a>
             </div>
             {% if escalation_rules %}
             <div class="overflow-x-auto">
-                <table class="data-table w-full text-xs">
+                <table class="w-full text-sm">
                     <thead>
-                        <tr>
-                            <th>Priority</th>
-                            <th>Timer</th>
-                            <th>Threshold</th>
-                            <th>Action</th>
-                            <th>Target</th>
+                        <tr class="border-b" style="border-color: var(--color-border);">
+                            <th class="text-left py-3 px-4 font-semibold text-text-secondary uppercase tracking-wider text-xs">Priority</th>
+                            <th class="text-left py-3 px-4 font-semibold text-text-secondary uppercase tracking-wider text-xs">Timer</th>
+                            <th class="text-left py-3 px-4 font-semibold text-text-secondary uppercase tracking-wider text-xs">Threshold</th>
+                            <th class="text-left py-3 px-4 font-semibold text-text-secondary uppercase tracking-wider text-xs">Action</th>
+                            <th class="text-left py-3 px-4 font-semibold text-text-secondary uppercase tracking-wider text-xs">Target</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for rule in escalation_rules %}
-                        <tr>
-                            <td><span class="priority-chip {% if rule.priority == 'P1' %}critical{% elif rule.priority == 'P2' %}high{% elif rule.priority == 'P3' %}medium{% else %}low{% endif %} text-[0.65rem]">{{ rule.get_priority_display }}</span></td>
-                            <td>{{ rule.get_timer_type_display }}</td>
-                            <td>{{ rule.threshold_percent }}%</td>
-                            <td>{{ rule.get_action_type_display }}</td>
-                            <td>{{ rule.notify_role|default:rule.reassign_to_role|default:"—" }}</td>
+                        <tr class="border-b hover:bg-black/5 transition-colors" style="border-color: var(--color-border);">
+                            <td class="py-3 px-4">
+                                <span class="priority-chip 
+                                    {% if rule.priority == 'P1' %}critical
+                                    {% elif rule.priority == 'P2' %}high
+                                    {% elif rule.priority == 'P3' %}medium
+                                    {% else %}low{% endif %} text-xs">
+                                    {{ rule.get_priority_display }}
+                                </span>
+                            </td>
+                            <td class="py-3 px-4 text-text-secondary">{{ rule.get_timer_type_display }}</td>
+                            <td class="py-3 px-4 text-text-secondary">{{ rule.threshold_percent }}%</td>
+                            <td class="py-3 px-4 text-text-secondary">{{ rule.get_action_type_display }}</td>
+                            <td class="py-3 px-4 text-text-secondary">{{ rule.notify_role|default:rule.reassign_to_role|default:"—" }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
             {% else %}
-            <div class="text-center py-4 text-xs text-text-secondary">No escalation rules defined.</div>
+            <div class="text-center py-6 text-text-secondary text-sm">No escalation rules defined.</div>
             {% endif %}
         </div>
 
         {# Audit Log Preview #}
-        <div class="dashboard-card">
-            <div class="flex items-center justify-between mb-4">
-                <h3 class="dashboard-card-header" style="border-bottom: none; margin-bottom: 0; padding-bottom: 0;">Recent Audit Events</h3>
-                <a href="{% url 'tickets:audit_log' %}" class="text-xs font-medium" style="color: var(--color-primary);">Full log →</a>
+        <div class="dashboard-card p-0 overflow-hidden shadow-sm min-h-[100px]">
+            <div class="flex items-center justify-between px-5 py-3 border-b" style="border-color: var(--color-border);">
+                <h3 class="text-sm font-semibold" style="color: var(--color-text-primary);">Recent Audit Events</h3>
+                <a href="{% url 'tickets:audit_log' %}" class="text-xs font-medium text-primary hover:underline">Full log →</a>
             </div>
             {% if recent_audit_logs %}
-            <div class="space-y-2">
+            <div class="divide-y divide-border">
                 {% for log in recent_audit_logs %}
-                <div class="flex items-center justify-between text-xs">
+                <div class="flex items-center justify-between px-4 py-2.5 text-sm">
                     <div class="min-w-0 mr-2">
-                        <span style="color: var(--color-text-primary);">{{ log.ticket.number|default:"—" }}</span>
-                        <span class="ml-2" style="color: var(--color-text-secondary);">{{ log.action }}</span>
-                        <span class="ml-2 truncate max-w-xs inline-block" style="color: var(--color-text-primary);">{{ log.details }}</span>
+                        <span class="font-mono text-xs text-primary">{{ log.ticket.number|default:"—" }}</span>
+                        <span class="ml-2 text-text-secondary text-xs">{{ log.action }}</span>
+                        <span class="ml-2 truncate max-w-xs inline-block text-text-secondary text-xs">{{ log.details|truncatechars:80 }}</span>
                     </div>
-                    <span class="shrink-0" style="color: var(--color-text-secondary);">{{ log.created_at|timesince }} ago</span>
+                    <span class="shrink-0 text-xs text-text-secondary">{{ log.created_at|timesince }} ago</span>
                 </div>
                 {% endfor %}
             </div>
             {% else %}
-            <p class="text-xs text-text-secondary">No activity yet.</p>
+            <div class="text-center py-6 text-text-secondary text-sm">No activity yet.</div>
             {% endif %}
         </div>
     </div>
 
     {# Right Rail #}
-    <div class="w-full lg:w-80 shrink-0 space-y-6">
-        
-        {# RBAC Matrix #}
-        <div class="context-rail">
-            <h3 class="text-sm font-semibold mb-3" style="color: var(--color-text-primary);">RBAC Matrix</h3>
+    <div class="lg:w-80 shrink-0 space-y-4">
+        <div class="context-rail p-4">
+            <h3 class="text-sm font-semibold mb-2" style="color: var(--color-text-primary);">Quick Actions</h3>
+            <div class="space-y-2">
+                <a href="{% url 'accounts:admin_users' %}" class="btn-outline w-full text-xs flex items-center justify-center gap-2 py-2 px-3">
+                    {% lucide "users" size=14 %} User Management
+                </a>
+                <a href="{% url 'tickets:sla_management' %}" class="btn-outline w-full text-xs flex items-center justify-center gap-2 py-2 px-3">
+                    {% lucide "sliders-horizontal" size=14 %} SLA Config
+                </a>
+                <a href="{% url 'tickets:reports' %}" class="btn-outline w-full text-xs flex items-center justify-center gap-2 py-2 px-3">
+                    {% lucide "chart-bar" size=14 %} Reports
+                </a>
+            </div>
+        </div>
+        <div class="context-rail p-4">
+            <h3 class="text-sm font-semibold mb-2" style="color: var(--color-text-primary);">RBAC Matrix</h3>
             <div class="overflow-x-auto">
                 <table class="text-xs w-full">
                     <thead>
                         <tr>
-                            <th class="text-left py-2" style="color: var(--color-text-secondary);">Role</th>
-                            <th class="text-center py-2" style="color: var(--color-text-secondary);">View</th>
-                            <th class="text-center py-2" style="color: var(--color-text-secondary);">Edit</th>
-                            <th class="text-center py-2" style="color: var(--color-text-secondary);">Delete</th>
+                            <th class="text-left py-2 font-semibold text-text-secondary">Role</th>
+                            <th class="text-center py-2 font-semibold text-text-secondary">View</th>
+                            <th class="text-center py-2 font-semibold text-text-secondary">Edit</th>
+                            <th class="text-center py-2 font-semibold text-text-secondary">Delete</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for role_value, role_label in role_choices %}
                         <tr>
-                            <td class="py-1.5" style="color: var(--color-text-primary);">{{ role_label }}</td>
+                            <td class="py-1.5 text-text-primary">{{ role_label }}</td>
                             <td class="text-center">✓</td>
                             {% if role_value == 'END_USER' %}
-                                <td class="text-center">—</td>
-                                <td class="text-center">—</td>
+                                <td class="text-center text-text-secondary">—</td>
+                                <td class="text-center text-text-secondary">—</td>
                             {% elif role_value == 'AGENT' %}
                                 <td class="text-center">✓</td>
-                                <td class="text-center">—</td>
+                                <td class="text-center text-text-secondary">—</td>
                             {% else %}
                                 <td class="text-center">✓</td>
                                 <td class="text-center">✓</td>
@@ -172,16 +209,14 @@
                 </table>
             </div>
         </div>
-
-        {# Business Calendars #}
-        <div class="context-rail">
-            <h3 class="text-sm font-semibold mb-3" style="color: var(--color-text-primary);">Business Calendars</h3>
+        <div class="context-rail p-4">
+            <h3 class="text-sm font-semibold mb-2" style="color: var(--color-text-primary);">Business Calendars</h3>
             {% if calendars %}
             <ul class="text-xs space-y-2">
                 {% for cal in calendars %}
                 <li>
                     <p class="font-medium">{{ cal.name }}</p>
-                    <p style="color: var(--color-text-secondary);">Days: {{ cal.workday_names|join:", " }} | Hours: {{ cal.work_start }} – {{ cal.work_end }}</p>
+                    <p class="text-text-secondary text-xs">{{ cal.workday_names|join:", " }} · {{ cal.work_start }} – {{ cal.work_end }}</p>
                 </li>
                 {% endfor %}
             </ul>
@@ -189,17 +224,15 @@
             <p class="text-xs text-text-secondary">No calendars configured.</p>
             {% endif %}
         </div>
-
-        {# Remote Connector (placeholder) #}
-        <div class="context-rail">
-            <h3 class="text-sm font-semibold mb-3" style="color: var(--color-text-primary);">Remote Connector</h3>
-            <select class="priority-dropdown w-full mb-2">
+        <div class="context-rail p-4">
+            <h3 class="text-sm font-semibold mb-2" style="color: var(--color-text-primary);">Remote Connector</h3>
+            <select class="priority-dropdown w-full mb-2 text-xs">
                 <option>Intune Remote Help</option>
                 <option>Quick Assist</option>
             </select>
             <div class="flex items-center gap-2 text-sm">
-                <span class="flex h-2 w-2 rounded-full" style="background-color: var(--color-success);"></span>
-                <span style="color: var(--color-text-primary);">Connected</span>
+                <span class="flex h-2 w-2 rounded-full bg-success"></span>
+                <span class="text-xs text-text-secondary">Connected</span>
             </div>
         </div>
     </div>

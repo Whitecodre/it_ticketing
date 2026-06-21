@@ -1,5 +1,9 @@
 {% load lucide %}
 
+{% if source %}
+<script>window.bulkSource = "{{ source }}";</script>
+{% endif %}
+
 {# Bulk Action Bar – hidden by default #}
 <div id="bulkActionBar" class="hidden items-center justify-between px-4 py-2 border-b mb-2 gap-2"
      style="background-color: var(--color-primary); color: white; border-radius: 0.5rem 0.5rem 0 0;">
@@ -50,91 +54,222 @@
 
 {# Responsive table wrapper #}
 <div class="overflow-x-auto">
-    <table class="data-table w-full text-xs">
+    <table class="w-full text-sm">
         <thead>
-            <tr>
-                <th class="w-8">
+            <tr class="border-b" style="border-color: var(--color-border);">
+                <th class="w-8 py-3 px-2">
                     <input type="checkbox" id="selectAll" class="rounded" onchange="toggleSelectAll(this)">
                 </th>
-                <th>Ticket</th>
-                <th>Subject</th>
-                <th>Requester</th>
-                <th>Status</th>
-                <th>SLA</th>
-                <th>Priority</th>
-                <th>Updated</th>
-                <th class="w-16">Actions</th>
+                <th class="text-left py-3 px-2 font-semibold text-text-secondary uppercase tracking-wider text-xs">ID   </th>
+                <th class="text-left py-3 px-2 font-semibold text-text-secondary uppercase tracking-wider text-xs">Subject</th>
+                <th class="text-left py-3 px-2 font-semibold text-text-secondary uppercase tracking-wider text-xs">Requester</th>
+                <th class="text-left py-3 px-2 font-semibold text-text-secondary uppercase tracking-wider text-xs">Status</th>
+                <th class="text-left py-3 px-2 font-semibold text-text-secondary uppercase tracking-wider text-xs">SLA</th>
+                <th class="text-left py-3 px-2 font-semibold text-text-secondary uppercase tracking-wider text-xs">Priority</th>
+                <th class="text-left py-3 px-2 font-semibold text-text-secondary uppercase tracking-wider text-xs">Updated</th>
+                <th class="text-right py-3 px-2 font-semibold text-text-secondary uppercase tracking-wider text-xs w-12">Actions</th>
             </tr>
         </thead>
         <tbody>
             {% for ticket in tickets %}
-            <tr class="group hover:bg-black/2">
-                <td>
+            <tr class="border-b hover:bg-black/5 transition-colors group" style="border-color: var(--color-border);"
+                data-ticket-id="{{ ticket.pk }}">
+                <td class="py-3 px-2">
                     <input type="checkbox" value="{{ ticket.pk }}" class="ticket-checkbox rounded" onchange="updateBulkBar()">
                 </td>
-                <td><span class="font-mono text-[0.7rem]" style="color: var(--color-primary);">{{ ticket.number }}</span></td>
-                <td class="max-w-xs truncate">{{ ticket.title }}</td>
-                <td>{{ ticket.requester.get_full_name|default:ticket.requester.email }}</td>
-                <td><span class="status-chip {{ ticket.status|lower }} text-[0.65rem]">{{ ticket.get_status_display }}</span></td>
-                
-                {% with sla_info=ticket.sla_status %}
-                <td>
-                    {% if sla_info.overall == 'ok' %}
-                        <div class="sla-bar w-16 mb-1">
-                            <div class="sla-bar-fill safe" style="width: {{ sla_info.resolution_pct|default:0 }}%;"></div>
-                        </div>
-                        <span class="sla-timer safe">{{ sla_info.resolution_pct|default:0 }}%</span>
-                    {% elif sla_info.overall == 'warning' %}
-                        <div class="sla-bar w-16 mb-1">
-                            <div class="sla-bar-fill warning" style="width: {{ sla_info.resolution_pct|default:0 }}%;"></div>
-                        </div>
-                        <span class="sla-timer warning">{{ sla_info.resolution_pct|default:0 }}%</span>
-                    {% else %}
-                        <div class="sla-bar w-16 mb-1">
-                            <div class="sla-bar-fill danger" style="width: 100%;"></div>
-                        </div>
-                        <span class="sla-timer danger">Breached</span>
-                    {% endif %}
-                </td>
-                {% endwith %}
-
-                <td><span class="priority-chip {% if ticket.priority == 'P1' %}critical{% elif ticket.priority == 'P2' %}high{% elif ticket.priority == 'P3' %}medium{% else %}low{% endif %} text-[0.65rem]">{{ ticket.get_priority_display }}</span></td>
-                <td class="text-text-secondary">{{ ticket.updated_at|timesince }} ago</td>
-                <td>
-                    <div class="flex gap-1.5">
-                        <a href="#"
-                            class="btn-ghost p-1"
-                            hx-get="{% url 'tickets:slideover' ticket.pk %}"
-                            hx-target="#slideoverContent"
-                            hx-swap="innerHTML"
-                            hx-on::after-request="openSlideover()">
-                                {% lucide "eye" size=14 %}
-                        </a>
-                        {% if not ticket.assigned_to %}
-                        <button class="btn-ghost p-1"
-                                hx-post="{% url 'tickets:claim_ticket' ticket.pk %}"
-                                hx-target="#ticketTable"
-                                hx-swap="innerHTML"
-                                title="Claim">
-                            {% lucide "user-plus" size=14 %}
-                        </button>
-                        {% else %}
-                            <a href="{% url 'tickets:conversation' ticket.pk %}"
-                                class="btn-ghost p-1"
-                                title="Open Conversation">
-                                    {% lucide "message-square" size=14 %}
-                            </a>
-                        {% endif %}
+                <td class="py-3">
+                    <div class="flex items-center gap-2">
+                        <span class="font-mono text-xs text-primary">{{ ticket.number }}</span>
                     </div>
+                </td>
+                <td class="py-3 px-2 max-w-xs truncate text-text-primary">{{ ticket.title }}</td>
+                <td class="py-3  text-text-secondary">{{ ticket.requester.get_full_name|default:ticket.requester.email }}</td>
+                <td class="py-3 text-text-secondary">
+                    <span class="status-chip {{ ticket.status|lower }} text-xs">{{ ticket.get_status_display }}</span>
+                </td>
+                
+                {# SLA Column #}
+                <td class="py-3">
+                    {% with sla_info=ticket.sla_status %}
+                    <div class="flex flex-col">
+                        <div class="sla-bar w-24 mb-1">
+                            <div class="sla-bar-fill 
+                                {% if sla_info.overall == 'ok' %}safe
+                                {% elif sla_info.overall == 'warning' %}warning
+                                {% else %}danger{% endif %}" 
+                                style="width: {% if sla_info.overall == 'breached' %}100{% else %}{{ sla_info.resolution_pct|default:0 }}{% endif %}%;">
+                            </div>
+                        </div>
+                        <span class="sla-timer 
+                            {% if sla_info.overall == 'ok' %}safe
+                            {% elif sla_info.overall == 'warning' %}warning
+                            {% else %}danger{% endif %} text-xs">
+                            {% if sla_info.overall == 'breached' %}Breached
+                            {% else %}{{ sla_info.resolution_pct|default:0 }}%
+                            {% endif %}
+                        </span>
+                    </div>
+                    {% endwith %}
+                </td>
+
+                <td class="py-3">
+                    <span class="priority-chip 
+                        {% if ticket.priority == 'P1' %}critical
+                        {% elif ticket.priority == 'P2' %}high
+                        {% elif ticket.priority == 'P3' %}medium
+                        {% else %}low{% endif %} text-xs">
+                        {{ ticket.get_priority_display }}
+                    </span>
+                </td>
+                <td class="py-3 text-text-secondary text-xs">{{ ticket.updated_at|timesince }} ago</td>
+                <td class="py-3 px-3 text-right">
+                    <button class="ticket-action-btn btn-ghost p-1.5 rounded-full hover:bg-black/5 transition"
+                            onclick="window.ticketActionBtnClick(this)"
+                            data-ticket-id="{{ ticket.pk }}"
+                            data-ticket-number="{{ ticket.number }}"
+                            data-is-assigned="{{ ticket.assigned_to|yesno:'true,false' }}"
+                            data-slideover-url="{% url 'tickets:slideover' ticket.pk %}"
+                            data-claim-url="{% url 'tickets:claim_ticket' ticket.pk %}"
+                            data-conversation-url="{% url 'tickets:conversation' ticket.pk %}"
+                            aria-label="Actions">
+                        {% lucide "more-vertical" size=18 %}
+                    </button>
                 </td>
             </tr>
             {% empty %}
             <tr>
-                <td colspan="9" class="text-center py-10 text-text-secondary text-xs">
-                    No tickets here.
+                <td colspan="8" class="text-center py-4">
+                    <div class="flex flex-col items-center gap-0.5">
+                        <span class="text-2xl">📭</span>
+                        <p class="text-text-secondary text-sm">No tickets here.</p>
+                        <p class="text-text-secondary text-xs">Great job! 🎉</p>
+                    </div>
                 </td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
 </div>
+
+{# Global Ticket Actions Dropdown #}
+<div id="globalTicketDropdown" class="fixed rounded-lg shadow-lg border bg-surface z-[9999] py-1 min-w-44
+            opacity-0 scale-95 pointer-events-none transition-all duration-150 ease-out"
+     style="border-color: var(--color-border); background-color: var(--color-surface); transform-origin: top center;">
+    <button class="dropdown-view w-full text-left px-4 py-2 text-sm hover:bg-black/5 transition flex items-center gap-2 text-text-primary">
+        {% lucide "eye" size=14 %} View Details
+    </button>
+    <button class="dropdown-claim w-full text-left px-4 py-2 text-sm hover:bg-black/5 transition flex items-center gap-2 text-text-primary">
+        {% lucide "user-plus" size=14 %} Claim Ticket
+    </button>
+    <button class="dropdown-conversation w-full text-left px-4 py-2 text-sm hover:bg-black/5 transition flex items-center gap-2 text-text-primary">
+        {% lucide "message-square" size=14 %} Open Conversation
+    </button>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const dropdown = document.getElementById('globalTicketDropdown');
+        let activeTicketId = null;
+        let activeData = {};
+        let activeButton = null;   // <-- store last clicked button
+
+        if (!dropdown) return;
+
+        const viewBtn = dropdown.querySelector('.dropdown-view');
+        const claimBtn = dropdown.querySelector('.dropdown-claim');
+        const conversationBtn = dropdown.querySelector('.dropdown-conversation');
+
+        // Function to position dropdown relative to a button
+        function positionDropdown(btn) {
+            const rect = btn.getBoundingClientRect();
+            let top = rect.bottom + 6;
+            let left = rect.left + rect.width / 2 - 80;
+
+            if (top + 150 > window.innerHeight) {
+                top = rect.top - 150 - 6;
+            }
+            if (left + 160 > window.innerWidth) {
+                left = window.innerWidth - 170;
+            }
+            if (left < 10) {
+                left = 10;
+            }
+
+            dropdown.style.top = top + 'px';
+            dropdown.style.left = left + 'px';
+        }
+
+        // Global handler
+        window.ticketActionBtnClick = function(btn) {
+            closeDropdown();
+
+            activeButton = btn;   // store for repositioning
+            activeTicketId = btn.dataset.ticketId;
+            activeData = {
+                slideoverUrl: btn.dataset.slideoverUrl,
+                claimUrl: btn.dataset.claimUrl,
+                conversationUrl: btn.dataset.conversationUrl,
+                isAssigned: btn.dataset.isAssigned === 'true'
+            };
+
+            // Show/hide claim button
+            claimBtn.style.display = activeData.isAssigned ? 'none' : 'flex';
+
+            // Position and show
+            positionDropdown(btn);
+            dropdown.classList.remove('pointer-events-none', 'opacity-0', 'scale-95');
+            dropdown.classList.add('opacity-100', 'scale-100');
+        };
+
+        function closeDropdown() {
+            dropdown.classList.remove('opacity-100', 'scale-100');
+            dropdown.classList.add('pointer-events-none', 'opacity-0', 'scale-95');
+            activeButton = null;   // clear reference
+        }
+
+        // Reposition on window resize (if dropdown is open)
+        window.addEventListener('resize', function() {
+            if (activeButton && !dropdown.classList.contains('pointer-events-none')) {
+                positionDropdown(activeButton);
+            }
+        });
+
+        // Click outside to close
+        document.addEventListener('click', function(e) {
+            if (!dropdown.contains(e.target) && !e.target.closest('.ticket-action-btn')) {
+                closeDropdown();
+            }
+        });
+
+        // View Details
+        viewBtn.addEventListener('click', function() {
+            if (activeData.slideoverUrl) {
+                htmx.ajax('GET', activeData.slideoverUrl, {
+                    target: '#slideoverContent',
+                    swap: 'innerHTML',
+                    after: function() { openSlideover(); }
+                });
+            }
+            closeDropdown();
+        });
+
+        // Claim Ticket
+        claimBtn.addEventListener('click', function() {
+            if (activeData.claimUrl) {
+                htmx.ajax('POST', activeData.claimUrl, {
+                    target: '#ticketTable',
+                    swap: 'innerHTML',
+                });
+            }
+            closeDropdown();
+        });
+
+        // Open Conversation
+        conversationBtn.addEventListener('click', function() {
+            if (activeData.conversationUrl) {
+                window.location.href = activeData.conversationUrl;
+            }
+            closeDropdown();
+        });
+    });
+</script>

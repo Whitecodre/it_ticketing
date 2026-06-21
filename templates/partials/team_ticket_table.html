@@ -1,0 +1,58 @@
+{% load lucide %}
+
+<div class="overflow-x-auto">
+    <table class="w-full text-sm">
+        <thead>
+            <tr class="border-b" style="border-color: var(--color-border);">
+                <th class="text-left py-3 px-3 font-semibold text-text-secondary uppercase tracking-wider text-xs">ID</th>
+                <th class="text-left py-3 px-3 font-semibold text-text-secondary uppercase tracking-wider text-xs">Subject</th>
+                <th class="text-left py-3 px-3 font-semibold text-text-secondary uppercase tracking-wider text-xs">Assignee</th>
+                <th class="text-left py-3 px-3 font-semibold text-text-secondary uppercase tracking-wider text-xs">Status</th>
+                <th class="text-left py-3 px-3 font-semibold text-text-secondary uppercase tracking-wider text-xs">Priority</th>
+                <th class="text-left py-3 px-3 font-semibold text-text-secondary uppercase tracking-wider text-xs">Updated</th>
+                <th class="text-right py-3 px-3 font-semibold text-text-secondary uppercase tracking-wider text-xs w-12">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for ticket in tickets %}
+            <tr class="border-b hover:bg-black/5 transition-colors group" style="border-color: var(--color-border);">
+                <td class="py-3 px-3">
+                    <span class="font-mono text-xs text-primary">{{ ticket.number }}</span>
+                </td>
+                <td class="py-3 px-3 max-w-xs truncate text-text-primary">{{ ticket.title }}</td>
+                <td class="py-3 px-3 text-text-secondary">
+                    {{ ticket.assigned_to.get_full_name|default:"Unassigned" }}
+                </td>
+                <td class="py-3 px-3">
+                    <span class="status-chip {{ ticket.status|lower }} text-xs">{{ ticket.get_status_display }}</span>
+                </td>
+                <td class="py-3 px-3">
+                    <span class="priority-chip 
+                        {% if ticket.priority == 'P1' %}critical
+                        {% elif ticket.priority == 'P2' %}high
+                        {% elif ticket.priority == 'P3' %}medium
+                        {% else %}low{% endif %} text-xs">
+                        {{ ticket.get_priority_display }}
+                    </span>
+                </td>
+                <td class="py-3 px-3 text-text-secondary text-xs">{{ ticket.updated_at|timesince }} ago</td>
+                <td class="py-3 px-3 text-right">
+                    <a href="{% url 'tickets:conversation' ticket.pk %}" class="btn-ghost p-1.5 rounded-full hover:bg-black/5 transition inline-flex" aria-label="View Conversation">
+                        {% lucide "message-square" size=16 %}
+                    </a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="7" class="text-center py-6">
+                    <div class="flex flex-col items-center gap-0.5">
+                        <span class="text-2xl">👥</span>
+                        <p class="text-text-secondary text-sm">No team tickets.</p>
+                        <p class="text-text-secondary text-xs">Team is doing great! 🎉</p>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>

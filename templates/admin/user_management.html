@@ -3,7 +3,7 @@
 {% load lucide %}
 
 {% block dashboard_title %}User Management{% endblock %}
-{% block page_title %}User Management{% endblock %}
+{% block page_title_area %}{% endblock %}
 {% block role_label %}{{ user.get_role_display }}{% endblock %}
 {% block role_badge %}{{ user.get_role_display|upper }}{% endblock %}
 
@@ -13,15 +13,16 @@
 
 {% block dashboard_content %}
 <div class="w-full">
+    {# Toast container #}
     <div class="toast-container" id="toastContainer"></div>
-    {# Header & actions #}
+
+    {# Header: Search + Add User #}
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-        <div class="flex-1">
-            <div class="relative max-w-md">
-                {% lucide "search" size=16 class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style="color: var(--color-text-secondary);" %}
+        <div class="flex-1 max-w-md">
+            <div class="relative">
+                {% lucide "search" size=16 class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-secondary" %}
                 <input type="text" id="searchInput" placeholder="Search by name or email…"
-                       class="w-full rounded-lg border py-2 pl-10 pr-4 text-xs focus:outline-none focus:ring-2"
-                       style="background-color: var(--color-background); border-color: var(--color-border); color: var(--color-text-primary); --tw-ring-color: var(--color-primary);"
+                       class="w-full rounded-lg border py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary"
                        hx-get="{% url 'accounts:admin_users' %}"
                        hx-trigger="keyup changed delay:300ms"
                        hx-target="#userTableContainer"
@@ -29,16 +30,16 @@
                        name="q">
             </div>
         </div>
-        <button class="btn-primary text-xs px-4 py-2 rounded-lg flex items-center gap-1"
+        <button class="btn-primary text-sm px-4 py-2 rounded-lg flex items-center gap-1.5"
                 onclick="openCreateModal()">
-            {% lucide "plus" size=14 %} Add User
+            {% lucide "plus" size=16 %} Add User
         </button>
     </div>
 
     {# Filters #}
-    <div class="flex flex-wrap gap-2 mb-4">
-        <select id="roleFilter" name="role" class="text-xs rounded-lg border py-1.5 px-3 focus:outline-none focus:ring-2"
-                style="background-color: var(--color-background); border-color: var(--color-border); color: var(--color-text-primary); --tw-ring-color: var(--color-primary);"
+    <div class="flex flex-wrap gap-2 mb-6">
+        <select id="roleFilter" name="role"
+                class="text-sm rounded-lg border py-1.5 px-3 focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary"
                 hx-get="{% url 'accounts:admin_users' %}"
                 hx-target="#userTableContainer"
                 hx-swap="innerHTML">
@@ -47,8 +48,8 @@
                 <option value="{{ value }}" {% if role_filter == value %}selected{% endif %}>{{ label }}</option>
             {% endfor %}
         </select>
-        <select id="departmentFilter" name="department" class="text-xs rounded-lg border py-1.5 px-3 focus:outline-none focus:ring-2"
-                style="background-color: var(--color-background); border-color: var(--color-border); color: var(--color-text-primary); --tw-ring-color: var(--color-primary);"
+        <select id="departmentFilter" name="department"
+                class="text-sm rounded-lg border py-1.5 px-3 focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary"
                 hx-get="{% url 'accounts:admin_users' %}"
                 hx-target="#userTableContainer"
                 hx-swap="innerHTML">
@@ -59,19 +60,13 @@
         </select>
     </div>
 
-    {# Table container (HTMX updated) #}
-    <div id="userTableContainer" class="dashboard-card p-0 overflow-hidden">
+    {# Table container #}
+    <div id="userTableContainer" class="dashboard-card p-0 overflow-hidden shadow-sm">
         {% include "partials/user_table.html" %}
     </div>
 </div>
 
-{# Success Toast #}
-<div id="toast" class="fixed bottom-6 right-6 z-50 hidden flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg text-white"
-     style="background-color: var(--color-success);">
-    <span id="toastMessage"></span>
-    <button onclick="this.parentElement.classList.add('hidden')" class="text-white opacity-70 hover:opacity-100">×</button>
-</div>
-
+{# ---- Modals (unchanged) ---- #}
 {# Create User Modal #}
 <div id="createUserModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 hidden">
     <div class="bg-surface rounded-xl shadow-xl w-full max-w-md p-6 mx-4" style="background-color: var(--color-surface);">
@@ -83,37 +78,31 @@
             {% csrf_token %}
             <div class="space-y-3">
                 <input type="email" name="email" placeholder="Email" required
-                       class="w-full rounded-lg border py-2 px-3 text-xs focus:outline-none focus:ring-2"
-                       style="background-color: var(--color-background); border-color: var(--color-border); color: var(--color-text-primary); --tw-ring-color: var(--color-primary);">
+                       class="w-full rounded-lg border py-2 px-3 text-sm focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary">
                 <div class="grid grid-cols-2 gap-3">
                     <input type="text" name="first_name" placeholder="First Name" required
-                           class="w-full rounded-lg border py-2 px-3 text-xs focus:outline-none focus:ring-2"
-                           style="background-color: var(--color-background); border-color: var(--color-border); color: var(--color-text-primary); --tw-ring-color: var(--color-primary);">
+                           class="w-full rounded-lg border py-2 px-3 text-sm focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary">
                     <input type="text" name="last_name" placeholder="Last Name" required
-                           class="w-full rounded-lg border py-2 px-3 text-xs focus:outline-none focus:ring-2"
-                           style="background-color: var(--color-background); border-color: var(--color-border); color: var(--color-text-primary); --tw-ring-color: var(--color-primary);">
+                           class="w-full rounded-lg border py-2 px-3 text-sm focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary">
                 </div>
-                <select name="role" class="w-full rounded-lg border py-2 px-3 text-xs focus:outline-none focus:ring-2"
-                        style="background-color: var(--color-background); border-color: var(--color-border); color: var(--color-text-primary); --tw-ring-color: var(--color-primary);">
+                <select name="role" class="w-full rounded-lg border py-2 px-3 text-sm focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary">
                     {% for value, label in role_choices %}
                         {% if value != 'SUPERADMIN' or request.user.role == 'SUPERADMIN' %}
                             <option value="{{ value }}">{{ label }}</option>
                         {% endif %}
                     {% endfor %}
                 </select>
-                <select name="department" class="w-full rounded-lg border py-2 px-3 text-xs focus:outline-none focus:ring-2"
-                        style="background-color: var(--color-background); border-color: var(--color-border); color: var(--color-text-primary); --tw-ring-color: var(--color-primary);">
+                <select name="department" class="w-full rounded-lg border py-2 px-3 text-sm focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary">
                     <option value="">No Department</option>
                     {% for value, label in department_choices %}
                         <option value="{{ value }}">{{ label }}</option>
                     {% endfor %}
                 </select>
                 <input type="password" name="password" placeholder="Password" required
-                       class="w-full rounded-lg border py-2 px-3 text-xs focus:outline-none focus:ring-2"
-                       style="background-color: var(--color-background); border-color: var(--color-border); color: var(--color-text-primary); --tw-ring-color: var(--color-primary);">
+                       class="w-full rounded-lg border py-2 px-3 text-sm focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary">
                 <div class="flex justify-end gap-2 pt-2">
-                    <button type="button" onclick="closeCreateModal()" class="btn-ghost text-xs">Cancel</button>
-                    <button type="submit" class="btn-primary text-xs px-4 py-2 rounded-lg">Create</button>
+                    <button type="button" onclick="closeCreateModal()" class="btn-ghost text-sm">Cancel</button>
+                    <button type="submit" class="btn-primary text-sm px-4 py-2 rounded-lg">Create</button>
                 </div>
             </div>
         </form>
@@ -132,36 +121,32 @@
             <input type="hidden" id="editUserId">
             <div class="space-y-3">
                 <input type="email" id="editEmail" disabled
-                       class="w-full rounded-lg border py-2 px-3 text-xs bg-gray-100 text-gray-500 cursor-not-allowed">
+                       class="w-full rounded-lg border py-2 px-3 text-sm bg-gray-100 text-gray-500 cursor-not-allowed">
                 <div class="grid grid-cols-2 gap-3">
                     <input type="text" name="first_name" id="editFirstName" placeholder="First Name" required
-                           class="w-full rounded-lg border py-2 px-3 text-xs focus:outline-none focus:ring-2"
-                           style="background-color: var(--color-background); border-color: var(--color-border); color: var(--color-text-primary); --tw-ring-color: var(--color-primary);">
+                           class="w-full rounded-lg border py-2 px-3 text-sm focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary">
                     <input type="text" name="last_name" id="editLastName" placeholder="Last Name" required
-                           class="w-full rounded-lg border py-2 px-3 text-xs focus:outline-none focus:ring-2"
-                           style="background-color: var(--color-background); border-color: var(--color-border); color: var(--color-text-primary); --tw-ring-color: var(--color-primary);">
+                           class="w-full rounded-lg border py-2 px-3 text-sm focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary">
                 </div>
-                <select name="role" id="editRole" class="w-full rounded-lg border py-2 px-3 text-xs focus:outline-none focus:ring-2"
-                        style="background-color: var(--color-background); border-color: var(--color-border); color: var(--color-text-primary); --tw-ring-color: var(--color-primary);">
+                <select name="role" id="editRole" class="w-full rounded-lg border py-2 px-3 text-sm focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary">
                     {% for value, label in role_choices %}
                         {% if value != 'SUPERADMIN' or request.user.role == 'SUPERADMIN' %}
                             <option value="{{ value }}">{{ label }}</option>
                         {% endif %}
                     {% endfor %}
                 </select>
-                <select name="department" id="editDepartment" class="w-full rounded-lg border py-2 px-3 text-xs focus:outline-none focus:ring-2"
-                        style="background-color: var(--color-background); border-color: var(--color-border); color: var(--color-text-primary); --tw-ring-color: var(--color-primary);">
+                <select name="department" id="editDepartment" class="w-full rounded-lg border py-2 px-3 text-sm focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary">
                     <option value="">No Department</option>
                     {% for value, label in department_choices %}
                         <option value="{{ value }}">{{ label }}</option>
                     {% endfor %}
                 </select>
-                <label class="flex items-center gap-2 text-xs">
+                <label class="flex items-center gap-2 text-sm">
                     <input type="checkbox" id="editIsActive" checked> Active
                 </label>
                 <div class="flex justify-end gap-2 pt-2">
-                    <button type="button" onclick="closeEditModal()" class="btn-ghost text-xs">Cancel</button>
-                    <button type="submit" class="btn-primary text-xs px-4 py-2 rounded-lg">Save</button>
+                    <button type="button" onclick="closeEditModal()" class="btn-ghost text-sm">Cancel</button>
+                    <button type="submit" class="btn-primary text-sm px-4 py-2 rounded-lg">Save</button>
                 </div>
             </div>
         </form>
@@ -175,21 +160,17 @@
             <h3 class="text-base font-semibold" style="color: var(--color-text-primary);">Change Password</h3>
             <button onclick="closePasswordModal()" class="btn-ghost p-1">{% lucide "x" size=18 %}</button>
         </div>
-
-        {# User info #}
-        <div id="passwordUserInfo" class="mb-4 p-3 rounded-lg border text-xs" style="border-color: var(--color-border); background-color: var(--color-background);">
+        <div id="passwordUserInfo" class="mb-4 p-3 rounded-lg border text-sm" style="border-color: var(--color-border); background-color: var(--color-background);">
             <p class="font-semibold" id="passwordUserName" style="color: var(--color-text-primary);"></p>
             <p class="mt-1" id="passwordUserDetails" style="color: var(--color-text-secondary);"></p>
         </div>
-
         <form id="changePasswordForm">
             {% csrf_token %}
             <input type="hidden" id="passwordUserId">
             <div class="space-y-3">
                 <div class="relative">
                     <input type="password" id="newPassword" placeholder="New password" required minlength="8"
-                           class="w-full rounded-lg border py-2 px-3 pr-10 text-xs focus:outline-none focus:ring-2"
-                           style="background-color: var(--color-background); border-color: var(--color-border); color: var(--color-text-primary); --tw-ring-color: var(--color-primary);">
+                           class="w-full rounded-lg border py-2 px-3 pr-10 text-sm focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary">
                     <button type="button" class="absolute inset-y-0 right-2 flex items-center cursor-pointer text-text-secondary hover:text-primary transition"
                             onclick="togglePasswordVisibility('newPassword', 'newEyeIcon', 'newEyeOffIcon')">
                         <span id="newEyeIcon">{% lucide "eye" size=16 class="h-4 w-4" %}</span>
@@ -198,8 +179,7 @@
                 </div>
                 <div class="relative">
                     <input type="password" id="confirmPassword" placeholder="Confirm new password" required minlength="8"
-                           class="w-full rounded-lg border py-2 px-3 pr-10 text-xs focus:outline-none focus:ring-2"
-                           style="background-color: var(--color-background); border-color: var(--color-border); color: var(--color-text-primary); --tw-ring-color: var(--color-primary);">
+                           class="w-full rounded-lg border py-2 px-3 pr-10 text-sm focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary">
                     <button type="button" class="absolute inset-y-0 right-2 flex items-center cursor-pointer text-text-secondary hover:text-primary transition"
                             onclick="togglePasswordVisibility('confirmPassword', 'confirmEyeIcon', 'confirmEyeOffIcon')">
                         <span id="confirmEyeIcon">{% lucide "eye" size=16 class="h-4 w-4" %}</span>
@@ -207,8 +187,8 @@
                     </button>
                 </div>
                 <div class="flex justify-end gap-2 pt-2">
-                    <button type="button" onclick="closePasswordModal()" class="btn-ghost text-xs">Cancel</button>
-                    <button type="submit" class="btn-primary text-xs px-4 py-2 rounded-lg">Change Password</button>
+                    <button type="button" onclick="closePasswordModal()" class="btn-ghost text-sm">Cancel</button>
+                    <button type="submit" class="btn-primary text-sm px-4 py-2 rounded-lg">Change Password</button>
                 </div>
             </div>
         </form>
@@ -220,7 +200,6 @@
 {{ block.super }}
 <script src="{% static 'js/admin_users.js' %}"></script>
 <script>
-    // Provide URLs used by admin_users.js
     window.adminUsersUrl = "{% url 'accounts:admin_users' %}";
     window.adminUserEditUrl = "{% url 'accounts:admin_user_edit' 0 %}";
     window.adminUserToggleUrl = "{% url 'accounts:admin_user_toggle_active' 0 %}";

@@ -3,7 +3,7 @@
 {% load lucide %}
 
 {% block dashboard_title %}Team Lead Dashboard{% endblock %}
-{% block page_title %}Team Dashboard{% endblock %}
+{% block page_title_area %}{% endblock %}
 {% block role_label %}Team Lead{% endblock %}
 {% block role_badge %}TEAM LEAD{% endblock %}
 
@@ -12,60 +12,93 @@
 {% endblock %}
 
 {% block dashboard_content %}
-<div class="w-full">
-    {# KPI Row #}
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-        <div class="kpi-card">
-            <p class="kpi-label">Team Open Tickets</p>
-            <p class="kpi-value">{{ team_open_tickets }}</p>
-            <p class="kpi-trend up">Across {{ team_members|length }} agents</p>
-        </div>
-        <div class="kpi-card">
-            <p class="kpi-label">Unassigned Queue</p>
-            <p class="kpi-value">{{ unassigned_count }}</p>
-            <p class="kpi-trend up">Needs assignment</p>
-        </div>
-        <div class="kpi-card">
-            <p class="kpi-label">SLA Breaches</p>
-            <p class="kpi-value" style="color: var(--color-error);">{{ sla_breaches }}</p>
-            <p class="kpi-trend down">Requires attention</p>
-        </div>
-    </div>
 
-    {# Team Queue Preview #}
-    <div class="dashboard-card p-0 overflow-hidden mb-6">
-        <div class="px-4 py-3 border-b flex items-center justify-between" style="border-color: var(--color-border);">
-            <h3 class="text-xs font-semibold" style="color: var(--color-text-primary);">Recent Team Tickets</h3>
-            <a href="{% url 'tickets:team_queue' %}" class="text-xs font-medium" style="color: var(--color-primary);">View all →</a>
+{# KPI Row #}
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+    <div class="kpi-card border-l-4" style="border-left-color: var(--color-primary);">
+        <div class="flex items-center justify-between">
+            <p class="kpi-label">Team Open Tickets</p>
+            {% lucide "users" size=14 class="text-text-secondary" %}
         </div>
-        {% if recent_team_tickets %}
-        <div class="overflow-x-auto">
-            <table class="data-table w-full text-xs">
-                <thead>
-                    <tr>
-                        <th>Ticket</th>
-                        <th>Subject</th>
-                        <th>Assignee</th>
-                        <th>Status</th>
-                        <th>Updated</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for ticket in recent_team_tickets %}
-                    <tr class="hover:bg-black/2">
-                        <td><span class="font-mono text-[0.7rem]" style="color: var(--color-primary);">{{ ticket.number }}</span></td>
-                        <td class="max-w-xs truncate">{{ ticket.title }}</td>
-                        <td>{{ ticket.assigned_to.get_full_name|default:"Unassigned" }}</td>
-                        <td><span class="status-chip {{ ticket.status|lower }} text-[0.65rem]">{{ ticket.get_status_display }}</span></td>
-                        <td class="text-text-secondary">{{ ticket.updated_at|timesince }} ago</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+        <p class="kpi-value">{{ team_open_tickets }}</p>
+        <p class="kpi-trend up">Across {{ team_members|length }} agents</p>
+    </div>
+    <div class="kpi-card border-l-4" style="border-left-color: var(--color-warning);">
+        <div class="flex items-center justify-between">
+            <p class="kpi-label">Unassigned Queue</p>
+            {% lucide "inbox" size=14 class="text-text-secondary" %}
         </div>
-        {% else %}
-        <div class="text-center py-6 text-xs text-text-secondary">No team tickets.</div>
-        {% endif %}
+        <p class="kpi-value" style="color: var(--color-warning);">{{ unassigned_count }}</p>
+        <p class="kpi-trend up">Needs assignment</p>
+    </div>
+    <div class="kpi-card border-l-4" style="border-left-color: var(--color-error);">
+        <div class="flex items-center justify-between">
+            <p class="kpi-label">SLA Breaches</p>
+            {% lucide "alert-circle" size=14 class="text-text-secondary" %}
+        </div>
+        <p class="kpi-value" style="color: var(--color-error);">{{ sla_breaches }}</p>
+        <p class="kpi-trend down">Requires attention</p>
     </div>
 </div>
+
+{# Main Two-Column Area #}
+<div class="flex flex-col lg:flex-row gap-6">
+
+    {# Left Column – Two tables stacked #}
+    <div class="flex-1 min-w-0 space-y-6">
+
+        {# Unassigned Queue #}
+        <div class="dashboard-card p-0 overflow-hidden shadow-sm min-h-[100px]">
+            <div class="flex items-center justify-between px-5 py-3 border-b" style="border-color: var(--color-border);">
+                <h3 class="text-sm font-semibold" style="color: var(--color-text-primary);">Unassigned Queue</h3>
+                <a href="{% url 'tickets:unassigned' %}" class="text-xs font-medium text-primary hover:underline">
+                    See all ({{ unassigned_count }}) →
+                </a>
+            </div>
+            <div id="ticketTable" class="overflow-x-auto">
+                {% include "partials/agent_ticket_table.html" with tickets=recent_unassigned source="unassigned" %}
+            </div>
+        </div>
+
+        {# Team Queue #}
+        <div class="dashboard-card p-0 overflow-hidden shadow-sm min-h-[100px]">
+            <div class="flex items-center justify-between px-5 py-3 border-b" style="border-color: var(--color-border);">
+                <h3 class="text-sm font-semibold" style="color: var(--color-text-primary);">Team Queue</h3>
+                <a href="{% url 'tickets:team_queue' %}" class="text-xs font-medium text-primary hover:underline">
+                    See all ({{ team_open_tickets }}) →
+                </a>
+            </div>
+            <div id="teamTicketTable" class="overflow-x-auto">
+                {% include "partials/team_ticket_table.html" with tickets=recent_team_tickets %}
+            </div>
+        </div>
+
+    </div>
+
+    {# Right Rail – Quick Actions & Knowledge Base #}
+    <div class="lg:w-80 shrink-0 space-y-4">
+        <div class="context-rail p-4">
+            <h3 class="text-sm font-semibold mb-2" style="color: var(--color-text-primary);">Quick Actions</h3>
+            <div class="space-y-2">
+                <a href="{% url 'tickets:unassigned' %}" class="btn-outline w-full text-xs flex items-center justify-center gap-2 py-2 px-3">
+                    {% lucide "inbox" size=14 %} Unassigned Queue
+                </a>
+                <a href="{% url 'tickets:team_queue' %}" class="btn-outline w-full text-xs flex items-center justify-center gap-2 py-2 px-3">
+                    {% lucide "users" size=14 %} Team Queue
+                </a>
+                <a href="{% url 'tickets:create' %}" class="btn-outline w-full text-xs flex items-center justify-center gap-2 py-2 px-3">
+                    {% lucide "plus" size=14 %} New Ticket
+                </a>
+            </div>
+        </div>
+        <div class="context-rail p-4">
+            <h3 class="text-sm font-semibold mb-2" style="color: var(--color-text-primary);">Knowledge Base</h3>
+            <p class="text-xs text-text-secondary">Search for solutions or create a new article.</p>
+            <a href="{% url 'kb:management' %}" class="btn-outline w-full text-xs mt-2 py-2 px-3 flex items-center justify-center">
+                Browse KB
+            </a>
+        </div>
+    </div>
+</div>
+
 {% endblock %}

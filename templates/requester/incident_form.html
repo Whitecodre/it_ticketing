@@ -3,7 +3,7 @@
 {% load lucide %}
 
 {% block dashboard_title %}Report an Incident{% endblock %}
-{% block page_title %}Report an Incident{% endblock %}
+{% block page_title_area %}{% endblock %}
 {% block role_label %}{{ user.get_role_display }}{% endblock %}
 {% block role_badge %}{{ user.get_role_display|upper }}{% endblock %}
 
@@ -14,18 +14,25 @@
 {% block topbar_search %}{% endblock %}
 
 {% block dashboard_content %}
-<div class="w-full">
-    <div class="dashboard-card">
-        <h2 class="dashboard-card-header">Report an Incident</h2>
-        <p class="text-xs text-text-secondary mb-4">Something's broken or not working as expected? Let us know.</p>
+<div class="max-w-3xl mx-auto">
+    <div class="dashboard-card shadow-sm">
+        <div class="flex items-center gap-3 mb-1">
+            <div class="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+                {% lucide "alert-triangle" size=20 %}
+            </div>
+            <div>
+                <h2 class="text-base font-semibold" style="color: var(--color-text-primary);">Report an Incident</h2>
+                <p class="text-xs text-text-secondary">Something's broken or not working as expected? Let us know.</p>
+            </div>
+        </div>
 
-        <form method="post" enctype="multipart/form-data" class="space-y-6">
+        <form method="post" enctype="multipart/form-data" class="space-y-5 mt-4">
             {% csrf_token %}
             <input type="hidden" name="type" value="INCIDENT">
 
             {% if form.errors %}
-            <div class="rounded-lg bg-red-50 p-4 border border-red-200">
-                <ul class="text-sm text-red-800 list-disc list-inside">
+            <div class="rounded-lg bg-error/10 p-4 border border-error/30 text-error text-sm">
+                <ul class="list-disc list-inside space-y-0.5">
                     {% for field in form %}
                         {% for error in field.errors %}
                             <li>{{ error }}</li>
@@ -35,54 +42,67 @@
             </div>
             {% endif %}
 
-            <div>
-                <label for="id_category" class="block text-sm font-semibold mb-1" style="color: var(--color-text-primary);">Category</label>
-                <select name="category" id="id_category"
-                        class="block w-full rounded-lg border py-2.5 px-4 text-sm transition focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary"
-                        hx-get="{% url 'tickets:kb_suggestions' %}"
-                        hx-target="#kb-suggestions"
-                        hx-trigger="change">
-                    <!-- Disabled placeholder – cannot be submitted -->
-                    <option value="" disabled selected>---Select a category---</option>
-                    <!-- The empty_label from the form will provide the placeholder -->
-                    {% for value, label in form.category.field.choices %}
-                        <option value="{{ value }}" {% if form.category.value == value %}selected{% endif %}>{{ label }}</option>
-                    {% endfor %}
-                </select>
-                <div id="kb-suggestions" class="mt-3"></div>
+            {# Category & Title – two columns on larger screens #}
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label for="id_category" class="block text-sm font-medium mb-1 text-text-primary">
+                        Category <span class="text-error">*</span>
+                    </label>
+                    <select name="category" id="id_category"
+                            class="block w-full rounded-lg border py-2.5 px-4 text-sm transition focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary"
+                            hx-get="{% url 'tickets:kb_suggestions' %}"
+                            hx-target="#kb-suggestions"
+                            hx-trigger="change">
+                        <option value="" disabled selected>Select a category</option>
+                        {% for value, label in form.category.field.choices %}
+                            <option value="{{ value }}" {% if form.category.value == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                    <div id="kb-suggestions" class="mt-2"></div>
+                </div>
+                <div>
+                    <label for="id_title" class="block text-sm font-medium mb-1 text-text-primary">
+                        Title <span class="text-error">*</span>
+                    </label>
+                    {{ form.title }}
+                </div>
             </div>
 
+            {# Description – full width #}
             <div>
-                <label for="id_title" class="block text-sm font-semibold mb-1" style="color: var(--color-text-primary);">Title</label>
-                {{ form.title }}
-            </div>
-
-            <div>
-                <label for="id_description" class="block text-sm font-semibold mb-1" style="color: var(--color-text-primary);">Description</label>
+                <label for="id_description" class="block text-sm font-medium mb-1 text-text-primary">
+                    Description <span class="text-error">*</span>
+                </label>
                 {{ form.description }}
             </div>
 
-            <div class="grid grid-cols-2 gap-4">
+            {# Impact & Urgency – two columns #}
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <label for="id_impact" class="block text-sm font-semibold mb-1" style="color: var(--color-text-primary);">Impact</label>
+                    <label for="id_impact" class="block text-sm font-medium mb-1 text-text-primary">Impact</label>
                     {{ form.impact }}
                 </div>
                 <div>
-                    <label for="id_urgency" class="block text-sm font-semibold mb-1" style="color: var(--color-text-primary);">Urgency</label>
+                    <label for="id_urgency" class="block text-sm font-medium mb-1 text-text-primary">Urgency</label>
                     {{ form.urgency }}
                 </div>
             </div>
 
+            {# Attachments #}
             <div>
-                <label class="block text-sm font-semibold mb-1" style="color: var(--color-text-primary);">Attachments</label>
-                <input type="file" name="attachments" multiple
-                class="block w-full text-sm text-text-secondary file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white hover:file:bg-primary-light">
+                <label class="block text-sm font-medium mb-1 text-text-primary">Attachments <span class="text-text-secondary text-xs font-normal">(optional)</span></label>
+                <div class="relative">
+                    <input type="file" name="attachments" multiple
+                           class="block w-full text-sm text-text-secondary file:mr-4 file:py-2.5 file:px-5 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 transition cursor-pointer">
+                </div>
+                <p class="text-xs text-text-secondary mt-1.5">Accepted file types: images, PDF, Word, Excel, ZIP (max 10MB each).</p>
             </div>
 
-            <div class="flex items-center justify-between pt-4 border-t" style="border-color: var(--color-border);">
-                <a href="{% url 'dashboard' %}" class="btn-ghost">Cancel</a>
-                <button type="submit" class="btn-primary inline-flex items-center rounded-lg px-6 py-2.5 text-white font-medium">
-                    {% lucide "send" size=14 class="mr-2" %} Submit Incident
+            {# Actions #}
+            <div class="flex flex-wrap items-center justify-end gap-3 pt-4 border-t" style="border-color: var(--color-border);">
+                <a href="{% url 'dashboard' %}" class="btn-ghost text-sm px-5 py-2">Cancel</a>
+                <button type="submit" class="btn-primary inline-flex items-center gap-2 text-sm px-6 py-2.5">
+                    {% lucide "send" size=16 %} Submit Incident
                 </button>
             </div>
         </form>

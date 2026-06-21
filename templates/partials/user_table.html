@@ -2,79 +2,187 @@
 
 {% if users %}
 <div class="overflow-x-auto">
-    <table class="data-table w-full text-xs">
+    <table class="w-full text-sm">
         <thead>
-            <tr>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Role</th>
-                <th>Department</th>
-                <th>Status</th>
-                <th class="w-24">Actions</th>
+            <tr class="border-b" style="border-color: var(--color-border);">
+                <th class="text-left py-3 px-4 font-semibold text-text-secondary uppercase tracking-wider text-xs">Name</th>
+                <th class="text-left py-3 px-4 font-semibold text-text-secondary uppercase tracking-wider text-xs">Email</th>
+                <th class="text-left py-3 px-4 font-semibold text-text-secondary uppercase tracking-wider text-xs">Role</th>
+                <th class="text-left py-3 px-4 font-semibold text-text-secondary uppercase tracking-wider text-xs">Department</th>
+                <th class="text-left py-3 px-4 font-semibold text-text-secondary uppercase tracking-wider text-xs">Status</th>
+                <th class="text-right py-3 px-4 font-semibold text-text-secondary uppercase tracking-wider text-xs w-12">Actions</th>
             </tr>
         </thead>
         <tbody>
             {% for user in users %}
-            <tr class="hover:bg-black/2" data-user-id="{{ user.pk }}" data-email="{{ user.email }}"
+            <tr class="border-b hover:bg-black/5 transition-colors" style="border-color: var(--color-border); overflow: visible;"
+                data-user-id="{{ user.pk }}" data-email="{{ user.email }}"
                 data-first-name="{{ user.first_name }}" data-last-name="{{ user.last_name }}"
                 data-role="{{ user.role }}" data-department="{{ user.department }}" data-is-active="{{ user.is_active|lower }}">
-                <td>{{ user.get_full_name|default:"—" }}</td>
-                <td class="text-xs" style="color: var(--color-text-secondary);">{{ user.email }}</td>
-                <td><span class="text-xs px-2 py-0.5 rounded-full border" style="border-color: var(--color-border);">{{ user.get_role_display }}</span></td>
-                <td>{{ user.get_department_display|default:"—" }}</td>
-                <td>
+                <td class="py-3 px-4 text-text-primary font-medium">{{ user.get_full_name|default:"—" }}</td>
+                <td class="py-3 px-4 text-text-secondary">{{ user.email }}</td>
+                <td class="py-3 px-4">
+                    <span class="text-xs px-2.5 py-1 rounded-full border border-border text-text-secondary">{{ user.get_role_display }}</span>
+                </td>
+                <td class="py-3 px-4 text-text-secondary">{{ user.get_department_display|default:"—" }}</td>
+                <td class="py-3 px-4">
                     {% if user.is_active %}
-                        <span class="text-success text-xs font-medium">Active</span>
+                        <span class="inline-flex items-center gap-1.5 text-success text-xs font-medium">
+                            <span class="w-1.5 h-1.5 rounded-full bg-success"></span> Active
+                        </span>
                     {% else %}
-                        <span class="text-error text-xs font-medium">Inactive</span>
+                        <span class="inline-flex items-center gap-1.5 text-error text-xs font-medium">
+                            <span class="w-1.5 h-1.5 rounded-full bg-error"></span> Inactive
+                        </span>
                     {% endif %}
                 </td>
-                <td>
-                    <div class="flex gap-1">
-                        {% if user.role != 'SUPERADMIN' or request.user.role == 'SUPERADMIN' %}
-                            <button class="btn-ghost p-1 text-xs" onclick="openEditModal({{ user.pk }})">
-                                {% lucide "pencil" size=14 %}
-                            </button>
-                            <button class="btn-ghost p-1 text-xs" onclick="toggleActive({{ user.pk }})">
-                                {% if user.is_active %}
-                                    {% lucide "user-x" size=14 %}
-                                {% else %}
-                                    {% lucide "user-check" size=14 %}
-                                {% endif %}
-                            </button>
-                            <button class="btn-ghost p-1 text-xs" onclick="openPasswordModal({{ user.pk }})" title="Change Password">
-                                {% lucide "key" size=14 %}
-                            </button>
-                        {% else %}
-                            <span class="text-xs text-text-secondary text-center w-full">-</span>
-                        {% endif %}
-                    </div>
+                <td class="py-3 px-4 text-right relative overflow-visible">
+                    {% if user.role != 'SUPERADMIN' or request.user.role == 'SUPERADMIN' %}
+                    <button class="user-action-btn btn-ghost p-1.5 rounded-full hover:bg-black/5 transition" 
+                            onclick="window.userActionBtnClick(this)"
+                            data-user-id="{{ user.pk }}"
+                            data-email="{{ user.email }}"
+                            data-first-name="{{ user.first_name }}"
+                            data-last-name="{{ user.last_name }}"
+                            data-role="{{ user.role }}"
+                            data-department="{{ user.department }}"
+                            data-is-active="{{ user.is_active|lower }}"
+                            aria-label="Actions">
+                        {% lucide "more-vertical" size=18 %}
+                    </button>
+                    {% else %}
+                    <span class="text-xs text-text-secondary">—</span>
+                    {% endif %}
                 </td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
 </div>
+
 {# Pagination #}
 {% if users.has_other_pages %}
-<div class="flex items-center justify-between p-3 border-t" style="border-color: var(--color-border);">
-    <span class="text-xs text-text-secondary">Page {{ users.number }} of {{ users.paginator.num_pages }}</span>
-    <div class="flex gap-1">
+<div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t" style="border-color: var(--color-border);">
+    <span class="text-sm text-text-secondary">Page {{ users.number }} of {{ users.paginator.num_pages }}</span>
+    <div class="flex gap-1.5">
         {% if users.has_previous %}
-        <button class="btn-ghost text-xs px-2 py-1 rounded"
+        <button class="btn-ghost text-sm px-3 py-1 rounded border border-border hover:bg-black/5 transition"
                 hx-get="{% url 'accounts:admin_users' %}?page={{ users.previous_page_number }}&q={{ query }}&role={{ role_filter }}&department={{ department_filter }}"
                 hx-target="#userTableContainer" hx-swap="innerHTML">← Prev</button>
         {% endif %}
         {% if users.has_next %}
-        <button class="btn-ghost text-xs px-2 py-1 rounded"
+        <button class="btn-ghost text-sm px-3 py-1 rounded border border-border hover:bg-black/5 transition"
                 hx-get="{% url 'accounts:admin_users' %}?page={{ users.next_page_number }}&q={{ query }}&role={{ role_filter }}&department={{ department_filter }}"
                 hx-target="#userTableContainer" hx-swap="innerHTML">Next →</button>
         {% endif %}
     </div>
 </div>
 {% endif %}
+
 {% else %}
-<div class="text-center py-10 text-xs text-text-secondary">
+<div class="text-center py-10 text-sm text-text-secondary">
     No users found.
 </div>
 {% endif %}
+
+{# Global dropdown – rendered as a direct child of body #}
+<div id="globalUserDropdown" class="fixed rounded-lg shadow-lg border bg-surface z-[9999] py-1 min-w-40 
+            opacity-0 scale-95 pointer-events-none transition-all duration-150 ease-out"
+     style="border-color: var(--color-border); background-color: var(--color-surface); transform-origin: top center;">
+    <button class="dropdown-edit w-full text-left px-4 py-2 text-sm hover:bg-black/5 transition flex items-center gap-2 text-text-primary">
+        {% lucide "pencil" size=14 %} Edit
+    </button>
+    <button class="dropdown-toggle-active w-full text-left px-4 py-2 text-sm hover:bg-black/5 transition flex items-center gap-2 text-text-primary">
+        {% lucide "user-x" size=14 %} <span class="toggle-label">Deactivate</span>
+    </button>
+    <button class="dropdown-password w-full text-left px-4 py-2 text-sm hover:bg-black/5 transition flex items-center gap-2 text-text-primary">
+        {% lucide "key" size=14 %} Change Password
+    </button>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const dropdown = document.getElementById('globalUserDropdown');
+        let activeUserId = null;
+
+        if (!dropdown) {
+            console.error('globalUserDropdown not found!');
+            return;
+        }
+
+        // Get dropdown action buttons
+        const editBtn = dropdown.querySelector('.dropdown-edit');
+        const toggleBtn = dropdown.querySelector('.dropdown-toggle-active');
+        const toggleLabel = toggleBtn.querySelector('.toggle-label');
+        const passwordBtn = dropdown.querySelector('.dropdown-password');
+
+        // Define the global function that handles the dropdown toggle
+        window.userActionBtnClick = function(btn) {
+            // Close any open dropdown first
+            closeDropdown();
+
+            // Store user data
+            activeUserId = btn.dataset.userId;
+            const isActive = btn.dataset.isActive === 'true';
+
+            // Update the label
+            toggleLabel.textContent = isActive ? 'Deactivate' : 'Activate';
+
+            // Position the dropdown
+            const rect = btn.getBoundingClientRect();
+            let top = rect.bottom + 6;
+            let left = rect.left + rect.width / 2 - 80;
+
+            // If not enough space below, place above
+            if (top + 150 > window.innerHeight) {
+                top = rect.top - 150 - 6;
+            }
+            // Ensure it doesn't go off the right edge
+            if (left + 160 > window.innerWidth) {
+                left = window.innerWidth - 170;
+            }
+            if (left < 10) {
+                left = 10;
+            }
+
+            dropdown.style.top = top + 'px';
+            dropdown.style.left = left + 'px';
+
+            // Show with animation
+            dropdown.classList.remove('pointer-events-none', 'opacity-0', 'scale-95');
+            dropdown.classList.add('opacity-100', 'scale-100');
+        };
+
+        function closeDropdown() {
+            if (dropdown) {
+                dropdown.classList.remove('opacity-100', 'scale-100');
+                dropdown.classList.add('pointer-events-none', 'opacity-0', 'scale-95');
+            }
+        }
+
+        // Click outside to close
+        document.addEventListener('click', function(e) {
+            if (!dropdown.contains(e.target) && !e.target.closest('.user-action-btn')) {
+                closeDropdown();
+            }
+        });
+
+        // Edit action
+        editBtn.addEventListener('click', function() {
+            if (activeUserId) openEditModal(activeUserId);
+            closeDropdown();
+        });
+
+        // Toggle active action
+        toggleBtn.addEventListener('click', function() {
+            if (activeUserId) toggleActive(activeUserId);
+            closeDropdown();
+        });
+
+        // Change password action
+        passwordBtn.addEventListener('click', function() {
+            if (activeUserId) openPasswordModal(activeUserId);
+            closeDropdown();
+        });
+    });
+</script>

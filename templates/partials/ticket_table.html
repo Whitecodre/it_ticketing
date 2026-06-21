@@ -1,44 +1,63 @@
 {% load lucide %}
 
 <div class="overflow-x-auto">
-    <table class="data-table w-full">
+    <table class="w-full text-sm">
         <thead>
-            <tr>
-                <th>ID</th>
-                <th>Title</th>
-                <th>Status</th>
-                <th>Priority</th>
-                <th>Updated</th>
-                <th>Actions</th>
+            <tr class="border-b" style="border-color: var(--color-border);">
+                <th class="text-left py-3 px-3 font-semibold text-text-secondary uppercase tracking-wider text-xs">ID</th>
+                <th class="text-left py-3 px-3 font-semibold text-text-secondary uppercase tracking-wider text-xs">Subject</th>
+                <th class="text-left py-3 px-3 font-semibold text-text-secondary uppercase tracking-wider text-xs">Status</th>
+                <th class="text-left py-3 px-3 font-semibold text-text-secondary uppercase tracking-wider text-xs">Priority</th>
+                <th class="text-left py-3 px-3 font-semibold text-text-secondary uppercase tracking-wider text-xs">Updated</th>
+                <th class="text-right py-3 px-3 font-semibold text-text-secondary uppercase tracking-wider text-xs w-12">Actions</th>
             </tr>
         </thead>
         <tbody>
             {% for ticket in tickets %}
-            <tr>
-                <td><span class="font-mono text-xs" style="color: var(--color-primary);">{{ ticket.number }}</span></td>
-                <td>{{ ticket.title }}</td>
-                <td><span class="status-chip {{ ticket.status|lower }}">{{ ticket.get_status_display }}</span></td>
-                <td><span class="priority-chip {% if ticket.priority == 'P1' %}critical{% elif ticket.priority == 'P2' %}high{% elif ticket.priority == 'P3' %}medium{% else %}low{% endif %}">{{ ticket.get_priority_display }}</span></td>
-                <td class="text-text-secondary">{{ ticket.updated_at|timesince }} ago</td>
-                <td>
-                    <div class="flex gap-2">
-                        <a href="{% url 'tickets:detail' ticket.pk %}" class="btn-ghost text-xs">{% lucide "eye" size=14 class="h-3.5 w-3.5" %} View</a>
-                        {% if ticket.status == 'NEW' or ticket.status == 'TRIAGED' %}
-                        <button class="btn-ghost text-xs"
-                                hx-post="{% url 'tickets:cancel_ticket' ticket.pk %}"
-                                hx-target="#ticketTableContainer"
-                                hx-swap="innerHTML"
-                                hx-include="[name=current_status]">
-                            {% lucide "circle-x" size=14 class="h-3.5 w-3.5" %} Cancel
-                        </button>
-                        {% endif %}
-                    </div>
+            <tr class="border-b hover:bg-black/5 transition-colors group" style="border-color: var(--color-border);"
+                data-ticket-id="{{ ticket.pk }}"
+                data-ticket-number="{{ ticket.number }}"
+                data-ticket-status="{{ ticket.status }}"
+                data-detail-url="{% url 'tickets:detail' ticket.pk %}"
+                data-cancel-url="{% url 'tickets:cancel_ticket' ticket.pk %}">
+                <td class="py-3 px-3">
+                    <span class="font-mono text-xs text-primary">{{ ticket.number }}</span>
+                </td>
+                <td class="py-3 px-3 max-w-xs truncate text-text-primary">{{ ticket.title }}</td>
+                <td class="py-3 px-3">
+                    <span class="status-chip {{ ticket.status|lower }} text-xs">{{ ticket.get_status_display }}</span>
+                </td>
+                <td class="py-3 px-3">
+                    <span class="priority-chip 
+                        {% if ticket.priority == 'P1' %}critical
+                        {% elif ticket.priority == 'P2' %}high
+                        {% elif ticket.priority == 'P3' %}medium
+                        {% else %}low{% endif %} text-xs">
+                        {{ ticket.get_priority_display }}
+                    </span>
+                </td>
+                <td class="py-3 px-3 text-text-secondary text-xs">{{ ticket.updated_at|timesince }} ago</td>
+                <td class="py-3 px-3 text-right">
+                    <button class="ticket-action-btn btn-ghost p-1.5 rounded-full hover:bg-black/5 transition"
+                            onclick="window.userTicketActionBtnClick(this)"
+                            data-ticket-id="{{ ticket.pk }}"
+                            data-ticket-number="{{ ticket.number }}"
+                            data-ticket-status="{{ ticket.status }}"
+                            data-detail-url="{% url 'tickets:detail' ticket.pk %}"
+                            data-cancel-url="{% url 'tickets:cancel_ticket' ticket.pk %}"
+                            aria-label="Actions">
+                        {% lucide "more-vertical" size=18 %}
+                    </button>
                 </td>
             </tr>
             {% empty %}
             <tr>
-                <td colspan="6" class="text-center py-8 text-sm text-text-secondary">
-                    {% if current_status %}No tickets with this status.{% else %}No tickets yet.{% endif %}
+                <td colspan="6" class="text-center py-6">
+                    <div class="flex flex-col items-center gap-0.5">
+                        <span class="text-2xl">📭</span>
+                        <p class="text-text-secondary text-sm">No tickets here.</p>
+                        <p class="text-text-secondary text-xs">Create your first ticket →</p>
+                    </div>
                 </td>
             </tr>
             {% endfor %}
@@ -46,25 +65,122 @@
     </table>
 </div>
 
-{# Pagination (HTMX) #}
+{# Pagination #}
 {% if tickets.has_other_pages %}
-<div class="flex items-center justify-between mt-4 pt-4 border-t" style="border-color: var(--color-border);">
-    <p class="text-sm" style="color: var(--color-text-secondary);">
-        Page {{ tickets.number }} of {{ tickets.paginator.num_pages }}
-    </p>
-    <div class="flex gap-2">
+<div class="flex flex-wrap items-center justify-between gap-3 px-3 py-3 border-t" style="border-color: var(--color-border);">
+    <span class="text-sm text-text-secondary">Page {{ tickets.number }} of {{ tickets.paginator.num_pages }}</span>
+    <div class="flex gap-1.5">
         {% if tickets.has_previous %}
-            <button class="btn-ghost text-xs px-3 py-1 rounded-md"
-                    hx-get="{% url 'tickets:my_list' %}?page={{ tickets.previous_page_number }}&status={{ current_status }}"
-                    hx-target="#ticketTableContainer"
-                    hx-swap="innerHTML">← Prev</button>
+        <button class="btn-ghost text-sm px-3 py-1 rounded border border-border hover:bg-black/5 transition"
+                hx-get="{% url 'tickets:my_list' %}?page={{ tickets.previous_page_number }}&status={{ current_status }}"
+                hx-target="#ticketTableContainer"
+                hx-swap="innerHTML">← Prev</button>
         {% endif %}
         {% if tickets.has_next %}
-            <button class="btn-ghost text-xs px-3 py-1 rounded-md"
-                    hx-get="{% url 'tickets:my_list' %}?page={{ tickets.next_page_number }}&status={{ current_status }}"
-                    hx-target="#ticketTableContainer"
-                    hx-swap="innerHTML">Next →</button>
+        <button class="btn-ghost text-sm px-3 py-1 rounded border border-border hover:bg-black/5 transition"
+                hx-get="{% url 'tickets:my_list' %}?page={{ tickets.next_page_number }}&status={{ current_status }}"
+                hx-target="#ticketTableContainer"
+                hx-swap="innerHTML">Next →</button>
         {% endif %}
     </div>
 </div>
 {% endif %}
+
+{# Global Action Dropdown for End-Users #}
+<div id="globalUserTicketDropdown" class="fixed rounded-lg shadow-lg border bg-surface z-[9999] py-1 min-w-44
+            opacity-0 scale-95 pointer-events-none transition-all duration-150 ease-out"
+     style="border-color: var(--color-border); background-color: var(--color-surface); transform-origin: top center;">
+    <button class="dropdown-view w-full text-left px-4 py-2 text-sm hover:bg-black/5 transition flex items-center gap-2 text-text-primary">
+        {% lucide "eye" size=14 %} View Details
+    </button>
+    <button class="dropdown-cancel w-full text-left px-4 py-2 text-sm hover:bg-black/5 transition flex items-center gap-2 text-text-primary">
+        {% lucide "circle-x" size=14 %} Cancel Ticket
+    </button>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const dropdown = document.getElementById('globalUserTicketDropdown');
+        let activeTicketId = null;
+        let activeData = {};
+        let activeButton = null;
+
+        if (!dropdown) return;
+
+        const viewBtn = dropdown.querySelector('.dropdown-view');
+        const cancelBtn = dropdown.querySelector('.dropdown-cancel');
+
+        function positionDropdown(btn) {
+            const rect = btn.getBoundingClientRect();
+            let top = rect.bottom + 6;
+            let left = rect.left + rect.width / 2 - 80;
+
+            if (top + 150 > window.innerHeight) {
+                top = rect.top - 150 - 6;
+            }
+            if (left + 160 > window.innerWidth) {
+                left = window.innerWidth - 170;
+            }
+            if (left < 10) {
+                left = 10;
+            }
+
+            dropdown.style.top = top + 'px';
+            dropdown.style.left = left + 'px';
+        }
+
+        window.userTicketActionBtnClick = function(btn) {
+            closeDropdown();
+
+            activeButton = btn;
+            activeTicketId = btn.dataset.ticketId;
+            const status = btn.dataset.ticketStatus;
+            activeData = {
+                detailUrl: btn.dataset.detailUrl,
+                cancelUrl: btn.dataset.cancelUrl,
+                canCancel: (status === 'NEW' || status === 'TRIAGED')
+            };
+
+            cancelBtn.style.display = activeData.canCancel ? 'flex' : 'none';
+
+            positionDropdown(btn);
+            dropdown.classList.remove('pointer-events-none', 'opacity-0', 'scale-95');
+            dropdown.classList.add('opacity-100', 'scale-100');
+        };
+
+        function closeDropdown() {
+            dropdown.classList.remove('opacity-100', 'scale-100');
+            dropdown.classList.add('pointer-events-none', 'opacity-0', 'scale-95');
+            activeButton = null;
+        }
+
+        window.addEventListener('resize', function() {
+            if (activeButton && !dropdown.classList.contains('pointer-events-none')) {
+                positionDropdown(activeButton);
+            }
+        });
+
+        document.addEventListener('click', function(e) {
+            if (!dropdown.contains(e.target) && !e.target.closest('.ticket-action-btn')) {
+                closeDropdown();
+            }
+        });
+
+        viewBtn.addEventListener('click', function() {
+            if (activeData.detailUrl) {
+                window.location.href = activeData.detailUrl;
+            }
+            closeDropdown();
+        });
+
+        cancelBtn.addEventListener('click', function() {
+            if (activeData.cancelUrl) {
+                htmx.ajax('POST', activeData.cancelUrl, {
+                    target: '#ticketTableContainer',
+                    swap: 'innerHTML',
+                });
+            }
+            closeDropdown();
+        });
+    });
+</script>

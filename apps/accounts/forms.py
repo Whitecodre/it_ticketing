@@ -1,10 +1,10 @@
 from django import forms
-from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
+from django.contrib.auth.forms import UserCreationForm, AuthenticationForm, UserChangeForm, PasswordChangeForm
 from django.core.exceptions import ValidationError
 from django.contrib.auth.password_validation import validate_password
 from django.utils.safestring import mark_safe
 from django.urls import reverse
-from .models import User
+from .models import User, UserProfile
 
 class EmailAuthenticationForm(AuthenticationForm):
     username = forms.EmailField(
@@ -75,28 +75,37 @@ class RegistrationForm(UserCreationForm):
             user.save()
         return user
 
-
 class ProfileForm(forms.ModelForm):
     class Meta:
         model = User
         fields = ['first_name', 'last_name', 'department', 'avatar']
         widgets = {
-            'first_name': forms.TextInput(attrs={
-                'class': 'block w-full rounded-lg border py-2.5 px-4 text-sm transition focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary',
-                'placeholder': 'First Name'
-            }),
-            'last_name': forms.TextInput(attrs={
-                'class': 'block w-full rounded-lg border py-2.5 px-4 text-sm transition focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary',
-                'placeholder': 'Last Name'
-            }),
-            'department': forms.Select(attrs={
-                'class': 'block w-full rounded-lg border py-2.5 px-4 text-sm transition focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary'
-            }),
-            'avatar': forms.FileInput(attrs={
-                'class': 'block w-full text-sm text-text-secondary file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white hover:file:bg-primary-light'
-            }),
+            'first_name': forms.TextInput(attrs={'class': 'block w-full rounded-lg border py-2.5 px-4 text-sm bg-background border-border text-text-primary ring-primary focus:outline-none focus:ring-2'}),
+            'last_name': forms.TextInput(attrs={'class': 'block w-full rounded-lg border py-2.5 px-4 text-sm bg-background border-border text-text-primary ring-primary focus:outline-none focus:ring-2'}),
+            'department': forms.Select(attrs={'class': 'block w-full rounded-lg border py-2.5 px-4 text-sm bg-background border-border text-text-primary ring-primary focus:outline-none focus:ring-2'}),
+            'avatar': forms.FileInput(attrs={'class': 'hidden'}),
         }
 
+class UserSettingsForm(forms.ModelForm):
+    class Meta:
+        model = UserProfile
+        fields = ['timezone', 'language', 'default_ticket_view', 'email_notifications', 'in_app_notifications', 'ticket_signature']
+        widgets = {
+            'timezone': forms.TextInput(attrs={'class': 'block w-full rounded-lg border py-2.5 px-4 text-sm bg-background border-border text-text-primary ring-primary focus:outline-none focus:ring-2'}),
+            'language': forms.Select(attrs={'class': 'block w-full rounded-lg border py-2.5 px-4 text-sm bg-background border-border text-text-primary ring-primary focus:outline-none focus:ring-2'}),
+            'default_ticket_view': forms.Select(attrs={'class': 'block w-full rounded-lg border py-2.5 px-4 text-sm bg-background border-border text-text-primary ring-primary focus:outline-none focus:ring-2'}),
+            'email_notifications': forms.CheckboxInput(attrs={'class': 'rounded border-border text-primary focus:ring-primary'}),
+            'in_app_notifications': forms.CheckboxInput(attrs={'class': 'rounded border-border text-primary focus:ring-primary'}),
+            'ticket_signature': forms.Textarea(attrs={'rows': 4, 'class': 'block w-full rounded-lg border p-3 text-sm bg-background border-border text-text-primary ring-primary focus:outline-none focus:ring-2'}),
+        }
+
+class ChangePasswordForm(PasswordChangeForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            field.widget.attrs.update({'class': 'block w-full rounded-lg border py-2.5 px-4 text-sm bg-background border-border text-text-primary ring-primary focus:outline-none focus:ring-2'})
+
+            
 class RegistrationStep1Form(forms.Form):
     first_name = forms.CharField(max_length=30, required=True)
     last_name = forms.CharField(max_length=30, required=True)

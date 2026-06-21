@@ -1,4 +1,5 @@
-import random, hashlib, os, re
+import random, hashlib, os, re, csv, json
+from openpyxl import Workbook
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.core.exceptions import PermissionDenied
@@ -786,27 +787,74 @@ def team_reassign(request, pk):
 
 @login_required
 def audit_log(request):
-    """
-    Displays the audit trail (ticket activity log) for users with sufficient permissions.
-    Team Leads see only activity on tickets from their department.
-    Admins and Superadmins see all activity.
-    """
     if request.user.role not in ['TEAM_LEAD', 'ADMIN', 'SUPERADMIN']:
         return HttpResponse(status=403)
+    
     logs = TicketActivityLog.objects.select_related('ticket', 'actor').all()
     if request.user.role == 'TEAM_LEAD':
         team_members = User.objects.filter(department=request.user.department, role='AGENT')
         logs = logs.filter(
             Q(ticket__assigned_to__in=team_members) | Q(ticket__requester__in=team_members)
         )
+    
     action = request.GET.get('action')
     ticket_id = request.GET.get('ticket')
-    if action: logs = logs.filter(action=action)
-    if ticket_id: logs = logs.filter(ticket__number__icontains=ticket_id)
-    logs = logs.order_by('-created_at')[:100]
+    if action:
+        logs = logs.filter(action=action)
+    if ticket_id:
+        logs = logs.filter(ticket__number__icontains=ticket_id)
+    logs = logs.order_by('-created_at')
+
+    # --- Export logic (CSV, JSON, Excel) ---
+    export_format = request.GET.get('export')
+    if export_format:
+        filename = f"audit_log_{timezone.now().strftime('%Y%m%d_%H%M%S')}"
+        
+        # Convert each log to a flat dict for export
+        export_data = []
+        for log in logs:
+            export_data.append({
+                'time': log.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+                'ticket': log.ticket.number if log.ticket else '—',
+                'action': log.action,
+                'actor': log.actor.get_full_name() if log.actor else 'System',
+                'details': str(log.details) if log.details else ''  # Convert dict to string
+            })
+        
+        if export_format == 'csv':
+            response = HttpResponse(content_type='text/csv')
+            response['Content-Disposition'] = f'attachment; filename="{filename}.csv"'
+            writer = csv.writer(response)
+            writer.writerow(['Time', 'Ticket', 'Action', 'Actor', 'Details'])
+            for row in export_data:
+                writer.writerow([row['time'], row['ticket'], row['action'], row['actor'], row['details']])
+            return response
+
+        elif export_format == 'json':
+            response = HttpResponse(json.dumps(export_data, indent=2), content_type='application/json')
+            response['Content-Disposition'] = f'attachment; filename="{filename}.json"'
+            return response
+
+        elif export_format == 'excel':
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "Audit Log"
+            ws.append(['Time', 'Ticket', 'Action', 'Actor', 'Details'])
+            for row in export_data:
+                ws.append([row['time'], row['ticket'], row['action'], row['actor'], row['details']])
+            response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+            response['Content-Disposition'] = f'attachment; filename="{filename}.xlsx"'
+            wb.save(response)
+            return response
+
+    # --- Pagination (100 per page) ---
+    paginator = Paginator(logs, 50)  # 50 per page (adjust as needed)
+    page_number = request.GET.get('page', 1)
+    page_obj = paginator.get_page(page_number)
+
     context = {
-        'logs': logs,
-        'action_choices': ['created', 'status_changed', 'assigned', 'unassigned', 'commented'],
+        'logs': page_obj,
+        'action_choices': ['created', 'status_changed', 'assigned', 'unassigned', 'commented', 'remote_session_requested', 'remote_session_status_change'],
         'sidebar_template': get_sidebar_template(request.user),
     }
     return render(request, 'partials/audit_log.html', context)

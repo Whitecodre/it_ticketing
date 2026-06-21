@@ -1,4 +1,5 @@
 import logging
+from django.contrib import messages
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect
@@ -8,20 +9,19 @@ from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
 from django.urls import reverse
 from django.core.mail import send_mail
-# from django.core.exceptions import ValidationError
 from django.template.loader import render_to_string
 from django.conf import settings
-from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model, update_session_auth_hash
 from django.contrib.auth.views import LoginView
 from django.http import HttpResponse
 from django.utils import timezone
 from django.utils.html import strip_tags
 from django.db.models import F, DurationField, ExpressionWrapper, Count, Q
 from datetime import timedelta
-from ..forms import ProfileForm, EmailAuthenticationForm, RegistrationStep1Form, RegistrationStep2Form
-from ..models import User
+from ..forms import ProfileForm, EmailAuthenticationForm, RegistrationStep1Form, RegistrationStep2Form, ChangePasswordForm, UserSettingsForm
+from ..models import User, UserProfile
 from ..utils import validate_password_strength
-from apps.tickets.models import Ticket, TicketActivityLog, SLA, BusinessCalendar, EscalationRule, TicketActivityLog
+from apps.tickets.models import Ticket, TicketActivityLog, SLA, BusinessCalendar, EscalationRule
 
 
 User = get_user_model()
@@ -106,23 +106,53 @@ def dashboard(request):
         context['resolved_count'] = Ticket.objects.filter(requester=request.user, status='RESOLVED').count()
         context['closed_count'] = Ticket.objects.filter(requester=request.user, status='CLOSED').count()
     elif role == 'AGENT':
-        # All non-closed/resolved tickets (open in the system)
         open_statuses = ['NEW', 'TRIAGED', 'ASSIGNED', 'IN_PROGRESS', 'PENDING_USER', 'PENDING_VENDOR']
+        
+        # Total open tickets (system wide)
         context['total_open_tickets'] = Ticket.objects.filter(status__in=open_statuses).count()
+        
+        # My open tickets
         context['my_open_tickets'] = Ticket.objects.filter(
             assigned_to=request.user,
             status__in=open_statuses
         ).count()
-        # Unassigned queue count (excluding pending approval)
+        
+        # Unassigned queue count
         context['unassigned_count'] = Ticket.objects.filter(
             assigned_to__isnull=True
         ).exclude(status__in=['RESOLVED', 'CLOSED', 'PENDING_APPROVAL']).count()
-
-        # Recent unassigned tickets (top 3, excluding pending approval)
+        
+        # Recent unassigned (5)
         context['recent_unassigned'] = Ticket.objects.filter(
             assigned_to__isnull=True
-        ).exclude(status__in=['RESOLVED', 'CLOSED', 'PENDING_APPROVAL']).order_by('-created_at')[:3]
-        # Placeholder for future SLA data
+        ).exclude(status__in=['RESOLVED', 'CLOSED', 'PENDING_APPROVAL']).order_by('-created_at')[:5]
+        
+        # Recent assigned to me (5)
+        context['assigned_to_me_tickets'] = Ticket.objects.filter(
+            assigned_to=request.user
+        ).exclude(status__in=['RESOLVED', 'CLOSED']).order_by('-created_at')[:5]
+        
+        # ---- KPI: Total Solved, Good, Bad ----
+        resolved = Ticket.objects.filter(assigned_to=request.user, status__in=['RESOLVED', 'CLOSED'])
+        total_solved = resolved.count()
+        context['total_solved'] = total_solved
+        
+        good = 0
+        bad = 0
+        for ticket in resolved:
+            try:
+                sla = SLA.objects.get(priority=ticket.priority)
+                if ticket.resolved_at and (ticket.resolved_at - ticket.created_at).total_seconds() / 60 <= sla.resolution_minutes:
+                    good += 1
+                else:
+                    bad += 1
+            except SLA.DoesNotExist:
+                # If no SLA defined, treat as good (or ignore)
+                good += 1
+        context['good_tickets'] = good
+        context['bad_tickets'] = bad
+        
+        # Placeholders
         context['sla_breaches'] = 0
         context['avg_response_time'] = None   # you can compute later
     elif role in ['ADMIN', 'SUPERADMIN']:
@@ -174,14 +204,41 @@ def dashboard(request):
             assigned_to__in=team_members
         ).exclude(status__in=['RESOLVED', 'CLOSED']).order_by('-created_at')[:5]
     elif role == 'APPROVER':
-        context['pending_count'] = Ticket.objects.filter(status='PENDING_APPROVAL').count()
-        context['overdue_count'] = Ticket.objects.filter(
+        pending_count = Ticket.objects.filter(status='PENDING_APPROVAL').count()
+        overdue_count = Ticket.objects.filter(
             status='PENDING_APPROVAL', created_at__lt=timezone.now() - timedelta(days=2)
         ).count()
-        context['pending_tickets'] = Ticket.objects.filter(status='PENDING_APPROVAL').order_by('-created_at')[:10]
-        context['recent_logs'] = TicketActivityLog.objects.filter(
+        pending_tickets = Ticket.objects.filter(status='PENDING_APPROVAL').order_by('-created_at')[:10]
+        recent_logs = TicketActivityLog.objects.filter(
             actor=request.user, action__in=['approved', 'rejected']
         ).select_related('ticket').order_by('-created_at')[:5]
+
+        # --- New KPIs ---
+        # Total approved this month
+        this_month = timezone.now().month
+        approved_this_month = TicketActivityLog.objects.filter(
+            actor=request.user,
+            action='approved',
+            created_at__month=this_month
+        ).count()
+
+        # Approval rate (this month: approved / (approved + rejected))
+        total_decisions = TicketActivityLog.objects.filter(
+            actor=request.user,
+            action__in=['approved', 'rejected'],
+            created_at__month=this_month
+        ).count()
+        approval_rate = round((approved_this_month / total_decisions * 100), 1) if total_decisions > 0 else 0
+
+        context = {
+            'pending_count': pending_count,
+            'overdue_count': overdue_count,
+            'pending_tickets': pending_tickets,
+            'recent_logs': recent_logs,
+            'approved_this_month': approved_this_month,
+            'approval_rate': approval_rate,
+            'sidebar_template': get_sidebar_template(request.user),
+        }
         
     return render(request, template, context)
 
@@ -328,15 +385,35 @@ def resend_verification(request):
 
 @login_required
 def profile(request):
+    # Ensure profile exists
+    if not hasattr(request.user, 'profile'):
+        UserProfile.objects.create(user=request.user)
+
     if request.method == 'POST':
-        form = ProfileForm(request.POST, request.FILES, instance=request.user)
-        if form.is_valid():
-            form.save()
-            return redirect('accounts:profile')
+        if 'save_profile' in request.POST:
+            form = ProfileForm(request.POST, request.FILES, instance=request.user)
+            if form.is_valid():
+                form.save()
+                messages.success(request, 'Profile updated successfully.')
+                return redirect('accounts:profile')
+        elif 'save_settings' in request.POST:
+            settings_form = UserSettingsForm(request.POST, instance=request.user.profile)
+            if settings_form.is_valid():
+                settings_form.save()
+                messages.success(request, 'Settings updated successfully.')
+                return redirect('accounts:profile')
+        elif 'change_password' in request.POST:
+            password_form = ChangePasswordForm(request.user, request.POST)
+            if password_form.is_valid():
+                user = password_form.save()
+                update_session_auth_hash(request, user)
+                messages.success(request, 'Password changed successfully.')
+                return redirect('accounts:profile')
     else:
         form = ProfileForm(instance=request.user)
+        settings_form = UserSettingsForm(instance=request.user.profile)
+        password_form = ChangePasswordForm(request.user)
 
-    # Choose sidebar based on role
     sidebar_map = {
         'END_USER': 'partials/sidebar_end_user.html',
         'AGENT': 'partials/sidebar_agent.html',
@@ -349,5 +426,7 @@ def profile(request):
 
     return render(request, 'dashboards/profile.html', {
         'form': form,
+        'settings_form': settings_form,
+        'password_form': password_form,
         'sidebar_template': sidebar_template,
     })

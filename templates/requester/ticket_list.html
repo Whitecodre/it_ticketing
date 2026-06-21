@@ -3,7 +3,7 @@
 {% load lucide %}
 
 {% block dashboard_title %}My Tickets{% endblock %}
-{% block page_title %}My Tickets{% endblock %}
+{% block page_title_area %}{% endblock %}
 {% block role_label %}{{ user.get_role_display }}{% endblock %}
 {% block role_badge %}{{ user.get_role_display|upper }}{% endblock %}
 
@@ -15,12 +15,22 @@
 
 {% block dashboard_content %}
 <div class="w-full">
-    <div class="dashboard-card">
-        <div class="flex items-center justify-end mb-6">
-            <a href="{% url 'tickets:create' %}" class="text-sm font-medium" style="color: var(--color-primary);">+ New Ticket</a>
-        </div>
 
-        {# This entire container is replaced by HTMX, filters and all #}
+    {# Page header with action buttons #}
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+        <h2 class="text-base font-semibold" style="color: var(--color-text-primary);">My Tickets</h2>
+        <div class="flex flex-wrap gap-2">
+            <a href="{% url 'tickets:create' %}?type=INCIDENT" class="btn-primary text-sm px-4 py-2 rounded-lg inline-flex items-center gap-1.5">
+                {% lucide "alert-triangle" size=16 %} Report Incident
+            </a>
+            <a href="{% url 'tickets:create' %}?type=SERVICE_REQUEST" class="btn-outline text-sm px-4 py-2 rounded-lg inline-flex items-center gap-1.5 border border-primary text-primary hover:bg-primary/10">
+                {% lucide "file-text" size=16 %} Service Request
+            </a>
+        </div>
+    </div>
+
+    {# Table container #}
+    <div class="dashboard-card p-0 overflow-hidden shadow-sm">
         <div id="ticketTableContainer">
             {% include "partials/ticket_list_partial.html" %}
         </div>

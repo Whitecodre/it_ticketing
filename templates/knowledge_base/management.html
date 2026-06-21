@@ -3,7 +3,6 @@
 {% load lucide %}
 
 {% block dashboard_title %}Knowledge Base{% endblock %}
-{% block page_title %}Knowledge Base Management{% endblock %}
 {% block page_title_area %}{% endblock %}
 {% block role_label %}{{ user.get_role_display }}{% endblock %}
 {% block role_badge %}{{ user.get_role_display|upper }}{% endblock %}
@@ -14,110 +13,140 @@
 
 {% block dashboard_content %}
 <div class="w-full">
-    <div class="flex items-center justify-between mb-4">
-        <h2 class="text-base font-semibold" style="color: var(--color-text-primary);">Knowledge Base Management</h2>
-        <a href="{% url 'kb:create' %}" class="btn-primary text-xs flex items-center gap-1 px-4 py-2 rounded-lg">
-            {% lucide "plus" size=14 %} New Article
+
+    {# Header with actions #}
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+        <h2 class="text-base font-semibold" style="color: var(--color-text-primary);">Knowledge Base</h2>
+        <a href="{% url 'kb:create' %}" class="btn-primary text-sm px-4 py-2 rounded-lg inline-flex items-center gap-1.5">
+            {% lucide "plus" size=16 %} New Article
         </a>
     </div>
 
     {# Tabs #}
-    <div class="flex border-b mb-4" style="border-color: var(--color-border);">
-        <button class="tab-btn active px-4 py-2 text-xs font-semibold border-b-2" data-tab="drafts"
+    <div class="flex border-b mb-6" style="border-color: var(--color-border);">
+        <button class="tab-btn active px-5 py-2.5 text-sm font-medium border-b-2 transition"
+                data-tab="drafts"
                 style="border-color: var(--color-primary); color: var(--color-primary); background: none; cursor: pointer;">
             My Drafts
         </button>
         {% if user.role == 'TEAM_LEAD' or user.role == 'ADMIN' or user.role == 'SUPERADMIN' %}
-        <button class="tab-btn px-4 py-2 text-xs font-semibold border-b-2" data-tab="pending"
+        <button class="tab-btn px-5 py-2.5 text-sm font-medium border-b-2 transition"
+                data-tab="pending"
                 style="border-color: transparent; color: var(--color-text-secondary); background: none; cursor: pointer;">
             Pending Review
         </button>
         {% endif %}
-        <button class="tab-btn px-4 py-2 text-xs font-semibold border-b-2" data-tab="published"
+        <button class="tab-btn px-5 py-2.5 text-sm font-medium border-b-2 transition"
+                data-tab="published"
                 style="border-color: transparent; color: var(--color-text-secondary); background: none; cursor: pointer;">
             Published
         </button>
     </div>
 
-    {# Drafts Tab #}
+    {# Drafts Tab – Card Grid #}
     <div id="tab-drafts" class="tab-content">
         {% if drafts %}
-        <div class="space-y-2">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {% for article in drafts %}
-            <div class="dashboard-card p-3 flex items-center justify-between">
-                <div class="flex-1 min-w-0">
-                    <p class="text-sm font-medium truncate" style="color: var(--color-text-primary);">{{ article.title }}</p>
-                    <p class="text-xs mt-0.5" style="color: var(--color-text-secondary);">
-                        {{ article.visibility }} · Updated {{ article.updated_at|timesince }} ago
-                    </p>
+            <div class="dashboard-card p-4 hover:shadow-md transition flex flex-col">
+                <div class="flex-1">
+                    <div class="flex items-start justify-between gap-2 mb-2">
+                        <h3 class="text-sm font-semibold truncate" style="color: var(--color-text-primary);">{{ article.title }}</h3>
+                        <span class="status-chip draft text-xs shrink-0">Draft</span>
+                    </div>
+                    <p class="text-xs text-text-secondary line-clamp-2">{{ article.content|truncatechars:120|striptags }}</p>
+                    <p class="text-xs text-text-secondary mt-2">Updated {{ article.updated_at|timesince }} ago</p>
                 </div>
-                <div class="flex gap-2 ml-3">
-                    <a href="{% url 'kb:edit' article.pk %}" class="btn-ghost text-xs">Edit</a>
-                    <form method="post" action="{% url 'kb:submit_review' article.pk %}" class="inline">
+                <div class="flex items-center gap-2 mt-3 pt-3 border-t" style="border-color: var(--color-border);">
+                    <a href="{% url 'kb:edit' article.pk %}" class="btn-ghost text-xs flex items-center gap-1 px-3 py-1.5">
+                        {% lucide "pencil" size=14 %} Edit
+                    </a>
+                    <form method="post" action="{% url 'kb:submit_review' article.pk %}" class="inline ml-auto">
                         {% csrf_token %}
-                        <button class="btn-outline text-xs">Submit for Review</button>
+                        <button class="btn-primary text-xs px-3 py-1.5 rounded">Submit for Review</button>
                     </form>
                 </div>
             </div>
             {% endfor %}
         </div>
         {% else %}
-        <p class="text-xs text-text-secondary py-6">No drafts yet.</p>
+        <div class="text-center py-12">
+            <span class="text-4xl block mb-2">📝</span>
+            <p class="text-text-secondary text-sm">No drafts yet.</p>
+            <p class="text-text-secondary text-xs">Create your first article to get started.</p>
+        </div>
         {% endif %}
     </div>
 
-    {# Pending Review Tab #}
+    {# Pending Review Tab – Card Grid #}
     {% if user.role == 'TEAM_LEAD' or user.role == 'ADMIN' or user.role == 'SUPERADMIN' %}
     <div id="tab-pending" class="tab-content hidden">
         {% if pending_review %}
-        <div class="space-y-2">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {% for article in pending_review %}
-            <div class="dashboard-card p-3 flex items-center justify-between">
-                <div class="flex-1 min-w-0">
-                    <p class="text-sm font-medium truncate" style="color: var(--color-text-primary);">{{ article.title }}</p>
-                    <p class="text-xs mt-0.5" style="color: var(--color-text-secondary);">
-                        By {{ article.author.get_full_name }} · {{ article.visibility }}
-                    </p>
+            <div class="dashboard-card p-4 hover:shadow-md transition flex flex-col">
+                <div class="flex-1">
+                    <div class="flex items-start justify-between gap-2 mb-2">
+                        <h3 class="text-sm font-semibold truncate" style="color: var(--color-text-primary);">{{ article.title }}</h3>
+                        <span class="status-chip pending_approval text-xs shrink-0">Pending</span>
+                    </div>
+                    <p class="text-xs text-text-secondary line-clamp-2">{{ article.content|truncatechars:120|striptags }}</p>
+                    <p class="text-xs text-text-secondary mt-2">By {{ article.author.get_full_name }} · {{ article.updated_at|timesince }} ago</p>
                 </div>
-                <div class="flex gap-2 ml-3">
-                    <a href="{% url 'kb:edit' article.pk %}" class="btn-ghost text-xs">Review</a>
-                    <form method="post" action="{% url 'kb:publish' article.pk %}" class="inline">
+                <div class="flex items-center gap-2 mt-3 pt-3 border-t" style="border-color: var(--color-border);">
+                    <a href="{% url 'kb:edit' article.pk %}" class="btn-ghost text-xs flex items-center gap-1 px-3 py-1.5">
+                        {% lucide "eye" size=14 %} Review
+                    </a>
+                    <form method="post" action="{% url 'kb:publish' article.pk %}" class="inline ml-auto">
                         {% csrf_token %}
-                        <button class="btn-primary text-xs">Publish</button>
+                        <button class="btn-success text-xs px-3 py-1.5 rounded">Publish</button>
                     </form>
                 </div>
             </div>
             {% endfor %}
         </div>
         {% else %}
-        <p class="text-xs text-text-secondary py-6">No articles pending review.</p>
+        <div class="text-center py-12">
+            <span class="text-4xl block mb-2">✅</span>
+            <p class="text-text-secondary text-sm">No articles pending review.</p>
+            <p class="text-text-secondary text-xs">Great job! All articles have been reviewed.</p>
+        </div>
         {% endif %}
     </div>
     {% endif %}
 
-    {# Published Tab #}
+    {# Published Tab – Card Grid #}
     <div id="tab-published" class="tab-content hidden">
         {% if published %}
-        <div class="space-y-2">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {% for article in published %}
-            <div class="dashboard-card p-3 flex items-center justify-between">
-                <div class="flex-1 min-w-0">
-                    <p class="text-sm font-medium truncate" style="color: var(--color-text-primary);">{{ article.title }}</p>
-                    <p class="text-xs mt-0.5" style="color: var(--color-text-secondary);">
-                        {{ article.visibility }} · {{ article.updated_at|timesince }} ago
-                    </p>
+            <div class="dashboard-card p-4 hover:shadow-md transition flex flex-col">
+                <div class="flex-1">
+                    <div class="flex items-start justify-between gap-2 mb-2">
+                        <h3 class="text-sm font-semibold truncate" style="color: var(--color-text-primary);">{{ article.title }}</h3>
+                        <span class="status-chip resolved text-xs shrink-0">Published</span>
+                    </div>
+                    <p class="text-xs text-text-secondary line-clamp-2">{{ article.content|truncatechars:120|striptags }}</p>
+                    <p class="text-xs text-text-secondary mt-2">Published {{ article.updated_at|timesince }} ago</p>
                 </div>
-                <div class="flex gap-2 ml-3">
-                    <form method="post" action="{% url 'kb:archive' article.pk %}" class="inline">
+                <div class="flex items-center gap-2 mt-3 pt-3 border-t" style="border-color: var(--color-border);">
+                    <a href="{% url 'kb:article_detail' article.slug %}" class="btn-ghost text-xs flex items-center gap-1 px-3 py-1.5" target="_blank">
+                        {% lucide "eye" size=14 %} View
+                    </a>
+                    <form method="post" action="{% url 'kb:archive' article.pk %}" class="inline ml-auto">
                         {% csrf_token %}
-                        <button class="btn-ghost text-xs">Archive</button>
+                        <button class="btn-ghost text-xs px-3 py-1.5 rounded text-error">Archive</button>
                     </form>
                 </div>
             </div>
             {% endfor %}
         </div>
         {% else %}
-        <p class="text-xs text-text-secondary py-6">No published articles.</p>
+        <div class="text-center py-12">
+            <span class="text-4xl block mb-2">📚</span>
+            <p class="text-text-secondary text-sm">No published articles.</p>
+            <p class="text-text-secondary text-xs">Articles you publish will appear here.</p>
+        </div>
         {% endif %}
     </div>
 </div>

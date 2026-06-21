@@ -2,32 +2,36 @@
 {% load static %}
 {% load lucide %}
 
-{% block dashboard_title %}My Profile{% endblock %}
-{% block page_title %}My Profile{% endblock %}
-{% block page_title_area %}{% endblock %}   {# <-- suppress the base h1 #}
+{% block dashboard_title %}Account Settings{% endblock %}
+{% block page_title_area %}{% endblock %}
 
 {% block role_label %}{{ user.get_role_display }}{% endblock %}
 {% block role_badge %}{{ user.get_role_display|upper }}{% endblock %}
 
-{# Hide the search bar in the top bar #}
 {% block topbar_search %}{% endblock %}
 
-{# Use the same sidebar as the role's dashboard #}
 {% block sidebar_nav %}
     {% include sidebar_template %}
 {% endblock %}
 
 {% block dashboard_content %}
-<div class="max-w-2xl mx-auto">
-    <div class="dashboard-card">
-        <h2 class="dashboard-card-header" style="font-size: 1.125rem;">Edit Your Profile</h2>
+<div class="max-w-4xl mx-auto space-y-6">
 
-        <form method="post" enctype="multipart/form-data" class="space-y-6" id="profileForm">
+    {# Toast container for messages #}
+    <div class="toast-container" id="toastContainer"></div>
+
+    <h1 class="text-2xl font-semibold mb-2" style="color: var(--color-text-primary);">Account Settings</h1>
+    {# Profile Section #}
+    <div class="dashboard-card shadow-sm p-6">
+        <h2 class="text-lg font-semibold mb-4" style="color: var(--color-text-primary);">Profile Information</h2>
+
+        <form method="post" enctype="multipart/form-data" id="profileForm">
             {% csrf_token %}
+            <input type="hidden" name="save_profile" value="1">
 
             {% if form.errors %}
-            <div class="rounded-lg bg-red-50 p-4 border border-red-200">
-                <ul class="text-sm text-red-800 list-disc list-inside">
+            <div class="rounded-lg bg-error/10 p-4 border border-error/30 text-error text-sm mb-4">
+                <ul class="list-disc list-inside space-y-0.5">
                     {% for field in form %}
                         {% for error in field.errors %}
                             <li>{{ error }}</li>
@@ -37,71 +41,186 @@
             </div>
             {% endif %}
 
-            {# Avatar section #}
-            <div class="flex items-start gap-4">
-                <div class="shrink-0">
-                    {% if user.avatar %}
-                        <img src="{{ user.avatar.url }}" alt="Current avatar" class="h-16 w-16 rounded-full object-cover">
-                    {% else %}
-                        <div class="h-16 w-16 rounded-full flex items-center justify-center text-white text-lg font-semibold"
-                             style="background-color: var(--color-primary);">
-                            {{ user.email.0|upper }}
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+                {# Left: Form fields #}
+                <div class="md:col-span-2 space-y-4">
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label for="id_first_name" class="block text-sm font-medium mb-1 text-text-primary">First Name</label>
+                            {{ form.first_name }}
                         </div>
-                    {% endif %}
+                        <div>
+                            <label for="id_last_name" class="block text-sm font-medium mb-1 text-text-primary">Last Name</label>
+                            {{ form.last_name }}
+                        </div>
+                    </div>
+
+                    <div>
+                        <label for="id_department" class="block text-sm font-medium mb-1 text-text-primary">Department</label>
+                        {{ form.department }}
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium mb-1 text-text-primary">Email</label>
+                        <input type="email" value="{{ user.email }}" disabled
+                               class="block w-full rounded-lg border py-2.5 px-4 text-sm bg-gray-100 text-gray-500 cursor-not-allowed">
+                        <p class="text-xs mt-1 text-text-secondary">Email cannot be changed here. Contact support if needed.</p>
+                    </div>
                 </div>
-                <div class="flex-1">
-                    <label for="id_avatar" class="block text-sm font-semibold mb-1" style="color: var(--color-text-primary);">Avatar</label>
-                    {{ form.avatar }}
-                    <p class="text-xs mt-1" style="color: var(--color-text-secondary);">Optional – JPG or PNG, max 2MB</p>
+
+                {# Right: Avatar #}
+                <div class="md:col-span-1">
+                    <div class="flex flex-col items-center space-y-3">
+                        <div class="relative">
+                            <div id="avatarPreview" class="h-32 w-32 rounded-full overflow-hidden border-4 border-border bg-background flex items-center justify-center">
+                                {% if user.avatar %}
+                                    <img src="{{ user.avatar.url }}" alt="Avatar" class="h-full w-full object-cover" id="avatarImage">
+                                {% else %}
+                                    <div class="h-full w-full flex items-center justify-center text-5xl font-bold text-text-secondary bg-background">
+                                        {{ user.email.0|upper }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <label for="id_avatar" class="absolute bottom-0 right-0 btn-primary rounded-full p-2 cursor-pointer shadow-lg hover:scale-105 transition" title="Change Avatar">
+                                {% lucide "camera" size=18 %}
+                                {{ form.avatar }}
+                            </label>
+                        </div>
+                        <p class="text-xs text-text-secondary text-center">JPG or PNG, max 2MB</p>
+                        <p class="text-xs text-text-secondary text-center" id="avatarFileName"></p>
+                    </div>
                 </div>
             </div>
 
-            {# First Name #}
-            <div>
-                <label for="id_first_name" class="block text-sm font-semibold mb-1" style="color: var(--color-text-primary);">First Name</label>
-                <input type="text" name="first_name" value="{{ form.first_name.value|default:'' }}" id="id_first_name"
-                       class="block w-full rounded-lg border py-2.5 px-4 text-sm transition focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary"
-                       data-initial="{{ form.first_name.value|default:'' }}">
+            <div class="flex justify-end mt-6 pt-4 border-t" style="border-color: var(--color-border);">
+                <button type="submit" class="btn-primary inline-flex items-center gap-2 text-sm px-6 py-2.5 rounded-lg">
+                    {% lucide "save" size=16 %} Save Profile
+                </button>
             </div>
+        </form>
+    </div>
 
-            {# Last Name #}
-            <div>
-                <label for="id_last_name" class="block text-sm font-semibold mb-1" style="color: var(--color-text-primary);">Last Name</label>
-                <input type="text" name="last_name" value="{{ form.last_name.value|default:'' }}" id="id_last_name"
-                       class="block w-full rounded-lg border py-2.5 px-4 text-sm transition focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary"
-                       data-initial="{{ form.last_name.value|default:'' }}">
-            </div>
+    {# Preferences & Signature Section #}
+    <div class="dashboard-card shadow-sm p-6">
+        <h2 class="text-lg font-semibold mb-4" style="color: var(--color-text-primary);">Preferences</h2>
 
-            {# Department #}
-            <div>
-                <label for="id_department" class="block text-sm font-semibold mb-1" style="color: var(--color-text-primary);">Department</label>
-                <select name="department" id="id_department"
-                        class="block w-full rounded-lg border py-2.5 px-4 text-sm transition focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary"
-                        data-initial="{{ form.department.value|default:'' }}">
-                    <option value="">Select Department</option>
-                    {% for value, label in form.department.field.choices %}
-                        <option value="{{ value }}" {% if form.department.value == value %}selected{% endif %}>{{ label }}</option>
+        <form method="post" id="settingsForm">
+            {% csrf_token %}
+            <input type="hidden" name="save_settings" value="1">
+
+            {% if settings_form.errors %}
+            <div class="rounded-lg bg-error/10 p-4 border border-error/30 text-error text-sm mb-4">
+                <ul class="list-disc list-inside space-y-0.5">
+                    {% for field in settings_form %}
+                        {% for error in field.errors %}
+                            <li>{{ error }}</li>
+                        {% endfor %}
                     {% endfor %}
-                </select>
+                </ul>
             </div>
+            {% endif %}
 
-            {# Email (read-only) #}
-            <div>
-                <label class="block text-sm font-semibold mb-1" style="color: var(--color-text-primary);">Email</label>
-                <div class="relative">
-                    <input type="email" value="{{ user.email }}" disabled
-                           class="block w-full rounded-lg border py-2.5 px-4 text-sm bg-gray-100 text-gray-500 cursor-not-allowed">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label for="id_timezone" class="block text-sm font-medium mb-1 text-text-primary">Timezone</label>
+                    {{ settings_form.timezone }}
+                    <p class="text-xs text-text-secondary mt-1">e.g., UTC, America/New_York</p>
                 </div>
-                <p class="text-xs mt-1" style="color: var(--color-text-secondary);">Email cannot be changed here. Contact support if needed.</p>
+                <div>
+                    <label for="id_language" class="block text-sm font-medium mb-1 text-text-primary">Language</label>
+                    {{ settings_form.language }}
+                </div>
+                <div>
+                    <label for="id_default_ticket_view" class="block text-sm font-medium mb-1 text-text-primary">Default Ticket View</label>
+                    {{ settings_form.default_ticket_view }}
+                </div>
+                <div class="space-y-2">
+                    <label class="block text-sm font-medium text-text-primary">Notifications</label>
+                    <div class="flex flex-wrap items-center gap-4">
+                        <label class="flex items-center gap-2 text-sm cursor-pointer">
+                            {{ settings_form.email_notifications }} Email notifications
+                        </label>
+                        <label class="flex items-center gap-2 text-sm cursor-pointer">
+                            {{ settings_form.in_app_notifications }} In-app notifications
+                        </label>
+                    </div>
+                </div>
             </div>
 
-            {# Buttons #}
-            <div class="flex items-center justify-between pt-4 border-t" style="border-color: var(--color-border);">
-                <a href="{% url 'dashboard' %}" class="btn-ghost">← Back to Dashboard</a>
-                <button type="submit" id="saveBtn" disabled
-                        class="btn-login inline-flex items-center rounded-lg px-6 py-2.5 text-white font-medium opacity-50 cursor-not-allowed transition"
-                        style="transition: opacity 0.2s;">
-                    Save Changes
+            <div class="mt-4">
+                <label for="id_ticket_signature" class="block text-sm font-medium mb-1 text-text-primary">Ticket Signature</label>
+                {{ settings_form.ticket_signature }}
+                <p class="text-xs text-text-secondary mt-1">Plain text – this will be appended to your ticket replies.</p>
+            </div>
+
+            <div class="flex justify-end mt-6 pt-4 border-t" style="border-color: var(--color-border);">
+                <button type="submit" class="btn-primary inline-flex items-center gap-2 text-sm px-6 py-2.5 rounded-lg">
+                    {% lucide "save" size=16 %} Save Preferences
+                </button>
+            </div>
+        </form>
+    </div>
+
+    {# Change Password Section #}
+    <div class="dashboard-card shadow-sm p-6">
+        <h2 class="text-lg font-semibold mb-4" style="color: var(--color-text-primary);">Security</h2>
+
+        <form method="post" id="passwordForm">
+            {% csrf_token %}
+            <input type="hidden" name="change_password" value="1">
+
+            {% if password_form.errors %}
+            <div class="rounded-lg bg-error/10 p-4 border border-error/30 text-error text-sm mb-4">
+                <ul class="list-disc list-inside space-y-0.5">
+                    {% for field in password_form %}
+                        {% for error in field.errors %}
+                            <li>{{ error }}</li>
+                        {% endfor %}
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label for="id_old_password" class="block text-sm font-medium mb-1 text-text-primary">Current Password</label>
+                    <div class="relative">
+                        {{ password_form.old_password }}
+                        <button type="button" class="password-toggle absolute inset-y-0 right-3 flex items-center cursor-pointer text-text-secondary hover:text-primary transition"
+                                data-target="id_old_password">
+                            <span class="eye-icon">{% lucide "eye" size=18 class="h-5 w-5" %}</span>
+                            <span class="eye-off-icon hidden">{% lucide "eye-off" size=18 class="h-5 w-5" %}</span>
+                        </button>
+                    </div>
+                </div>
+                <div>
+                    <label for="id_new_password1" class="block text-sm font-medium mb-1 text-text-primary">New Password</label>
+                    <div class="relative">
+                        {{ password_form.new_password1 }}
+                        <button type="button" class="password-toggle absolute inset-y-0 right-3 flex items-center cursor-pointer text-text-secondary hover:text-primary transition"
+                                data-target="id_new_password1">
+                            <span class="eye-icon">{% lucide "eye" size=18 class="h-5 w-5" %}</span>
+                            <span class="eye-off-icon hidden">{% lucide "eye-off" size=18 class="h-5 w-5" %}</span>
+                        </button>
+                    </div>
+                </div>
+                <div>
+                    <label for="id_new_password2" class="block text-sm font-medium mb-1 text-text-primary">Confirm New Password</label>
+                    <div class="relative">
+                        {{ password_form.new_password2 }}
+                        <button type="button" class="password-toggle absolute inset-y-0 right-3 flex items-center cursor-pointer text-text-secondary hover:text-primary transition"
+                                data-target="id_new_password2">
+                            <span class="eye-icon">{% lucide "eye" size=18 class="h-5 w-5" %}</span>
+                            <span class="eye-off-icon hidden">{% lucide "eye-off" size=18 class="h-5 w-5" %}</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-end mt-4 pt-4 border-t" style="border-color: var(--color-border);">
+                <button type="submit" class="btn-primary inline-flex items-center gap-2 text-sm px-6 py-2.5 rounded-lg">
+                    {% lucide "key" size=16 %} Change Password
                 </button>
             </div>
         </form>
@@ -112,48 +231,107 @@
 {% block scripts %}
 {{ block.super }}
 <script>
-    (function() {
-        const form = document.getElementById('profileForm');
-        const saveBtn = document.getElementById('saveBtn');
-        const fields = form.querySelectorAll('[data-initial]');
-        const avatarField = document.getElementById('id_avatar');
+    document.addEventListener('DOMContentLoaded', function() {
+        // --- Fix: Prevent auto-scroll to password field ---
+        if ('scrollRestoration' in history) {
+            history.scrollRestoration = 'manual';
+        }
+        const firstName = document.getElementById('id_first_name');
+        if (firstName) {
+            firstName.focus();
+            window.scrollTo(0, 0);
+        }
 
-        function checkForChanges() {
-            let changed = false;
+        // --- Avatar preview (existing) ---
+        const avatarInput = document.getElementById('id_avatar');
+        const avatarPreview = document.getElementById('avatarPreview');
+        const avatarFileName = document.getElementById('avatarFileName');
 
-            // Check text/select fields against their initial values
-            fields.forEach(field => {
-                const initial = field.getAttribute('data-initial') || '';
-                if (field.tagName === 'SELECT') {
-                    if (field.value !== initial) changed = true;
-                } else {
-                    if (field.value !== initial) changed = true;
+        if (avatarInput) {
+            avatarInput.addEventListener('change', function() {
+                const file = this.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        let img = avatarPreview.querySelector('img');
+                        if (!img) {
+                            img = document.createElement('img');
+                            img.id = 'avatarImage';
+                            img.className = 'h-full w-full object-cover';
+                            avatarPreview.innerHTML = '';
+                            avatarPreview.appendChild(img);
+                        }
+                        img.src = e.target.result;
+                        avatarFileName.textContent = file.name;
+                    };
+                    reader.readAsDataURL(file);
                 }
             });
+        }
 
-            // Check if a file has been selected for avatar
-            if (avatarField && avatarField.files.length > 0) changed = true;
+        // --- Password Toggle (existing) ---
+        document.querySelectorAll('.password-toggle').forEach(function(btn) {
+            var input = document.getElementById(btn.getAttribute('data-target'));
+            var eye = btn.querySelector('.eye-icon');
+            var eyeOff = btn.querySelector('.eye-off-icon');
+            if (!input || !eye || !eyeOff) return;
+            btn.addEventListener('click', function() {
+                if (input.type === 'password') {
+                    input.type = 'text';
+                    eye.classList.add('hidden');
+                    eyeOff.classList.remove('hidden');
+                } else {
+                    input.type = 'password';
+                    eye.classList.remove('hidden');
+                    eyeOff.classList.add('hidden');
+                }
+            });
+        });
 
-            // Toggle button state
-            if (changed) {
-                saveBtn.disabled = false;
-                saveBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-                saveBtn.classList.add('cursor-pointer');
-            } else {
-                saveBtn.disabled = true;
-                saveBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        // --- Toast messages (existing) ---
+        function showToast(message, type) {
+            const container = document.getElementById('toastContainer');
+            if (!container) return;
+            const toast = document.createElement('div');
+            toast.className = 'toast-item show';
+            toast.textContent = message;
+            if (type === 'success') {
+                toast.classList.add('toast-success');
+            } else if (type === 'error') {
+                toast.classList.add('toast-error');
             }
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
         }
 
-        // Listen to input changes on all monitored fields
-        form.addEventListener('input', checkForChanges);
-        // For avatar file selection
-        if (avatarField) {
-            avatarField.addEventListener('change', checkForChanges);
-        }
+        {% if messages %}
+            {% for message in messages %}
+                showToast('{{ message|escapejs }}', '{{ message.tags }}');
+            {% endfor %}
+        {% endif %}
 
-        // Initial state
-        checkForChanges();
-    })();
+        // --- Spinner for all forms (existing) ---
+        document.querySelectorAll('form').forEach(function(form) {
+            form.addEventListener('submit', function() {
+                const submitBtn = form.querySelector('button[type="submit"]');
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = `
+                        <span class="inline-flex items-center">
+                            <svg class="animate-spin h-4 w-4 mr-2 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Saving...
+                        </span>
+                    `;
+                    submitBtn.classList.add('opacity-70');
+                }
+            });
+        });
+    });
 </script>
 {% endblock %}

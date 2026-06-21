@@ -1,4 +1,6 @@
 from django.contrib.auth.models import AbstractUser, BaseUserManager
+from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
@@ -114,9 +116,37 @@ class User(AbstractUser):
         return f"{self.get_full_name()} ({self.role})"
 
 
+# class UserProfile(models.Model):
+#     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+#     timezone = models.CharField(max_length=50, default='UTC')
+
+#     def __str__(self):
+#         return self.user.email
+
 class UserProfile(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='profile')
     timezone = models.CharField(max_length=50, default='UTC')
+
+    # New preference fields
+    LANGUAGE_CHOICES = [
+        ('en', _('English')),
+        ('fr', _('French')),
+        ('es', _('Spanish')),
+        ('de', _('German')),
+        # add more as needed
+    ]
+    language = models.CharField(max_length=10, choices=LANGUAGE_CHOICES, default='en')
+    
+    DEFAULT_VIEW_CHOICES = [
+        ('list', _('List')),
+        ('kanban', _('Kanban')),
+    ]
+    default_ticket_view = models.CharField(max_length=20, choices=DEFAULT_VIEW_CHOICES, default='list')
+    
+    email_notifications = models.BooleanField(default=True, help_text=_('Receive email notifications for ticket updates'))
+    in_app_notifications = models.BooleanField(default=True, help_text=_('Receive in-app notifications (bell icon)'))
+    
+    ticket_signature = models.TextField(blank=True, help_text=_('Default signature for ticket replies (plain text)'))
 
     def __str__(self):
         return self.user.email

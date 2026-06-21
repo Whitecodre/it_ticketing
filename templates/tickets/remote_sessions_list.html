@@ -3,7 +3,7 @@
 {% load lucide %}
 
 {% block dashboard_title %}Remote Sessions{% endblock %}
-{% block page_title %}Remote Sessions{% endblock %}
+{% block page_title_area %}{% endblock %}
 {% block role_label %}{{ user.get_role_display }}{% endblock %}
 {% block role_badge %}{{ user.get_role_display|upper }}{% endblock %}
 
@@ -13,62 +13,67 @@
 
 {% block dashboard_content %}
 <div class="w-full">
-    <div class="dashboard-card p-0 overflow-hidden">
-        <div class="overflow-x-auto">
-            <table class="data-table w-full text-xs">
-                <thead>
-                    <tr>
-                        <th>Ticket</th>
-                        <th>Requester</th>
-                        <th>Agent</th>
-                        <th>Connector</th>
-                        <th>Status</th>
-                        <th>Requested</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for session in sessions %}
-                    <tr class="hover:bg-black/2">
-                        <td><a href="{% url 'tickets:detail' session.ticket.pk %}" class="text-primary">{{ session.ticket.number }}</a></td>
-                        <td>{{ session.requester.get_full_name|default:session.requester.email }}</td>
-                        <td>{{ session.agent.get_full_name|default:session.agent.email }}</td>
-                        <td>{{ session.connector.name }}</td>
-                        <td>
-                            <span class="status-chip 
-                                {% if session.status == 'REQUESTED' %}open
-                                {% elif session.status == 'ACCEPTED' %}in-progress
-                                {% elif session.status == 'STARTED' %}in-progress
-                                {% elif session.status == 'ENDED' %}resolved
-                                {% elif session.status == 'REJECTED' %}escalated
-                                {% endif %}">{{ session.get_status_display }}</span>
-                        </td>
-                        <td>{{ session.created_at|date:"Y-m-d H:i" }}</td>
-                        <td>
-                            <a href="{% url 'tickets:remote_session_detail' session.pk %}" class="btn-ghost p-1" title="View Details">
-                                {% lucide "eye" size=14 %}
-                            </a>
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr><td colspan="7" class="text-center py-6">No remote sessions found.</td></tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        {% if sessions.has_other_pages %}
-        <div class="px-4 py-3 border-t flex justify-between">
-            <span>Page {{ sessions.number }} of {{ sessions.paginator.num_pages }}</span>
-            <div class="flex gap-2">
-                {% if sessions.has_previous %}
-                <a href="?page={{ sessions.previous_page_number }}" class="btn-ghost text-xs">← Prev</a>
-                {% endif %}
-                {% if sessions.has_next %}
-                <a href="?page={{ sessions.next_page_number }}" class="btn-ghost text-xs">Next →</a>
-                {% endif %}
+
+    {# Header #}
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+        <h2 class="text-base font-semibold" style="color: var(--color-text-primary);">Remote Sessions</h2>
+    </div>
+
+    {# Grid of remote session cards #}
+    {% if sessions %}
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {% for session in sessions %}
+        <div class="dashboard-card p-4 hover:shadow-md transition">
+            <div class="flex items-start justify-between gap-2 mb-2">
+                <div class="flex items-center gap-2">
+                    <span class="font-mono text-xs text-primary">{{ session.ticket.number }}</span>
+                    <span class="status-chip 
+                        {% if session.status == 'REQUESTED' %}open
+                        {% elif session.status == 'ACCEPTED' %}in-progress
+                        {% elif session.status == 'STARTED' %}in-progress
+                        {% elif session.status == 'ENDED' %}resolved
+                        {% elif session.status == 'REJECTED' %}escalated
+                        {% endif %} text-xs shrink-0">
+                        {{ session.get_status_display }}
+                    </span>
+                </div>
+                <span class="text-xs text-text-secondary">{{ session.connector.name }}</span>
+            </div>
+            <p class="text-sm font-medium text-text-primary truncate">{{ session.ticket.title }}</p>
+            <div class="flex items-center gap-3 mt-2 text-xs text-text-secondary">
+                <span class="flex items-center gap-1">{% lucide "user" size=12 %}{{ session.requester.get_full_name|default:session.requester.email }}</span>
+                <span class="flex items-center gap-1">{% lucide "user-check" size=12 %}{{ session.agent.get_full_name|default:session.agent.email }}</span>
+            </div>
+            <div class="flex items-center justify-between mt-3 pt-3 border-t" style="border-color: var(--color-border);">
+                <span class="text-xs text-text-secondary">{{ session.created_at|date:"M d, Y H:i" }}</span>
+                <a href="{% url 'tickets:remote_session_detail' session.pk %}" class="btn-ghost text-xs flex items-center gap-1 px-3 py-1.5">
+                    {% lucide "eye" size=14 %} View
+                </a>
             </div>
         </div>
-        {% endif %}
+        {% endfor %}
     </div>
+    {% else %}
+    <div class="text-center py-12">
+        <span class="text-4xl block mb-2">🖥️</span>
+        <p class="text-text-secondary text-sm">No remote sessions found.</p>
+        <p class="text-text-secondary text-xs">Remote sessions you initiate will appear here.</p>
+    </div>
+    {% endif %}
+
+    {# Pagination #}
+    {% if sessions.has_other_pages %}
+    <div class="flex flex-wrap items-center justify-between gap-3 px-3 py-3 mt-4 border-t" style="border-color: var(--color-border);">
+        <span class="text-sm text-text-secondary">Page {{ sessions.number }} of {{ sessions.paginator.num_pages }}</span>
+        <div class="flex gap-1.5">
+            {% if sessions.has_previous %}
+            <a href="?page={{ sessions.previous_page_number }}" class="btn-ghost text-sm px-3 py-1 rounded border border-border hover:bg-black/5 transition">← Prev</a>
+            {% endif %}
+            {% if sessions.has_next %}
+            <a href="?page={{ sessions.next_page_number }}" class="btn-ghost text-sm px-3 py-1 rounded border border-border hover:bg-black/5 transition">Next →</a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
 </div>
 {% endblock %}

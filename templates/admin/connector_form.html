@@ -3,7 +3,7 @@
 {% load lucide %}
 
 {% block dashboard_title %}Edit Connector{% endblock %}
-{% block page_title %}Edit {{ connector.name }}{% endblock %}
+{% block page_title_area %}{% endblock %}
 {% block role_label %}{{ user.get_role_display }}{% endblock %}
 {% block role_badge %}{{ user.get_role_display|upper }}{% endblock %}
 
@@ -12,25 +12,56 @@
 {% endblock %}
 
 {% block dashboard_content %}
-<div class="max-w-2xl mx-auto">
-    <div class="dashboard-card">
-        <form method="post" class="space-y-4">
+<div class="max-w-3xl mx-auto">
+    <div class="dashboard-card shadow-sm p-6">
+
+        {# Header with icon #}
+        <div class="flex items-center gap-3 mb-5">
+            <div class="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+                {% lucide "plug" size=20 %}
+            </div>
+            <div>
+                <h2 class="text-base font-semibold" style="color: var(--color-text-primary);">Edit Connector</h2>
+                <p class="text-xs text-text-secondary">{{ connector.name }}</p>
+            </div>
+        </div>
+
+        <form method="post" class="space-y-5">
             {% csrf_token %}
-            <div class="flex items-center gap-2">
-                <input type="checkbox" name="is_active" id="is_active" {% if connector.is_active %}checked{% endif %}>
-                <label for="is_active" class="text-sm">Enable this connector</label>
+
+            {# Active toggle #}
+            <div class="flex items-center gap-3 p-3 rounded-lg border border-border bg-background/50">
+                <input type="checkbox" name="is_active" id="is_active" {% if connector.is_active %}checked{% endif %}
+                       class="h-4 w-4 rounded border-border text-primary focus:ring-primary">
+                <label for="is_active" class="text-sm font-medium text-text-primary cursor-pointer">Enable this connector</label>
             </div>
+
+            {# Instructions for Requester #}
             <div>
-                <label class="block text-sm font-semibold mb-1">Instructions for Requester (end user)</label>
-                <textarea name="instructions_for_requester" rows="6" class="w-full rounded-lg border p-2 text-xs font-mono">{{ connector.instructions_for_requester }}</textarea>
+                <label for="instructions_for_requester" class="block text-sm font-medium mb-1 text-text-primary">
+                    Instructions for Requester <span class="text-text-secondary font-normal">(end user)</span>
+                </label>
+                <textarea name="instructions_for_requester" id="instructions_for_requester" rows="5"
+                          class="block w-full rounded-lg border py-2.5 px-4 text-sm bg-background border-border text-text-primary ring-primary focus:outline-none focus:ring-2 font-mono">{{ connector.instructions_for_requester }}</textarea>
+                <p class="text-xs text-text-secondary mt-1">These instructions will be shown to the requester when they accept a remote session.</p>
             </div>
+
+            {# Instructions for Agent #}
             <div>
-                <label class="block text-sm font-semibold mb-1">Instructions for Agent</label>
-                <textarea name="instructions_for_agent" rows="6" class="w-full rounded-lg border p-2 text-xs font-mono">{{ connector.instructions_for_agent }}</textarea>
+                <label for="instructions_for_agent" class="block text-sm font-medium mb-1 text-text-primary">
+                    Instructions for Agent
+                </label>
+                <textarea name="instructions_for_agent" id="instructions_for_agent" rows="5"
+                          class="block w-full rounded-lg border py-2.5 px-4 text-sm bg-background border-border text-text-primary ring-primary focus:outline-none focus:ring-2 font-mono">{{ connector.instructions_for_agent }}</textarea>
+                <p class="text-xs text-text-secondary mt-1">These instructions will be shown to the agent when they start a remote session.</p>
             </div>
-            <div class="flex justify-end gap-2">
-                <a href="{% url 'tickets:connectors' %}" class="btn-ghost text-xs">Cancel</a>
-                <button type="submit" class="btn-primary text-xs">Save</button>
+
+            {# Buttons #}
+            <div class="flex flex-wrap items-center justify-end gap-3 pt-4 border-t" style="border-color: var(--color-border);">
+                <a href="{% url 'tickets:connectors' %}" class="btn-ghost text-sm px-4 py-2">Cancel</a>
+                <button type="submit" class="btn-primary inline-flex items-center gap-2 text-sm px-6 py-2.5 rounded-lg">
+                    {% lucide "save" size=16 %} Save Connector
+                </button>
             </div>
         </form>
     </div>

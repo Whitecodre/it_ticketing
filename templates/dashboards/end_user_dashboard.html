@@ -31,26 +31,41 @@
         </div>
     </div>
 
-    {# Stats Bar – colourful mini cards #}
+    {# Stats Bar – mini KPI cards #}
     <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
         <a href="{% url 'tickets:my_list' %}" class="kpi-card border-l-4 cursor-pointer hover:shadow-md transition" style="border-left-color: var(--color-primary);">
-            <p class="kpi-label">All</p>
+            <div class="flex items-center justify-between">
+                <p class="kpi-label">All</p>
+                {% lucide "inbox" size=14 class="text-text-secondary" %}
+            </div>
             <p class="kpi-value text-lg" style="color: var(--color-primary);">{{ all_count|default:0 }}</p>
         </a>
         <a href="{% url 'tickets:my_list' %}?status=OPEN" class="kpi-card border-l-4 cursor-pointer hover:shadow-md transition" style="border-left-color: var(--color-info);">
-            <p class="kpi-label">Open</p>
+            <div class="flex items-center justify-between">
+                <p class="kpi-label">Open</p>
+                {% lucide "circle-alert" size=14 class="text-text-secondary" %}
+            </div>
             <p class="kpi-value text-lg" style="color: var(--color-info);">{{ open_count|default:0 }}</p>
         </a>
         <a href="{% url 'tickets:my_list' %}?status=IN_PROGRESS" class="kpi-card border-l-4 cursor-pointer hover:shadow-md transition" style="border-left-color: var(--color-warning);">
-            <p class="kpi-label">In Progress</p>
+            <div class="flex items-center justify-between">
+                <p class="kpi-label">In Progress</p>
+                {% lucide "refresh-cw" size=14 class="text-text-secondary" %}
+            </div>
             <p class="kpi-value text-lg" style="color: var(--color-warning);">{{ in_progress_count|default:0 }}</p>
         </a>
         <a href="{% url 'tickets:my_list' %}?status=RESOLVED" class="kpi-card border-l-4 cursor-pointer hover:shadow-md transition" style="border-left-color: var(--color-success);">
-            <p class="kpi-label">Resolved</p>
+            <div class="flex items-center justify-between">
+                <p class="kpi-label">Resolved</p>
+                {% lucide "circle-check" size=14 class="text-text-secondary" %}
+            </div>
             <p class="kpi-value text-lg" style="color: var(--color-success);">{{ resolved_count|default:0 }}</p>
         </a>
         <a href="{% url 'tickets:my_list' %}?status=CLOSED" class="kpi-card border-l-4 cursor-pointer hover:shadow-md transition" style="border-left-color: var(--color-text-secondary);">
-            <p class="kpi-label">Closed</p>
+            <div class="flex items-center justify-between">
+                <p class="kpi-label">Closed</p>
+                {% lucide "archive" size=14 class="text-text-secondary" %}
+            </div>
             <p class="kpi-value text-lg" style="color: var(--color-text-secondary);">{{ closed_count|default:0 }}</p>
         </a>
     </div>
@@ -61,8 +76,8 @@
             <div class="icon-circle group-hover:scale-110 transition-transform">
                 {% lucide "circle-plus" size=20 %}
             </div>
-            <span class="text-xs font-semibold">New Incident</span>
-            <span class="text-[0.65rem] text-text-secondary">Report something broken</span>
+            <span class="text-xs font-semibold">Report Incident</span>
+            <span class="text-[0.65rem] text-text-secondary">Something broken</span>
         </a>
         <a href="{% url 'tickets:create' %}?type=SERVICE_REQUEST" class="quick-action-btn group">
             <div class="icon-circle group-hover:scale-110 transition-transform">
@@ -80,57 +95,16 @@
         </a>
     </div>
 
-    {# Recent Tickets – dynamic table #}
-    <div class="dashboard-card p-0 overflow-hidden">
-        <div class="flex items-center justify-between px-4 py-3 border-b" style="border-color: var(--color-border);">
-            <h3 class="text-xs font-semibold" style="color: var(--color-text-primary);">Recent Tickets</h3>
-            <a href="{% url 'tickets:my_list' %}" class="text-xs font-medium" style="color: var(--color-primary);">View all →</a>
+    {# Recent Tickets – using modern ticket_table partial #}
+    <div class="dashboard-card p-0 overflow-hidden shadow-sm">
+        <div class="flex items-center justify-between px-5 py-3 border-b" style="border-color: var(--color-border);">
+            <h3 class="text-sm font-semibold" style="color: var(--color-text-primary);">Recent Tickets</h3>
+            <a href="{% url 'tickets:my_list' %}" class="text-xs font-medium text-primary hover:underline">View all →</a>
         </div>
-        {% if recent_tickets %}
-        <div class="overflow-x-auto">
-            <table class="data-table w-full text-xs">
-                <thead>
-                    <tr>
-                        <th>Ticket</th>
-                        <th>Subject</th>
-                        <th>Status</th>
-                        <th>Priority</th>
-                        <th>Updated</th>
-                        <th class="w-10"></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for ticket in recent_tickets %}
-                    <tr class="group hover:bg-black/2 cursor-pointer"
-                        onclick="window.location.href='{% url 'tickets:detail' ticket.pk %}'">
-                        <td><span class="font-mono text-[0.7rem]" style="color: var(--color-primary);">{{ ticket.number }}</span></td>
-                        <td class="max-w-xs truncate">{{ ticket.title }}</td>
-                        <td><span class="status-chip {{ ticket.status|lower }} text-[0.65rem]">{{ ticket.get_status_display }}</span></td>
-                        <td><span class="priority-chip {% if ticket.priority == 'P1' %}critical{% elif ticket.priority == 'P2' %}high{% elif ticket.priority == 'P3' %}medium{% else %}low{% endif %} text-[0.65rem]">{{ ticket.get_priority_display }}</span></td>
-                        <td class="text-text-secondary">{{ ticket.updated_at|timesince }} ago</td>
-                        <td>
-                            <a href="{% url 'tickets:detail' ticket.pk %}"
-                            class="btn-ghost p-1 text-xs flex items-center gap-1 opacity-0 group-hover:opacity-100 transition element-link" data-tooltip="Continue conversation">
-                                {% lucide "message-square" size=14 %}
-                                <span>View</span>
-                            </a>
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="6" class="text-center py-10 text-text-secondary text-xs">
-                            No tickets yet. <a href="{% url 'tickets:create' %}" class="text-primary font-medium">Create your first ticket →</a>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+        <div id="recentTicketTable" class="overflow-x-auto">
+            {# Reuse the modernized ticket_table partial #}
+            {% include "partials/ticket_table.html" with tickets=recent_tickets current_status="" %}
         </div>
-        {% else %}
-        <div class="text-center py-10 text-text-secondary text-xs">
-            No tickets yet. <a href="{% url 'tickets:create' %}" class="text-primary font-medium">Create your first ticket →</a>
-        </div>
-        {% endif %}
     </div>
 </div>
 {% endblock %}

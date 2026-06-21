@@ -247,6 +247,31 @@
     background-color: rgba(16, 185, 129, 0.1);
     color: var(--color-success);
 }
+/* --- Additional status chips --- */
+.status-chip.new {
+    background-color: rgba(59, 130, 246, 0.1);
+    color: #3B82F6;
+}
+.status-chip.triaged {
+    background-color: rgba(139, 92, 246, 0.1);
+    color: #8B5CF6;
+}
+.status-chip.assigned {
+    background-color: rgba(59, 130, 246, 0.1);
+    color: #3B82F6;
+}
+.status-chip.pending_user {
+    background-color: rgba(245, 158, 11, 0.1);
+    color: #F59E0B;
+}
+.status-chip.pending_vendor {
+    background-color: rgba(245, 158, 11, 0.1);
+    color: #F59E0B;
+}
+.status-chip.closed {
+    background-color: rgba(100, 116, 139, 0.1);
+    color: #64748B;
+}
 
 /* Priority Chips */
 .priority-chip {
