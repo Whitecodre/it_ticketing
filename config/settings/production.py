@@ -39,7 +39,7 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = os.environ.get('GMAIL_SMTP_USER')      # e.g., 'your-gmail-address-name@gmail.com'
 EMAIL_HOST_PASSWORD = os.environ.get('GMAIL_SMTP_PASSWORD')  # Your Gmail APP Password
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply.gemzticketingsoftware@gmail.com')
-EMAIL_TIMEOUT = 10  # seconds
+EMAIL_TIMEOUT = 30  # seconds
 
 
 
