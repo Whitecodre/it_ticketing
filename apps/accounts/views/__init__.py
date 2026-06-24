@@ -307,6 +307,7 @@ def register(request):
                     'email_error': email_error,
                     'user_email': user.email,
                     'user_id': user.pk,
+                    'verification_link': verification_link,
                 })
             else:
                 return render(request, 'registration/register_step2.html', {'form': form})

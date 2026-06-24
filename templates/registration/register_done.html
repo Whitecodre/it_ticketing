@@ -6,7 +6,6 @@
 {% block content %}
 <div class="flex min-h-screen items-center justify-center px-4 py-12">
     <div class="w-full max-w-md text-center space-y-4">
-        <!-- <img src="{% static 'img/gemz-logo.png' %}" alt="Gemz Software Logo" class="mx-auto h-10 w-auto"> -->
         <div class="flex justify-center">
             <div class="flex h-16 w-16 items-center justify-center rounded-full" style="background-color: rgba(16, 185, 129, 0.1);">
                 {% lucide "mail" size=32 class="h-8 w-8" style="color: var(--color-success);" %}
@@ -14,6 +13,7 @@
         </div>
         <h2 class="text-2xl font-bold text-primary">Check your email</h2>
         <p class="text-text-secondary">We've sent a verification link to <strong>{{ user_email }}</strong>.</p>
+        
         {% if email_error %}
         <div class="bg-warning/10 p-4 rounded-lg border border-warning/30 text-left">
             <p class="text-sm text-warning font-semibold">⚠️ Email delivery issue</p>
@@ -21,8 +21,20 @@
                 We could not send the verification email. You can try the 
                 <a href="{% url 'accounts:resend_verification' %}" class="text-primary underline">resend verification</a> page, or contact support.
             </p>
+            <!-- Show link when email fails -->
+            <div class="mt-3 p-2 bg-gray-100 rounded border border-gray-300 text-xs break-all">
+                <p><strong>Test link (email disabled):</strong></p>
+                <a href="{{ verification_link }}" class="text-primary underline">{{ verification_link }}</a>
+            </div>
+        </div>
+        {% elif debug %}
+        <!-- Show link in development (DEBUG=True) even when email works -->
+        <div class="mt-4 p-3 bg-gray-100 rounded border border-gray-300 text-xs text-left">
+            <p><strong>🔧 Development link (email sent, but shown for convenience):</strong></p>
+            <a href="{{ verification_link }}" class="text-primary underline break-all">{{ verification_link }}</a>
         </div>
         {% endif %}
+        
         <p class="text-sm text-text-secondary">Didn't receive it? Check your spam folder.</p>
         <p class="text-sm text-text-secondary">
             <a href="{% url 'accounts:resend_verification' %}" class="text-primary underline">Resend verification email</a>
