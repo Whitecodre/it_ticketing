@@ -27,7 +27,7 @@
                 <a href="{{ verification_link }}" class="text-primary underline">{{ verification_link }}</a>
             </div>
         </div>
-        {% elif debug %}
+        {% elif show_dev_link  %}
         <!-- Show link in development (DEBUG=True) even when email works -->
         <div class="mt-4 p-3 bg-gray-100 rounded border border-gray-300 text-xs text-left">
             <p><strong>🔧 Development link (email sent, but shown for convenience):</strong></p>

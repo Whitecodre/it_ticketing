@@ -217,15 +217,17 @@
                 {% lucide "life-buoy" size=14 class="h-3.5 w-3.5" style="color: var(--color-text-secondary);" %}
                 Contact Support
             </a>
-            <form action="{% url 'accounts:logout' %}" method="post" class="m-0">
+            <button type="button" onclick="confirmLogout()"
+                    class="flex w-full items-center gap-2.5 px-4 py-2.5 text-xs transition hover:bg-black/5"
+                    style="color: var(--color-text-primary); background: none; border: none; cursor: pointer;">
+                {% lucide "log-out" size=14 class="h-3.5 w-3.5" style="color: var(--color-text-secondary);" %}
+                Log Out
+            </button>
+
+            <form id="logoutForm" action="{% url 'accounts:logout' %}" method="post" style="display:none;">
                 {% csrf_token %}
-                <button type="submit"
-                        class="flex w-full items-center gap-2.5 px-4 py-2.5 text-xs transition hover:bg-black/5"
-                        style="color: var(--color-text-primary); background: none; border: none; cursor: pointer;">
-                    {% lucide "log-out" size=14 class="h-3.5 w-3.5" style="color: var(--color-text-secondary);" %}
-                    Log Out
-                </button>
             </form>
+
         </div>
 
         {# ========== SLIDE-OVER PANEL (right) ========== #}
@@ -238,6 +240,25 @@
             style="background-color: var(--color-surface); border-color: var(--color-border);">
             <div id="slideoverContent" class="p-6">
                 {# Content loaded via HTMX #}
+            </div>
+        </div>
+
+        {# ========== GLOBAL CONFIRMATION MODAL ========== #}
+        <div id="confirmationModal" class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 hidden" onclick="closeConfirmationModal(event)">
+            <div class="bg-surface rounded-xl shadow-xl w-full max-w-md mx-4 p-6" onclick="event.stopPropagation()" style="background-color: var(--color-surface);">
+                <div class="flex items-start gap-3 mb-4">
+                    <div class="flex h-10 w-10 items-center justify-center rounded-full bg-warning/10 text-warning shrink-0">
+                        {% lucide "alert-triangle" size=20 %}
+                    </div>
+                    <div>
+                        <h3 id="confirmModalTitle" class="text-base font-semibold" style="color: var(--color-text-primary);">Confirm Action</h3>
+                        <p id="confirmModalMessage" class="text-sm mt-1" style="color: var(--color-text-secondary);">Are you sure you want to perform this action?</p>
+                    </div>
+                </div>
+                <div class="flex justify-end gap-2 mt-4">
+                    <button onclick="closeConfirmationModal()" class="btn-ghost text-sm px-4 py-2 rounded-lg">Cancel</button>
+                    <button id="confirmModalBtn" class="btn-danger text-sm px-4 py-2 rounded-lg">Confirm</button>
+                </div>
             </div>
         </div>
     </div>
@@ -254,6 +275,18 @@
 <script>
     // Provide the notifications list URL (used by global.js)
     window.notificationsUrl = "{% url 'notifications:list' %}";
+    // Confirm Logout Action
+    function confirmLogout() {
+                openConfirmationModal(
+                    'Are you sure you want to log out? You will need to log in again.',
+                    'Log Out',
+                    'Log Out',
+                    'btn-danger',
+                    function() {
+                        document.getElementById('logoutForm').submit();
+                    }
+                );
+            }
 </script>
 
 {# Sidebar user menu toggle #}

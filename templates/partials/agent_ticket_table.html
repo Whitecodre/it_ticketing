@@ -272,4 +272,28 @@
             closeDropdown();
         });
     });
+
+    {# Polling script – auto‑refresh every 5 seconds #}
+    (function() {
+        // Find the container with data-poll="true"
+        const container = document.querySelector('[data-poll="true"]');
+        if (!container) return;
+
+        // Avoid multiple polling loops
+        if (container.dataset.pollingEnabled === 'true') return;
+        container.dataset.pollingEnabled = 'true';
+
+        // Poll every 5 seconds
+        const intervalId = setInterval(function() {
+            htmx.ajax('GET', window.location.href, {
+                target: container.id,
+                swap: 'innerHTML',
+            });
+        }, 5000);
+
+        // Clean up on page unload (optional)
+        window.addEventListener('beforeunload', function() {
+            clearInterval(intervalId);
+        });
+    })();
 </script>

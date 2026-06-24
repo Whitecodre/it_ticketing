@@ -7,6 +7,12 @@ python manage.py migrate --noinput
 echo "=== Seeding ticket categories ==="
 python manage.py seed_categories
 
+echo "=== Seeding Remote Connectors ==="
+python manage.py seed_connectors
+
+echo "=== Seeding Macros ==="
+python manage.py seed_macros
+
 # Optional: create a superuser if it doesn't exist (requires env vars)
 if [ -n "$SUPERUSER_EMAIL" ] && [ -n "$SUPERUSER_PASSWORD" ]; then
   echo "=== Ensuring superuser exists ==="

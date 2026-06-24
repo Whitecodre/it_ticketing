@@ -254,3 +254,50 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 });
+
+
+// ----- Global Confirmation Modal -----
+let confirmCallback = null;
+
+function openConfirmationModal(message, title = 'Confirm Action', confirmText = 'Confirm', confirmClass = 'btn-danger', callback) {
+    const modal = document.getElementById('confirmationModal');
+    const titleEl = document.getElementById('confirmModalTitle');
+    const msgEl = document.getElementById('confirmModalMessage');
+    const btn = document.getElementById('confirmModalBtn');
+
+    if (titleEl) titleEl.textContent = title;
+    if (msgEl) msgEl.textContent = message;
+    if (btn) {
+        btn.textContent = confirmText;
+        // Remove previous classes and add the new one
+        btn.className = confirmText + ' text-sm px-4 py-2 rounded-lg'; // ensure base classes
+        btn.className = confirmClass + ' text-sm px-4 py-2 rounded-lg';
+        // Store callback
+        confirmCallback = callback;
+        // Remove old listeners (by cloning and replacing)
+        const newBtn = btn.cloneNode(true);
+        btn.parentNode.replaceChild(newBtn, btn);
+        newBtn.addEventListener('click', function(e) {
+            if (typeof confirmCallback === 'function') {
+                confirmCallback();
+            }
+            closeConfirmationModal();
+        });
+    }
+
+    modal.classList.remove('hidden');
+}
+
+function closeConfirmationModal(event) {
+    if (event && event.target !== event.currentTarget) return;
+    const modal = document.getElementById('confirmationModal');
+    modal.classList.add('hidden');
+    confirmCallback = null;
+}
+
+// Optional: close on Escape key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeConfirmationModal();
+    }
+});
