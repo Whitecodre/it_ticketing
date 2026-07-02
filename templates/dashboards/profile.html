@@ -164,14 +164,16 @@
         <h2 class="text-lg font-semibold mb-4" style="color: var(--color-text-primary);">Push Notifications</h2>
         <p class="text-sm text-text-secondary mb-4">Receive browser notifications even when you're not on the page. Works on desktop and mobile browsers.</p>
 
-        <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between p-4 rounded-lg border" style="border-color: var(--color-border); background-color: var(--color-background);">
             <div>
                 <p class="text-sm font-medium" style="color: var(--color-text-primary);">Enable Push Notifications</p>
                 <p class="text-xs text-text-secondary">Get alerts for new tickets, replies, and remote session requests.</p>
             </div>
-            <label class="relative inline-flex items-center cursor-pointer">
+            <label class="relative inline-flex items-center cursor-pointer" id="pushToggleLabel">
                 <input type="checkbox" id="pushToggle" class="sr-only peer">
-                <div class="w-11 h-6 bg-gray-200 peer-focus:ring-2 peer-focus:ring-primary rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                <div id="pushToggleTrack" class="w-11 h-6 rounded-full transition-all duration-200 ease-in-out" style="background-color: #d1d5db;">
+                    <div id="pushToggleThumb" class="h-5 w-5 rounded-full bg-white transition-all duration-200 ease-in-out transform translate-x-0.5 shadow-sm" style="margin-top: 2px;"></div>
+                </div>
             </label>
         </div>
     </div>
@@ -349,22 +351,44 @@
 
         // --- Push Notifications Toggle ---
         const pushToggle = document.getElementById('pushToggle');
+        const pushToggleTrack = document.getElementById('pushToggleTrack');
+        const pushToggleThumb = document.getElementById('pushToggleThumb');
+
+        function updatePushToggleUI(checked) {
+            if (checked) {
+                pushToggleTrack.style.backgroundColor = 'var(--color-primary)';
+                pushToggleThumb.style.transform = 'translateX(1.25rem)';
+            } else {
+                pushToggleTrack.style.backgroundColor = '#d1d5db';
+                pushToggleThumb.style.transform = 'translateX(0)';
+            }
+        }
+
         if (pushToggle) {
-            // Check if service worker is supported
+            // Check initial subscription state
             if ('serviceWorker' in navigator && 'PushManager' in window) {
                 navigator.serviceWorker.ready.then(function(registration) {
                     registration.pushManager.getSubscription().then(function(subscription) {
                         if (subscription) {
                             pushToggle.checked = true;
+                            updatePushToggleUI(true);
+                        } else {
+                            pushToggle.checked = false;
+                            updatePushToggleUI(false);
                         }
                     });
+                }).catch(function() {
+                    pushToggle.checked = false;
+                    updatePushToggleUI(false);
                 });
             }
 
             pushToggle.addEventListener('change', function() {
                 if (this.checked) {
+                    updatePushToggleUI(true);
                     enablePushNotifications();
                 } else {
+                    updatePushToggleUI(false);
                     disablePushNotifications();
                 }
             });
@@ -379,7 +403,8 @@
         function enablePushNotifications() {
             if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
                 alert('Push notifications are not supported in this browser.');
-                document.getElementById('pushToggle').checked = false;
+                pushToggle.checked = false;
+                updatePushToggleUI(false);
                 return;
             }
 
@@ -387,11 +412,11 @@
                 Notification.requestPermission().then(function(permission) {
                     if (permission !== 'granted') {
                         alert('Please allow notifications in your browser settings.');
-                        document.getElementById('pushToggle').checked = false;
+                        pushToggle.checked = false;
+                        updatePushToggleUI(false);
                         return;
                     }
 
-                    // VAPID public key from window variable (set in base_dashboard.html)
                     const vapidPublicKey = window.vapidPublicKey || '{{ VAPID_PUBLIC_KEY }}';
                     const applicationServerKey = urlBase64ToUint8Array(vapidPublicKey);
 
@@ -410,13 +435,18 @@
                     }).then(function(response) {
                         if (response.ok) {
                             console.log('Push subscription saved.');
+                            // Keep toggle ON
+                            pushToggle.checked = true;
+                            updatePushToggleUI(true);
                         } else {
-                            document.getElementById('pushToggle').checked = false;
                             console.error('Failed to save push subscription.');
+                            pushToggle.checked = false;
+                            updatePushToggleUI(false);
                         }
                     }).catch(function(error) {
                         console.error('Push subscription failed:', error);
-                        document.getElementById('pushToggle').checked = false;
+                        pushToggle.checked = false;
+                        updatePushToggleUI(false);
                     });
                 });
             });
@@ -438,6 +468,8 @@
                         }).then(function() {
                             subscription.unsubscribe().then(function() {
                                 console.log('Push subscription removed.');
+                                pushToggle.checked = false;
+                                updatePushToggleUI(false);
                             });
                         });
                     }
