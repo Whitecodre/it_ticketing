@@ -35,7 +35,7 @@
                 </div>
                 <div class="min-w-0">
                     <p class="text-[0.65rem] font-semibold uppercase tracking-wider text-text-secondary">Requester</p>
-                    <p class="text-sm font-medium truncate" style="color: var(--color-text-primary);">{{ ticket.requester.get_full_name|default:ticket.requester.email }}</p>
+                    <p class="text-sm font-medium truncate" style="color: var(--color-text-primary);">{{ ticket.requester.get_full_name_with_role|default:ticket.requester.email }}</p>
                     <p class="text-xs text-text-secondary truncate">{{ ticket.requester.email }}</p>
                 </div>
             </div>
@@ -58,7 +58,7 @@
                 <div class="min-w-0">
                     <p class="text-[0.65rem] font-semibold uppercase tracking-wider text-text-secondary">Assignee</p>
                     {% if ticket.assigned_to %}
-                        <p class="text-sm font-medium truncate" style="color: var(--color-text-primary);">{{ ticket.assigned_to.get_full_name }}</p>
+                        <p class="text-sm font-medium truncate" style="color: var(--color-text-primary);">{{ ticket.assigned_to.get_full_name_with_role }}</p>
                         <p class="text-xs text-text-secondary truncate">{{ ticket.assigned_to.get_role_display }}</p>
                     {% else %}
                         <p class="text-sm text-text-secondary italic">Unassigned</p>
@@ -101,7 +101,7 @@
                 <button class="flex items-center gap-1 text-xs font-medium w-full text-left cursor-pointer" style="color: var(--color-text-primary);"
                         onclick="this.nextElementSibling.classList.toggle('hidden'); this.querySelector('.chevron').classList.toggle('rotate-90')">
                     {% lucide "chevron-right" size=14 class="chevron transition-transform" %}
-                    Sent by {{ ticket.requester.get_full_name|default:ticket.requester.email }} (User)
+                    Sent by {{ ticket.requester.get_full_name_with_role|default:ticket.requester.email }} (User)
                     <span class="text-text-secondary text-[0.6rem] ml-1">({{ user_attachments|length }})</span>
                 </button>
                 <div class="hidden mt-2 space-y-1">
@@ -148,14 +148,14 @@
                             <div class="flex justify-end">
                                 <div class="max-w-[80%] text-xs px-3 py-1.5 rounded-md bg-warning/10 border border-warning/30" style="color: var(--color-text-primary);">
                                     <span class="font-semibold text-warning">Internal Note</span>
-                                    <span class="text-text-secondary text-[0.6rem] ml-2">{{ comment.author.get_full_name }} · {{ comment.created_at|timesince }} ago</span>
+                                    <span class="text-text-secondary text-[0.6rem] ml-2">{{ comment.author.get_full_name_with_role }} · {{ comment.created_at|timesince }} ago</span>
                                     <div class="mt-0.5">{{ comment.body|truncatechars:120 }}</div>
                                 </div>
                             </div>
                         {% else %}
                             <div class="flex {% if comment.author == ticket.requester %}justify-start{% else %}justify-end{% endif %}">
                                 <div class="max-w-[80%] text-xs px-3 py-1.5 rounded-md {% if comment.author == ticket.requester %}bg-gray-100 dark:bg-gray-800{% else %}bg-primary{% endif %}" style="color: var(--color-text-primary);">
-                                    <span class="font-medium">{{ comment.author.get_full_name|default:comment.author.email.split.0 }}</span>
+                                    <span class="font-medium">{{ comment.author.get_full_name_with_role|default:comment.author.email.split.0 }}</span>
                                     <span class="text-text-secondary text-[0.6rem] ml-2">{{ comment.created_at|timesince }} ago</span>
                                     <div class="mt-0.5">{{ comment.body|truncatechars:120 }}</div>
                                 </div>

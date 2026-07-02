@@ -89,14 +89,13 @@ class ProfileForm(forms.ModelForm):
 class UserSettingsForm(forms.ModelForm):
     class Meta:
         model = UserProfile
-        fields = ['timezone', 'language', 'default_ticket_view', 'email_notifications', 'in_app_notifications', 'ticket_signature']
+        fields = ['timezone', 'language', 'default_ticket_view', 'email_notifications', 'in_app_notifications']
         widgets = {
             'timezone': forms.TextInput(attrs={'class': 'block w-full rounded-lg border py-2.5 px-4 text-sm bg-background border-border text-text-primary ring-primary focus:outline-none focus:ring-2'}),
             'language': forms.Select(attrs={'class': 'block w-full rounded-lg border py-2.5 px-4 text-sm bg-background border-border text-text-primary ring-primary focus:outline-none focus:ring-2'}),
             'default_ticket_view': forms.Select(attrs={'class': 'block w-full rounded-lg border py-2.5 px-4 text-sm bg-background border-border text-text-primary ring-primary focus:outline-none focus:ring-2'}),
             'email_notifications': forms.CheckboxInput(attrs={'class': 'rounded border-border text-primary focus:ring-primary'}),
             'in_app_notifications': forms.CheckboxInput(attrs={'class': 'rounded border-border text-primary focus:ring-primary'}),
-            'ticket_signature': forms.Textarea(attrs={'rows': 4, 'class': 'block w-full rounded-lg border p-3 text-sm bg-background border-border text-text-primary ring-primary focus:outline-none focus:ring-2'}),
         }
 
 class ChangePasswordForm(PasswordChangeForm):

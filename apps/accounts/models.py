@@ -87,6 +87,11 @@ class User(AbstractUser):
         related_name='created_users'
     )
 
+    def get_full_name_with_role(self):
+        """Returns full name with role in parentheses, e.g. 'John Doe (Agent)'"""
+        name = self.get_full_name() or self.email
+        return f"{name} ({self.get_role_display()})"
+
     objects = UserManager()
 
     USERNAME_FIELD = 'email'

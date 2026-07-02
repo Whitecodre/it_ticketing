@@ -34,6 +34,27 @@
     </a>
 </div>
 
+<div class="px-3">
+    <a href="{% url 'tickets:escalated_tickets' %}"
+       class="flex items-center justify-center p-1.5 rounded-sm transition sidebar-link" data-tooltip="Escalated"
+       style="{% if '/escalated/' in request.path %}background-color: var(--color-primary); color: white;{% else %}color: var(--color-text-secondary);{% endif %}">
+        {% lucide "alert-triangle" size=18 class="h-4.5 w-4.5" %}
+    </a>
+</div>
+
+<div class="px-3 relative">
+    <a href="{% url 'tickets:manager_review_queue' %}"
+       class="flex items-center justify-center p-1.5 rounded-sm transition sidebar-link" data-tooltip="Manager Review"
+       style="{% if '/manager/review/' in request.path %}background-color: var(--color-primary); color: white;{% else %}color: var(--color-text-secondary);{% endif %}">
+        {% lucide "clipboard-check" size=18 class="h-4.5 w-4.5" %}
+    </a>
+    <div id="managerReviewBadge" class="absolute top-0 right-2"
+         hx-get="{% url 'tickets:manager_review_count' %}"
+         hx-trigger="every 5s"
+         hx-swap="innerHTML">
+    </div>
+</div>
+
 <div class="border-t mx-2 my-1" style="border-color: var(--color-border);"></div>
 
 <div class="px-3">

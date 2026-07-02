@@ -41,7 +41,14 @@ EMAIL_HOST_PASSWORD = os.environ.get('GMAIL_SMTP_PASSWORD', 'wwkpewrinwrcgbes') 
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply.gemzticketingsoftware@gmail.com')
 EMAIL_TIMEOUT = 10  # seconds
 
-
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [os.environ.get("REDIS_URL", "redis://localhost:6379")],
+        },
+    },
+}
 
 # Cloudinary file storage
 DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'

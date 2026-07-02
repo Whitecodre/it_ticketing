@@ -4,17 +4,25 @@
 <div class="flex justify-start mb-3">
     <div class="max-w-[70%] rounded-lg px-4 py-2 text-sm text-white bg-gray-700 bubble-left">
         <div class="text-xs font-semibold mb-1 opacity-80">
-            {{ ticket.requester.get_full_name }}
+            {{ ticket.requester.get_full_name_with_role }}
         </div>
         <div>{{ ticket.description|linebreaksbr|safe }}</div>
         {% for att in initial_attachments %}
-        <div class="mt-1 text-xs">
+        <div class="mt-1 text-xs flex items-center gap-2">
             <a href="{% url 'tickets:attachment_download' att.pk %}"
-               class="flex items-center gap-1 underline"
-               style="color: var(--color-text-secondary);">
+               class="flex items-center gap-1 underline hover:opacity-80 transition"
+               style="color: #94A3B8;">
                 {% lucide "paperclip" size=12 %}
                 {{ att.filename }} ({{ att.size|filesizeformat }})
             </a>
+            <button class="btn-attachment p-0.5 text-white/60 hover:text-white transition rounded-sm element-link"
+                    hx-get="{% url 'tickets:attachment_preview' att.pk %}"
+                    hx-target="#modalContainer"
+                    hx-swap="innerHTML"
+                    onclick="document.getElementById('modalOverlay').classList.remove('hidden')"
+                    data-tooltip="Preview">
+                {% lucide "eye" size=10 %}
+            </button>
         </div>
         {% endfor %}
         <div class="text-[0.6rem] mt-1 opacity-60">
@@ -30,17 +38,25 @@
                  style="background-color: rgba(245, 158, 11, 0.06); color: var(--color-text-primary);">
                 <span class="font-semibold text-warning">Internal Note</span> — {{ comment.body|safe }}
                 {% for attachment in comment.attachment_set.all %}
-                    <div class="mt-1 text-xs">
+                    <div class="mt-1 text-xs flex items-center gap-2">
                         <a href="{% url 'tickets:attachment_download' attachment.pk %}"
-                           class="flex items-center gap-1 underline"
+                           class="flex items-center gap-1 underline hover:opacity-80 transition"
                            style="color: var(--color-text-secondary);">
                             {% lucide "paperclip" size=12 %}
                             {{ attachment.filename }} ({{ attachment.size|filesizeformat }})
                         </a>
+                        <button class="btn-ghost p-0.5 text-text-secondary hover:text-primary transition rounded element-link"
+                                hx-get="{% url 'tickets:attachment_preview' attachment.pk %}"
+                                hx-target="#modalContainer"
+                                hx-swap="innerHTML"
+                                onclick="document.getElementById('modalOverlay').classList.remove('hidden')"
+                                data-tooltip="Preview">
+                            {% lucide "eye" size=14 %}
+                        </button>
                     </div>
                 {% endfor %}
                 <div class="text-[0.6rem] mt-1" style="color: var(--color-text-secondary);">
-                    {{ comment.author.get_full_name }} · {{ comment.created_at|date:"h:i A" }}
+                    {{ comment.author.get_full_name_with_role }} · {{ comment.created_at|date:"h:i A" }}
                 </div>
             </div>
         </div>
@@ -53,17 +69,25 @@
                             bg-gray-700 bubble-left
                         {% endif %}">
                 <div class="text-xs font-semibold mb-1 opacity-80">
-                    {{ comment.author.get_full_name }}
+                    {{ comment.author.get_full_name_with_role }}
                 </div>
                 <div>{{ comment.body|safe }}</div>
                 {% for attachment in comment.attachment_set.all %}
-                    <div class="mt-1 text-xs">
+                    <div class="mt-1 text-xs flex items-center gap-2">
                         <a href="{% url 'tickets:attachment_download' attachment.pk %}"
-                           class="flex items-center gap-1 underline"
-                           style="color: {% if comment.author == request.user %}var(--color-primary-dark){% else %}var(--color-text-secondary){% endif %};">
+                           class="flex items-center gap-1 underline hover:opacity-80 transition"
+                           style="color: {% if comment.author == request.user %}#FFFFFF{% else %}#94A3B8{% endif %};">
                             {% lucide "paperclip" size=12 %}
                             {{ attachment.filename }} ({{ attachment.size|filesizeformat }})
                         </a>
+                        <button class="btn-ghost p-0.5 {% if comment.author == request.user %}text-white/70 hover:text-white{% else %}text-text-secondary hover:text-primary{% endif %} transition rounded element-link"
+                                hx-get="{% url 'tickets:attachment_preview' attachment.pk %}"
+                                hx-target="#modalContainer"
+                                hx-swap="innerHTML"
+                                onclick="document.getElementById('modalOverlay').classList.remove('hidden')"
+                                data-tooltip="Preview">
+                            {% lucide "eye" size=14 %}
+                        </button>
                     </div>
                 {% endfor %}
                 <div class="text-[0.6rem] mt-1 opacity-60">

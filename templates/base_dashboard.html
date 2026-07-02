@@ -79,7 +79,7 @@
                 {# Name, role, and chevron – hidden on desktop #}
                 <div class="flex-1 min-w-0 text-left md:hidden">
                     <p class="text-xs font-medium truncate" style="color: var(--color-text-primary);">
-                        {{ user.get_full_name|default:user.email }}
+                        {{ user.get_full_name_with_role|default:user.email }}
                     </p>
                     <p class="text-[0.65rem] truncate" style="color: var(--color-text-secondary);">
                         {% block role_label %}{% endblock %}
@@ -193,7 +193,7 @@
         </header>
 
         {# Main content #}
-       <main class="flex-1 overflow-y-auto {% block main_content_class %}p-4 md:p-5{% endblock %}">
+        <main class="flex-1 overflow-y-auto {% block main_content_class %}p-4 md:p-5{% endblock %}">
             {% block page_title_area %}
             <h1 class="text-xl font-semibold truncate mb-4" style="color: var(--color-text-primary);">
                 {% block page_title %}Dashboard{% endblock %}
@@ -261,8 +261,24 @@
                 </div>
             </div>
         </div>
-    </div>
-</div>
+
+        {# Django messages data for JavaScript toast display #}
+        {% if messages %}
+        <div id="django-messages-data" style="display:none;"
+             data-messages='[
+                 {% for message in messages %}
+                     {"text": "{{ message|escapejs }}", "tags": "{{ message.tags }}"}{% if not forloop.last %},{% endif %}
+                 {% endfor %}
+             ]'>
+        </div>
+        {% endif %}
+
+        {# Toast container for both WebSocket and Django messages #}
+        <div id="toastContainer" class="toast-container"></div>
+
+    </div> {# end main content wrapper #}
+</div> {# end flex h-screen #}
+
 {% endblock navigation %}
 
 {% block content %}{% endblock %}
@@ -273,25 +289,89 @@
 <script src="{% static 'js/global.js' %}"></script>
 <script src="{% static 'js/keyboard_shortcuts.js' %}"></script>
 <script>
-    // Provide the notifications list URL (used by global.js)
+    // ========== CONFIGURATION ==========
     window.notificationsUrl = "{% url 'notifications:list' %}";
-    // Confirm Logout Action
-    function confirmLogout() {
-                openConfirmationModal(
-                    'Are you sure you want to log out? You will need to log in again.',
-                    'Log Out',
-                    'Log Out',
-                    'btn-danger',
-                    function() {
-                        document.getElementById('logoutForm').submit();
-                    }
-                );
-            }
-</script>
+    window.vapidPublicKey = "{{ VAPID_PUBLIC_KEY }}";
 
-{# Sidebar user menu toggle #}
-<script>
-    // ----- Sidebar User Menu (fixed position) -----
+    // ========== CONFIRM LOGOUT ==========
+    function confirmLogout() {
+        openConfirmationModal(
+            'Are you sure you want to log out? You will need to log in again.',
+            'Log Out',
+            'Log Out',
+            'btn-danger',
+            function() {
+                document.getElementById('logoutForm').submit();
+            }
+        );
+    }
+
+    // ========== WEBSOCKET NOTIFICATIONS ==========
+    let ws = null;
+    let notificationSocketConnected = false;
+
+    function connectNotificationWebSocket() {
+        fetch('{% url "notifications:ws_init" %}')
+            .then(response => response.json())
+            .then(data => {
+                const wsUrl = (window.location.protocol === 'https:' ? 'wss://' : 'ws://') 
+                    + window.location.host 
+                    + data.websocket_url;
+                ws = new WebSocket(wsUrl);
+
+                ws.onopen = function() {
+                    notificationSocketConnected = true;
+                    console.log('WebSocket connected for notifications.');
+                };
+
+                ws.onmessage = function(event) {
+                    const data = JSON.parse(event.data);
+                    console.log('Notification received:', data);
+
+                    if (data.unread_count !== undefined) {
+                        updateBellBadge(data.unread_count);
+                    }
+
+                    showToast(data.message, data.notification_type || 'info');
+
+                    if (data.url) {
+                        window.__pendingNotificationUrl = data.url;
+                    }
+                };
+
+                ws.onclose = function() {
+                    notificationSocketConnected = false;
+                    console.log('WebSocket disconnected. Reconnecting in 3 seconds...');
+                    setTimeout(connectNotificationWebSocket, 3000);
+                };
+
+                ws.onerror = function(error) {
+                    console.error('WebSocket error:', error);
+                    ws.close();
+                };
+            })
+            .catch(error => {
+                console.error('Failed to get WebSocket config:', error);
+            });
+    }
+
+    function updateBellBadge(count) {
+        const badgeContainer = document.getElementById('notificationBadgeContainer');
+        if (badgeContainer) {
+            if (count > 0) {
+                badgeContainer.innerHTML = `
+                    <span class="absolute -top-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full text-[0.55rem] font-bold text-white"
+                          style="background-color: var(--color-error);">
+                        ${count}
+                    </span>
+                `;
+            } else {
+                badgeContainer.innerHTML = '';
+            }
+        }
+    }
+
+    // ========== SIDEBAR USER MENU ==========
     function toggleSidebarUserMenu() {
         const dropdown = document.getElementById('sidebarUserDropdown');
         const chevron = document.getElementById('sidebarUserChevron');
@@ -303,19 +383,15 @@
             const sidebar = document.getElementById('sidebar');
             const sidebarRect = sidebar.getBoundingClientRect();
 
-            // Make dropdown visible first so we can measure its height
             dropdown.style.visibility = 'hidden';
             dropdown.style.display = 'block';
 
             if (window.innerWidth >= 768) {
-                // Desktop: bottom of the viewport, aligned to sidebar edge
                 dropdown.style.bottom = '10px';
                 dropdown.style.top = 'auto';
                 dropdown.style.left = (sidebarRect.right + 10) + 'px';
                 dropdown.style.right = 'auto';
             } else {
-                // Mobile: above the button
-                const dropdownHeight = dropdown.offsetHeight;
                 dropdown.style.bottom = (window.innerHeight - rect.top + 8) + 'px';
                 dropdown.style.top = 'auto';
                 dropdown.style.left = (rect.left) + 'px';
@@ -330,6 +406,42 @@
         }
     }
 
+    // ========== DJANGO MESSAGES AS TOASTS ==========
+    document.addEventListener('DOMContentLoaded', function() {
+        // Connect WebSocket
+        if (document.getElementById('notificationBell')) {
+            connectNotificationWebSocket();
+        }
+
+        // Register Service Worker for Push Notifications
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/static/js/sw.js')
+                .then(function(registration) {
+                    console.log('Service Worker registered for push notifications.');
+                })
+                .catch(function(error) {
+                    console.error('Service Worker registration failed:', error);
+                });
+        }
+
+        // Display Django messages as toasts
+        const messagesData = document.getElementById('django-messages-data');
+        if (messagesData) {
+            try {
+                const messages = JSON.parse(messagesData.dataset.messages);
+                messages.forEach(function(msg) {
+                    let type = 'info';
+                    if (msg.tags.includes('success')) type = 'success';
+                    else if (msg.tags.includes('error')) type = 'error';
+                    else if (msg.tags.includes('warning')) type = 'warning';
+                    showToast(msg.text, type);
+                });
+            } catch (e) {
+                console.error('Failed to parse messages:', e);
+            }
+        }
+    });
+
     // Close sidebar user menu when clicking outside
     document.addEventListener('click', function(event) {
         const button = document.getElementById('sidebarUserMenuButton');
@@ -341,6 +453,5 @@
         }
     });
 </script>
-
 {% block extra_scripts %}{% endblock %}
 {% endblock %}

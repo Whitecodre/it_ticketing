@@ -5,6 +5,13 @@ from .base import *
 DEBUG = True
 ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 
+#  Add Channels Layer (Redis)
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer",
+    },
+}
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
@@ -16,6 +23,7 @@ DATABASES = {
     }
 }
 
+TEST_PUSH=True
 STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
 
 if env('EMAIL_HOST', default=None):

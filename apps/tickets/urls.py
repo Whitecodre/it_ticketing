@@ -33,6 +33,7 @@ urlpatterns = [
     path('team/reassign/<int:pk>/', views.team_reassign, name='team_reassign'),
     path('audit/', views.audit_log, name='audit_log'),
     path('reports/', views.reports_dashboard, name='reports'),
+    path('attachment/<int:pk>/preview/', views.attachment_preview, name='attachment_preview'),
     path('attachment/<int:pk>/', views.attachment_download, name='attachment_download'),
     path('sla/trigger/', views.trigger_sla_processing, name='trigger_sla'),
     path('sla/cleanup/', views.trigger_cleanup, name='trigger_cleanup'),
@@ -42,9 +43,19 @@ urlpatterns = [
     path('connectors/edit/<int:pk>/', views.connector_edit, name='connector_edit'),
     path('assets/', views.assets, name='assets'),
     path('assets/create/', views.asset_create, name='asset_create'),
+    path('assets/<int:pk>/edit/', views.asset_edit, name='asset_edit'),
+    path('assets/<int:pk>/reassign/', views.asset_reassign, name='asset_reassign'),
+    path('assets/<int:pk>/detail/', views.asset_detail, name='asset_detail'),
+    path('assets/<int:pk>/scrap-request/', views.asset_scrap_request, name='asset_scrap_request'),
+    path('assets/<int:pk>/scrap-approve/', views.asset_scrap_approve, name='asset_scrap_approve'),
+    path('assets/calculate-warranty/', views.asset_calculate_warranty, name='asset_calculate_warranty'),
     path('<int:pk>/request-remote-session/', views.request_remote_session, name='request_remote_session'),
     path('remote-session/<int:session_pk>/', views.remote_session_detail, name='remote_session_detail'),
+    path('remote-sessions/pending-count/', views.remote_session_pending_count, name='remote_session_pending_count'),
     path('remote-sessions/', views.remote_sessions_list, name='remote_sessions_list'),
+    path('escalated/', views.escalated_tickets, name='escalated_tickets'),
+    path('escalated/<int:pk>/reassign/', views.reassign_escalated, name='reassign_escalated'),
+    path('escalated/<int:pk>/return-to-pool/', views.return_escalated_to_pool, name='return_escalated_to_pool'),
     path('kb-suggestions/', views.kb_suggestions, name='kb_suggestions'),
     # future: detail, list
 
@@ -64,4 +75,9 @@ urlpatterns = [
     path('rule/create/', views.rule_create, name='rule_create'),
     path('rule/<int:pk>/delete/', views.rule_delete, name='rule_delete'),
     path('calendar/<int:pk>/delete/', views.calendar_delete, name='calendar_delete'),
+
+    # MANAGER URLS
+    path('manager/review/', views.manager_review_queue, name='manager_review_queue'),
+    path('manager/review/<int:pk>/', views.manager_review_ticket, name='manager_review_ticket'),
+    path('manager/review/count/', views.manager_review_count, name='manager_review_count'),
     ]

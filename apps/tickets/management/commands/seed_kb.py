@@ -4,6 +4,8 @@ from django.contrib.auth import get_user_model
 from apps.knowledge_base.models import Article
 from apps.common.models import Category
 
+# slug = slugify(data['title'])
+
 User = get_user_model()
 
 class Command(BaseCommand):

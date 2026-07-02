@@ -9,20 +9,26 @@ from apps.common.models import Notification
 def create_ticket_notification(sender, instance, created, **kwargs):
     if created:
         print("Ticket created signal fired!")
-        # Notify the requester
+        
+        # Notify the requester (always)
         Notification.objects.create(
             recipient=instance.requester,
             message=f"Ticket {instance.number} created successfully.",
             url=reverse('tickets:detail', args=[instance.pk])
         )
-        # Notify all agents/team leads (unassigned queue alert)
-        agents = User.objects.filter(role__in=[User.Role.AGENT, User.Role.TEAM_LEAD])
-        for agent in agents:
-            Notification.objects.create(
-                recipient=agent,
-                message=f"New unassigned ticket {instance.number}: {instance.title}",
-                url=reverse('tickets:detail', args=[instance.pk])
-            )
+        
+        # ONLY notify agents about unassigned tickets if it's an INCIDENT
+        # Service requests go to manager review instead
+        if instance.type == Ticket.Type.INCIDENT:
+            agents = User.objects.filter(role__in=[User.Role.AGENT, User.Role.TEAM_LEAD])
+            for agent in agents:
+                Notification.objects.create(
+                    recipient=agent,
+                    message=f"New unassigned ticket {instance.number}: {instance.title}",
+                    url=reverse('tickets:detail', args=[instance.pk])
+                )
+        # For SERVICE_REQUESTS, notifications are sent in create_ticket view to Team Leads
+        # No additional notification needed here
 
 @receiver(post_save, sender=TicketComment)
 def create_comment_notification(sender, instance, created, **kwargs):

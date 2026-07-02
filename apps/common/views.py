@@ -1,9 +1,43 @@
+import json
 from django.shortcuts import render
-from django.http import HttpResponse,JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.views.decorators.http import require_POST
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.csrf import csrf_exempt
 from django.middleware.csrf import get_token
-from .models import Notification
+from .models import Notification, PushSubscription
+from .utils import send_push_notification
+
+
+@login_required
+@csrf_exempt
+def test_push(request):
+    """Debug endpoint to send a test push notification to the current user."""
+    if not request.user.is_superuser:
+        return JsonResponse({'error': 'Not authorized'}, status=403)
+
+    # Check if user has a subscription
+    subscription = PushSubscription.objects.filter(user=request.user).first()
+    if not subscription:
+        return JsonResponse({'error': 'No push subscription found for this user'}, status=400)
+
+    # Create a temporary notification (not saved) or use an existing one
+    # For testing, we'll send a custom payload
+    from django.utils import timezone
+    test_notification = Notification(
+        recipient=request.user,
+        message='🔔 This is a test push notification!',
+        url='/',
+        created_at=timezone.now(),
+    )
+
+    result = send_push_notification(test_notification)
+    return JsonResponse({
+        'status': 'ok',
+        'result': result,
+        'message': f"Sent to {result['sent']} device(s).",
+    })
+
 
 @login_required
 def unread_count(request):
@@ -40,3 +74,53 @@ def list_notifications(request):
         'csrf_token': get_token(request),
     })
 
+# WEBSOCKET INITIALIZATON
+@login_required
+def websocket_init_data(request):
+    """Returns data needed to initialize the WebSocket connection."""
+    unread_count = Notification.objects.filter(
+        recipient=request.user,
+        is_read=False
+    ).count()
+    return JsonResponse({
+        'unread_count': unread_count,
+        'websocket_url': '/ws/notifications/',
+    })
+
+@login_required
+@csrf_exempt
+@require_POST
+def save_push_subscription(request):
+    try:
+        data = json.loads(request.body)
+        endpoint = data.get('endpoint')
+        auth_key = data.get('keys', {}).get('auth')
+        p256dh_key = data.get('keys', {}).get('p256dh')
+
+        if not endpoint or not auth_key or not p256dh_key:
+            return JsonResponse({'error': 'Missing fields'}, status=400)
+
+        subscription, created = PushSubscription.objects.update_or_create(
+            user=request.user,
+            endpoint=endpoint,
+            defaults={
+                'auth_key': auth_key,
+                'p256dh_key': p256dh_key,
+            }
+        )
+        return JsonResponse({'status': 'ok'})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+@login_required
+@csrf_exempt
+@require_POST
+def delete_push_subscription(request):
+    try:
+        data = json.loads(request.body)
+        endpoint = data.get('endpoint')
+        if endpoint:
+            PushSubscription.objects.filter(user=request.user, endpoint=endpoint).delete()
+        return JsonResponse({'status': 'ok'})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)

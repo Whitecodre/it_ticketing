@@ -19,7 +19,7 @@
                     {{ ticket.assigned_to.email.0|upper }}
                 </div>
                 <div class="flex-1 min-w-0">
-                    <p class="text-xs font-medium truncate" style="color: var(--color-text-primary);">{{ ticket.assigned_to.get_full_name }}</p>
+                    <p class="text-xs font-medium truncate" style="color: var(--color-text-primary);">{{ ticket.assigned_to.get_full_name_with_role }}</p>
                     <p class="text-[0.65rem] truncate" style="color: var(--color-text-secondary);">{{ ticket.assigned_to.get_role_display }}</p>
                 </div>
             {% else %}
@@ -45,7 +45,6 @@
             <span class="text-[0.65rem] font-semibold uppercase tracking-wider block mb-1" style="color: var(--color-text-secondary);">Subject</span>
             <div class="flex items-center gap-2">
                 <span id="subjectDisplay" class="text-xs flex-1 truncate" style="color: var(--color-text-primary);">{{ ticket.title }}</span>
-                {# Removed edit button; you can remove the subject editing form too if you want #}
             </div>
         </div>
         <div class="flex items-center justify-between">
@@ -71,7 +70,7 @@
         <div class="hidden mt-2 space-y-2">
             <div class="flex items-center gap-2 text-xs">
                 {% lucide "user" size=14 class="text-text-secondary" %}
-                <span class="truncate" style="color: var(--color-text-primary);">{{ ticket.requester.get_full_name }}</span>
+                <span class="truncate" style="color: var(--color-text-primary);">{{ ticket.requester.get_full_name_with_role }}</span>
             </div>
             <div class="flex items-center gap-2 text-xs">
                 {% lucide "mail" size=14 class="text-text-secondary" %}
@@ -82,6 +81,7 @@
     </div>
 
     <hr style="border-color: var(--color-border);">
+
     {# ---------- Attachments ---------- #}
     <div>
         <label class="text-[0.65rem] font-semibold uppercase tracking-wider mb-1 block" style="color: var(--color-text-secondary);">Attachments</label>
@@ -92,7 +92,7 @@
                     style="color: var(--color-text-primary);"
                     onclick="this.nextElementSibling.classList.toggle('hidden'); this.querySelector('.chevron').classList.toggle('rotate-90')">
                 {% lucide "chevron-right" size=14 class="chevron transition-transform" %}
-                Sent by {{ ticket.requester.get_full_name|default:ticket.requester.email }} (User)
+                Sent by {{ ticket.requester.get_full_name_with_role|default:ticket.requester.email }} (User)
                 <span class="text-text-secondary text-[0.6rem] ml-1">({{ user_attachments|length }})</span>
             </button>
             <div class="hidden mt-1 space-y-1">
@@ -100,7 +100,15 @@
                 <div class="flex items-center gap-2 text-xs pl-5">
                     {% lucide "paperclip" size=12 class="text-text-secondary" %}
                     <span class="truncate" style="color: var(--color-text-primary);">{{ att.filename }}</span>
-                    <a href="{% url 'tickets:attachment_download' att.pk %}" class="text-primary ml-auto" download>Download</a>
+                    <button class="btn-ghost p-0.5 text-text-secondary hover:text-primary transition rounded element-link"
+                            hx-get="{% url 'tickets:attachment_preview' att.pk %}"
+                            hx-target="#modalContainer"
+                            hx-swap="innerHTML"
+                            onclick="document.getElementById('modalOverlay').classList.remove('hidden')"
+                            data-tooltip="Preview">
+                        {% lucide "eye" size=14 %}
+                    </button>
+                    <a href="{% url 'tickets:attachment_download' att.pk %}" class="text-primary ml-auto hover:underline" download>Download</a>
                 </div>
                 {% empty %}
                 <p class="text-xs text-text-secondary pl-5">No files</p>
@@ -122,7 +130,15 @@
                 <div class="flex items-center gap-2 text-xs pl-5">
                     {% lucide "paperclip" size=12 class="text-text-secondary" %}
                     <span class="truncate" style="color: var(--color-text-primary);">{{ att.filename }}</span>
-                    <a href="{% url 'tickets:attachment_download' att.pk %}" class="text-primary ml-auto" download>Download</a>
+                    <button class="btn-attachment p-0.5 text-text-secondary hover:text-primary transition rounded element-link"
+                            hx-get="{% url 'tickets:attachment_preview' att.pk %}"
+                            hx-target="#modalContainer"
+                            hx-swap="innerHTML"
+                            onclick="document.getElementById('modalOverlay').classList.remove('hidden')"
+                            data-tooltip="Preview">
+                        {% lucide "eye" size=14 %}
+                    </button>
+                    <a href="{% url 'tickets:attachment_download' att.pk %}" class="text-primary ml-auto hover:underline" download>Download</a>
                 </div>
                 {% empty %}
                 <p class="text-xs text-text-secondary pl-5">No files</p>
@@ -130,8 +146,6 @@
             </div>
         </div>
     </div>
-
-    {% comment %} <button class="btn-outline w-full text-xs">+ Create Task</button> {% endcomment %}
 </div>
 
 <script>

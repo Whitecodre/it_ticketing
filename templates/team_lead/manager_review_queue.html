@@ -1,0 +1,101 @@
+{% extends "base_dashboard.html" %}
+{% load static %}
+{% load lucide %}
+
+{% block dashboard_title %}Manager Review{% endblock %}
+{% block page_title_area %}{% endblock %}
+{% block role_label %}{{ request.user.get_role_display }}{% endblock %}
+{% block role_badge %}{{ request.user.get_role_display|upper }}{% endblock %}
+
+{% block sidebar_nav %}
+    {% include sidebar_template %}
+{% endblock %}
+
+{% block dashboard_content %}
+<!-- Messages -->
+{% if messages %}
+<div class="message-container mb-4 space-y-2">
+    {% for message in messages %}
+    <div class="message p-4 rounded-lg 
+        {% if message.tags == 'success' %}bg-success/10 text-success border border-success/30
+        {% elif message.tags == 'error' %}bg-error/10 text-error border border-error/30
+        {% elif message.tags == 'warning' %}bg-warning/10 text-warning border border-warning/30
+        {% else %}bg-info/10 text-info border border-info/30{% endif %}">
+        {{ message }}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+<div class="w-full">
+    <div class="flex items-center gap-3 mb-4">
+        <div class="flex h-10 w-10 items-center justify-center rounded-full bg-warning/10 text-warning shrink-0">
+            {% lucide "clipboard-check" size=20 %}
+        </div>
+        <div>
+            <h2 class="text-base font-semibold" style="color: var(--color-text-primary);">Manager Review</h2>
+            <p class="text-sm text-text-secondary">Service requests pending your review before they go to the Approver.</p>
+        </div>
+    </div>
+
+    {% if tickets %}
+    <div class="dashboard-card p-0 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="border-b" style="border-color: var(--color-border);">
+                        <th class="text-left py-3 px-4 font-semibold text-text-secondary uppercase tracking-wider text-xs">Ticket</th>
+                        <th class="text-left py-3 px-4 font-semibold text-text-secondary uppercase tracking-wider text-xs">Subject</th>
+                        <th class="text-left py-3 px-4 font-semibold text-text-secondary uppercase tracking-wider text-xs">Requester</th>
+                        <th class="text-left py-3 px-4 font-semibold text-text-secondary uppercase tracking-wider text-xs">Department</th>
+                        <th class="text-left py-3 px-4 font-semibold text-text-secondary uppercase tracking-wider text-xs">Created</th>
+                        <th class="text-center py-3 px-4 font-semibold text-text-secondary uppercase tracking-wider text-xs">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ticket in tickets %}
+                    <tr class="border-b hover:bg-black/5 transition-colors" style="border-color: var(--color-border);">
+                        <td class="py-3 px-4">
+                            <span class="font-mono text-xs text-primary">{{ ticket.number }}</span>
+                        </td>
+                        <td class="py-3 px-4 max-w-xs truncate text-text-primary">{{ ticket.title }}</td>
+                        <td class="py-3 px-4 text-text-secondary">{{ ticket.requester.get_full_name_with_role }}</td>
+                        <td class="py-3 px-4 text-text-secondary">{{ ticket.requester.get_department_display }}</td>
+                        <td class="py-3 px-4 text-text-secondary text-xs">{{ ticket.created_at|timesince }} ago</td>
+                        <td class="py-3 px-4 text-center">
+                            <a href="{% url 'tickets:manager_review_ticket' ticket.pk %}" class="btn-primary text-xs px-3 py-1 rounded">
+                                Review
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% else %}
+    <div class="dashboard-card text-center py-12">
+        <div class="flex flex-col items-center">
+            <span class="text-4xl block mb-3">✅</span>
+            <p class="text-text-secondary text-sm">No service requests pending your review.</p>
+            <p class="text-text-secondary text-xs">All caught up! 🎉</p>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+    // Auto-dismiss messages after 5 seconds
+    document.addEventListener('DOMContentLoaded', function() {
+        const messages = document.querySelectorAll('.message-container .message');
+        messages.forEach(function(msg) {
+            setTimeout(function() {
+                msg.style.transition = 'opacity 0.5s ease';
+                msg.style.opacity = '0';
+                setTimeout(function() {
+                    msg.remove();
+                }, 500);
+            }, 5000);
+        });
+    });
+</script>
+{% endblock %}

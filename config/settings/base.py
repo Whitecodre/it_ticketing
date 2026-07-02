@@ -19,6 +19,8 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'channels',
+    'webpush',
     
     # Tailwind Helper App
     'theme',
@@ -78,6 +80,13 @@ AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
+# config/settings/base.py - add these near the other environment variables
+
+# VAPID for Web Push Notifications
+VAPID_PUBLIC_KEY = env('VAPID_PUBLIC_KEY', default='')
+VAPID_PRIVATE_KEY = env('VAPID_PRIVATE_KEY', default='')
+VAPID_CLAIM_EMAIL = env('VAPID_CLAIM_EMAIL', default='noreply@example.com')
+
 # Authentication backends
 AUTHENTICATION_BACKENDS = [
     'apps.accounts.backends.EmailBackend',
@@ -118,6 +127,7 @@ REST_FRAMEWORK = {
     'PAGE_SIZE': 20,
 }
 
+ASGI_APPLICATION = "config.asgi.application"
 
 # Email (console backend for development)
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'

@@ -2,8 +2,8 @@
 {% load static %}
 {% load lucide %}
 
-{% block dashboard_title %}Assets{% endblock %}
-{% block page_title %}Asset Management{% endblock %}
+{% block dashboard_title %}Asset Management{% endblock %}
+{% block page_title_area %}{% endblock %}
 {% block role_label %}{{ user.get_role_display }}{% endblock %}
 {% block role_badge %}{{ user.get_role_display|upper }}{% endblock %}
 
@@ -13,54 +13,199 @@
 
 {% block dashboard_content %}
 <div class="w-full">
-    <div class="flex justify-between items-center mb-4">
-        {% comment %} <h2 class="text-base font-semibold" style="color: var(--color-text-primary);">Assets</h2> {% endcomment %}
-        {% if user.role in 'ADMIN,SUPERADMIN' %}
-        <a href="{% url 'tickets:asset_create' %}" class="btn-primary text-xs px-3 py-1 rounded-lg">+ Add Asset</a>
+    <!-- Header with Add button -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <div>
+            <h2 class="text-base font-semibold" style="color: var(--color-text-primary);">Asset Management</h2>
+            <p class="text-sm text-text-secondary">Manage hardware, software, and other IT assets.</p>
+        </div>
+        {% if user.role == 'ADMIN' or user.role == 'SUPERADMIN' %}
+        <button class="btn-primary text-sm px-4 py-2 rounded-lg flex items-center gap-2"
+                hx-get="{% url 'tickets:asset_create' %}"
+                hx-target="#modalContainer"
+                hx-swap="innerHTML"
+                onclick="document.getElementById('modalOverlay').classList.remove('hidden')">
+            {% lucide "plus" size=16 %} Add Asset
+        </button>
         {% endif %}
     </div>
-    <div class="dashboard-card p-0 overflow-hidden">
-        <div class="overflow-x-auto">
-            <table class="data-table w-full text-xs">
-                <thead>
-                    <tr>
-                        <th>Name</th>
-                        <th>Type</th>
-                        <th>Serial</th>
-                        <th>Assigned To</th>
-                        <th>Status</th>
-                        <th>Purchase Date</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for asset in assets %}
-                    <tr>
-                        <td class="font-medium">{{ asset.name }}</td>
-                        <td>{{ asset.get_asset_type_display }}</td>
-                        <td>{{ asset.serial_number|default:"—" }}</td>
-                        <td>{{ asset.assigned_to.get_full_name|default:"—" }}</td>
-                        <td><span class="status-chip {{ asset.status|lower }}">{{ asset.get_status_display }}</span></td>
-                        <td>{{ asset.purchase_date|date:"Y-m-d"|default:"—" }}</td>
-                    </tr>
-                    {% empty %}
-                    <tr><td colspan="6" class="text-center py-6">No assets found.</td></tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+
+    <!-- Filters -->
+    <form id="assetFilters" class="flex flex-wrap items-center gap-3 mb-4" 
+        hx-get="{% url 'tickets:assets' %}"
+        hx-target="#assetTableContainer"
+        hx-swap="innerHTML"
+        hx-trigger="change, keyup delay:300ms from:input">
+        
+        <div class="relative flex-1 min-w-[200px]">
+            <input type="text" name="filter_q" value="{{ query }}"
+                placeholder="Search by name, tracking ID, serial..."
+                class="w-full rounded-lg border py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary">
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary">{% lucide "search" size=16 %}</span>
         </div>
-        {% if assets.has_other_pages %}
-        <div class="px-4 py-3 border-t flex justify-between">
-            <span>Page {{ assets.number }} of {{ assets.paginator.num_pages }}</span>
-            <div class="flex gap-2">
-                {% if assets.has_previous %}
-                <a href="?page={{ assets.previous_page_number }}" class="btn-ghost text-xs">← Prev</a>
-                {% endif %}
-                {% if assets.has_next %}
-                <a href="?page={{ assets.next_page_number }}" class="btn-ghost text-xs">Next →</a>
-                {% endif %}
-            </div>
-        </div>
-        {% endif %}
+
+        <select name="filter_type" class="text-sm rounded-lg border py-2 px-3 focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary">
+            <option value="">All Types</option>
+            {% for value, label in asset_types %}
+            <option value="{{ value }}" {% if selected_type == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+
+        <select name="filter_status" class="text-sm rounded-lg border py-2 px-3 focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary">
+            <option value="">All Status</option>
+            {% for value, label in status_choices %}
+            <option value="{{ value }}" {% if selected_status == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+
+        <input type="text" name="filter_location" value="{{ selected_location }}"
+            placeholder="Filter by location"
+            class="text-sm rounded-lg border py-2 px-3 focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary">
+
+        <button type="reset" class="btn-ghost text-sm"
+                onclick="resetFilters(event)">Reset</button>
+    </form>
+
+    <!-- Asset Table -->
+    <div id="assetTableContainer" class="dashboard-card p-0 overflow-hidden shadow-sm">
+        {% include "partials/asset_table.html" %}
     </div>
 </div>
+
+<!-- Modal Overlay for Create/Edit/Action Modals -->
+<div id="modalOverlay" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 hidden"
+     onclick="if(event.target===this) closeModal()">
+    <div id="modalContainer" class="bg-surface rounded-xl shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto" style="background-color: var(--color-surface);">
+        <!-- Content loaded via HTMX -->
+    </div>
+</div>
+
+<script>
+    // Base URLs for JavaScript replacements
+    const scrapApproveUrl = "{% url 'tickets:asset_scrap_approve' 0 %}";
+    const reassignUrl = "{% url 'tickets:asset_reassign' 0 %}";
+    const scrapRequestUrl = "{% url 'tickets:asset_scrap_request' 0 %}";
+    const editUrl = "{% url 'tickets:asset_edit' 0 %}";
+
+    function closeModal() {
+        // Small delay to ensure HTMX swaps complete before hiding
+        setTimeout(function() {
+            document.getElementById('modalOverlay').classList.add('hidden');
+            document.getElementById('modalContainer').innerHTML = '';
+        }, 100);
+    }
+
+    function resetFilters(event) {
+        if (event) event.preventDefault();
+        const form = document.getElementById('assetFilters');
+        form.querySelectorAll('input, select').forEach(function(el) {
+            if (el.tagName === 'INPUT') {
+                el.value = '';
+            } else if (el.tagName === 'SELECT') {
+                el.selectedIndex = 0;
+            }
+        });
+        htmx.ajax('GET', "{% url 'tickets:assets' %}", {
+            target: '#assetTableContainer',
+            swap: 'innerHTML'
+        });
+    }
+
+    // Open scrap approval modal
+    function openScrapApproveModal(assetId) {
+        const modal = document.getElementById('modalContainer');
+        const actionUrl = scrapApproveUrl.replace('0', assetId);
+        modal.innerHTML = `
+            <div class="p-6">
+                <h3 class="text-lg font-semibold mb-4">Scrap Approval</h3>
+                <form method="post" action="${actionUrl}">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="approve">
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium mb-1">Comment (optional)</label>
+                        <textarea name="comment" rows="3" class="w-full rounded-lg border p-2 text-sm"></textarea>
+                    </div>
+                    <div class="flex justify-end gap-2">
+                        <button type="button" onclick="closeModal()" class="btn-ghost text-sm">Cancel</button>
+                        <button type="submit" class="btn-success text-sm">Approve Scrap</button>
+                        <button type="submit" formaction="${actionUrl}?action=reject" class="btn-danger text-sm">Reject</button>
+                    </div>
+                </form>
+            </div>
+        `;
+        document.getElementById('modalOverlay').classList.remove('hidden');
+    }
+
+    // Reassign modal
+    function openReassignModal(assetId) {
+        const modal = document.getElementById('modalContainer');
+        const actionUrl = reassignUrl.replace('0', assetId);
+        modal.innerHTML = `
+            <div class="p-6">
+                <h3 class="text-lg font-semibold mb-4">Reassign Asset</h3>
+                <form method="post" action="${actionUrl}">
+                    {% csrf_token %}
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium mb-1">Assign to User</label>
+                        <select name="assigned_to" class="w-full rounded-lg border p-2 text-sm">
+                            <option value="">Unassign</option>
+                            {% for user in users %}
+                            <option value="{{ user.pk }}">{{ user.get_full_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium mb-1">Comment</label>
+                        <textarea name="comment" rows="2" class="w-full rounded-lg border p-2 text-sm"></textarea>
+                    </div>
+                    <div class="flex justify-end gap-2">
+                        <button type="button" onclick="closeModal()" class="btn-ghost text-sm">Cancel</button>
+                        <button type="submit" class="btn-primary text-sm">Reassign</button>
+                    </div>
+                </form>
+            </div>
+        `;
+        document.getElementById('modalOverlay').classList.remove('hidden');
+    }
+
+    // Scrap request modal
+    function openScrapRequestModal(assetId) {
+        const modal = document.getElementById('modalContainer');
+        const actionUrl = scrapRequestUrl.replace('0', assetId);
+        modal.innerHTML = `
+            <div class="p-6">
+                <h3 class="text-lg font-semibold mb-4">Request Scrap</h3>
+                <form method="post" action="${actionUrl}">
+                    {% csrf_token %}
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium mb-1">Reason for scrapping</label>
+                        <textarea name="comment" rows="3" required class="w-full rounded-lg border p-2 text-sm"></textarea>
+                    </div>
+                    <div class="flex justify-end gap-2">
+                        <button type="button" onclick="closeModal()" class="btn-ghost text-sm">Cancel</button>
+                        <button type="submit" class="btn-danger text-sm">Submit Scrap Request</button>
+                    </div>
+                </form>
+            </div>
+        `;
+        document.getElementById('modalOverlay').classList.remove('hidden');
+    }
+
+    // Edit asset (via HTMX)
+    function editAsset(assetId) {
+        const url = editUrl.replace('0', assetId);
+        htmx.ajax('GET', url, {
+            target: '#modalContainer',
+            swap: 'innerHTML',
+            after: function() {
+                document.getElementById('modalOverlay').classList.remove('hidden');
+            }
+        });
+    }
+
+    // Listen for HX-Trigger: closeModal
+    document.addEventListener('closeModal', function() {
+        closeModal();
+    });
+</script>
 {% endblock %}

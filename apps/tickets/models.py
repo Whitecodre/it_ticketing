@@ -62,9 +62,11 @@ class Ticket(models.Model):
         PENDING_USER = 'PENDING_USER', 'Pending User'
         PENDING_VENDOR = 'PENDING_VENDOR', 'Pending Vendor'
         PENDING_APPROVAL = 'PENDING_APPROVAL', 'Pending Approval'
+        PENDING_MANAGER_REVIEW = 'PENDING_MANAGER_REVIEW', 'Pending Manager Review'
         APPROVED = 'APPROVED', 'Approved'
         RESOLVED = 'RESOLVED', 'Resolved'
         CLOSED = 'CLOSED', 'Closed'
+        ESCALATED = 'ESCALATED', 'Escalated' 
 
     class Impact(models.TextChoices):
         INDIVIDUAL = 'INDIVIDUAL', 'Individual'
@@ -98,7 +100,7 @@ class Ticket(models.Model):
     priority = models.CharField(max_length=2, choices=Priority.choices, editable=False)  # computed from impact+urgency
 
     # Status & assignment
-    status = models.CharField(max_length=20, choices=Status.choices, default=Status.NEW)
+    status = models.CharField(max_length=30, choices=Status.choices, default=Status.NEW)
     requester = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
                                   related_name='requested_tickets')
     assigned_to = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
@@ -276,18 +278,25 @@ class EscalationRule(models.Model):
         return f"Escalation {self.get_action_type_display()} at {self.threshold_percent}% of {self.get_timer_type_display()} for {self.get_priority_display()}"
     
 class Macro(models.Model):
+    class Type(models.TextChoices):
+        COMMENT = 'COMMENT', 'Comment'
+        REASSIGN_REASON = 'REASSIGN_REASON', 'Reassign Reason'
+        RETURN_REASON = 'RETURN_REASON', 'Return Reason'
     class Visibility(models.TextChoices):
         PUBLIC = 'PUBLIC', 'Public'
         INTERNAL = 'INTERNAL', 'Internal'
 
     title = models.CharField(max_length=100)
     body = models.TextField()
+    type = models.CharField(max_length=20, choices=Type.choices, default=Type.COMMENT)
     visibility = models.CharField(max_length=10, choices=Visibility.choices, default=Visibility.PUBLIC)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return self.title
+
+# apps/tickets/models.py
 
 class Asset(models.Model):
     class AssetType(models.TextChoices):
@@ -299,18 +308,90 @@ class Asset(models.Model):
         SOFTWARE = 'SOFTWARE', 'Software License'
         OTHER = 'OTHER', 'Other'
 
+    class Status(models.TextChoices):
+        ACTIVE = 'ACTIVE', 'Active'
+        IN_STORE = 'IN_STORE', 'In Store'          # unassigned, available
+        MAINTENANCE = 'MAINTENANCE', 'Maintenance'
+        DAMAGED = 'DAMAGED', 'Damaged'              # pending scrap approval
+        SCRAPPED = 'SCRAPPED', 'Scrapped'           # removed from inventory
+        RETIRED = 'RETIRED', 'Retired'              # legacy, can be merged with SCRAPPED
+
+    # Basic info
     name = models.CharField(max_length=200)
     asset_type = models.CharField(max_length=20, choices=AssetType.choices, default=AssetType.COMPUTER)
     serial_number = models.CharField(max_length=100, blank=True)
+
+    # NEW FIELDS
+    tracking_id = models.CharField(max_length=50, unique=True, editable=False)  # auto-generated
+    model = models.CharField(max_length=100, blank=True)
+    manufacturer = models.CharField(max_length=100, blank=True)
+    location = models.CharField(max_length=200, blank=True)
+    warranty_expiry = models.DateField(null=True, blank=True)
+    warranty_duration_years = models.PositiveSmallIntegerField(default=0, help_text="Warranty duration in years")
+    assigned_to_department = models.CharField(max_length=50, blank=True)
+
+    # Assignment & status
     assigned_to = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_assets')
-    status = models.CharField(max_length=20, choices=[('ACTIVE', 'Active'), ('MAINTENANCE', 'Maintenance'), ('RETIRED', 'Retired')], default='ACTIVE')
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.ACTIVE)
+
+    # Scrap approval workflow
+    scrap_approved = models.BooleanField(default=False)
+    scrap_approved_at = models.DateTimeField(null=True, blank=True)
+    scrap_approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='approved_scraps')
+
+    # Timestamps
     purchase_date = models.DateField(null=True, blank=True)
     notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    def save(self, *args, **kwargs):
+        if not self.tracking_id:
+            # Generate tracking ID: AST-YYYY-XXXX (e.g., AST-2025-0042)
+            year = timezone.now().year
+            last_asset = Asset.objects.filter(tracking_id__startswith=f'AST-{year}').order_by('tracking_id').last()
+            if last_asset:
+                # Extract numeric part after last dash
+                parts = last_asset.tracking_id.split('-')
+                if len(parts) == 3:
+                    try:
+                        num = int(parts[2]) + 1
+                    except ValueError:
+                        num = 1
+                else:
+                    num = 1
+            else:
+                num = 1
+            self.tracking_id = f'AST-{year}-{num:04d}'
+        super().save(*args, **kwargs)
+
     def __str__(self):
-        return self.name
+        return f"{self.tracking_id} - {self.name}"
+
+
+class AssetLog(models.Model):
+    """Audit trail for asset changes"""
+    class Action(models.TextChoices):
+        CREATED = 'CREATED', 'Created'
+        UPDATED = 'UPDATED', 'Updated'
+        ASSIGNED = 'ASSIGNED', 'Assigned'
+        UNASSIGNED = 'UNASSIGNED', 'Unassigned'
+        STATUS_CHANGED = 'STATUS_CHANGED', 'Status Changed'
+        SCRAP_REQUESTED = 'SCRAP_REQUESTED', 'Scrap Requested'
+        SCRAP_APPROVED = 'SCRAP_APPROVED', 'Scrap Approved'
+        SCRAP_REJECTED = 'SCRAP_REJECTED', 'Scrap Rejected'
+
+    asset = models.ForeignKey(Asset, on_delete=models.CASCADE, related_name='logs')
+    action = models.CharField(max_length=20, choices=Action.choices)
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    details = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.action} on {self.asset.tracking_id} by {self.actor}"
 
 class RemoteConnector(models.Model):
     name = models.CharField(max_length=50, unique=True)

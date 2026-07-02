@@ -1,6 +1,7 @@
 import random, hashlib, os, re, csv, json
 from openpyxl import Workbook
 from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
@@ -18,11 +19,13 @@ from datetime import timedelta
 from django.core.mail import send_mail
 from django.conf import settings
 from .forms import TicketForm, CommentForm
-from .models import Ticket, TicketComment, Macro, TicketActivityLog, SLA, EscalationRule, BusinessCalendar, Attachment, Asset, RemoteConnector, RemoteSession
+from .models import *
 from apps.accounts.models import User
 from apps.common.models import Notification
 from bs4 import BeautifulSoup
 
+import logging
+logger = logging.getLogger(__name__)
 # ==========================================================================
 # HELPER FUNCTIONS
 # ==========================================================================
@@ -137,6 +140,10 @@ def save_attachments(ticket, files, author, comment=None):
 # TICKET CREATION & LISTING VIEWS (End Users)
 # ==========================================================================
 
+# apps/tickets/views.py
+import random
+from django.contrib import messages
+
 @login_required
 def create_ticket(request):
     """
@@ -174,13 +181,31 @@ def create_ticket(request):
             if files:
                 save_attachments(ticket, files, request.user)
 
-            # If it's a service request, set status to PENDING_APPROVAL
+            # If it's a service request, set status to PENDING_MANAGER_REVIEW
             if ticket.type == Ticket.Type.SERVICE_REQUEST:
-                ticket.status = Ticket.Status.PENDING_APPROVAL
+                ticket.status = Ticket.Status.PENDING_MANAGER_REVIEW
                 ticket.save(update_fields=['status'])
+                # Notify Team Leads in the requester's department
+                team_leads = User.objects.filter(
+                    department=ticket.requester.department,
+                    role=User.Role.TEAM_LEAD,
+                    is_active=True
+                )
+                for tl in team_leads:
+                    Notification.objects.create(
+                        recipient=tl,
+                        message=f'New service request {ticket.number} from {ticket.requester.get_full_name()} needs review.',
+                        url=reverse('tickets:manager_review_ticket', args=[ticket.pk])
+                    )
+                messages.success(request, f'Service request {ticket.number} submitted for manager review.')
+            else:
+                messages.success(request, f'Ticket {ticket.number} created successfully.')
+
             apply_sla(ticket)
 
             return redirect('tickets:detail', pk=ticket.pk)
+        else:
+            messages.error(request, 'Please correct the errors below.')
     else:
         form = TicketForm(initial={'type': ticket_type})
 
@@ -360,10 +385,14 @@ def unassigned_queue(request):
     excluding resolved, closed, and pending approval tickets.
     Agents can claim tickets directly from this view.
     """
+     # Debug – count tickets by status
+    from django.db.models import Count
+    status_counts = Ticket.objects.filter(assigned_to__isnull=True).values('status').annotate(count=Count('id'))
+    print("Unassigned tickets by status:", list(status_counts))
     tickets = Ticket.objects.filter(
         assigned_to__isnull=True
     ).exclude(
-        status__in=[Ticket.Status.RESOLVED, Ticket.Status.CLOSED, Ticket.Status.PENDING_APPROVAL]
+        status__in=[Ticket.Status.RESOLVED, Ticket.Status.CLOSED, Ticket.Status.PENDING_APPROVAL, Ticket.Status.PENDING_MANAGER_REVIEW]
     ).order_by('-created_at')
 
     assignable_agents = User.objects.filter(role__in=['AGENT', 'TEAM_LEAD', 'ADMIN', 'SUPERADMIN']).only('pk', 'first_name', 'last_name', 'email')
@@ -385,7 +414,7 @@ def assigned_to_me(request):
     tickets = Ticket.objects.filter(
         assigned_to=request.user
     ).exclude(
-        status__in=[Ticket.Status.RESOLVED, Ticket.Status.CLOSED, Ticket.Status.PENDING_APPROVAL]
+        status__in=[Ticket.Status.RESOLVED, Ticket.Status.CLOSED, Ticket.Status.PENDING_APPROVAL, Ticket.Status.PENDING_MANAGER_REVIEW]
     ).order_by('-created_at')
 
     assignable_agents = User.objects.filter(role__in=['AGENT', 'TEAM_LEAD', 'ADMIN', 'SUPERADMIN']).only('pk', 'first_name', 'last_name', 'email')
@@ -407,6 +436,9 @@ def claim_ticket(request, pk):
     """
     ticket = get_object_or_404(Ticket, pk=pk)
     if ticket.assigned_to is None:
+        # Prevent claiming if ticket is pending manager review
+        if ticket.status == Ticket.Status.PENDING_MANAGER_REVIEW:
+            return HttpResponse("This ticket is pending manager review and cannot be claimed.", status=400)
         ticket.assigned_to = request.user
         ticket.status = Ticket.Status.ASSIGNED
         ticket.save()
@@ -1023,56 +1055,384 @@ def connector_edit(request, pk):
         'sidebar_template': get_sidebar_template(request.user),
     })
 
+# apps/tickets/views.py
+
 @login_required
 def assets(request):
-    """
-    Asset list (CMDB‑lite) – view all assets. Accessible to Agents, Team Leads, Admins, Superadmins.
-    """
     if request.user.role not in ['ADMIN', 'SUPERADMIN', 'AGENT', 'TEAM_LEAD']:
         return HttpResponse(status=403)
+
+    # Use renamed filter parameters
+    query = request.GET.get('filter_q', '')
+    asset_type = request.GET.get('filter_type', '')
+    status_filter = request.GET.get('filter_status', '')
+    location_filter = request.GET.get('filter_location', '')
+
     assets_list = Asset.objects.all().order_by('-created_at')
-    paginator = Paginator(assets_list, 20)
+
+    if query:
+        assets_list = assets_list.filter(
+            Q(name__icontains=query) |
+            Q(tracking_id__icontains=query) |
+            Q(serial_number__icontains=query) |
+            Q(model__icontains=query) |
+            Q(manufacturer__icontains=query)
+        )
+    if asset_type:
+        assets_list = assets_list.filter(asset_type=asset_type)
+    if status_filter:
+        assets_list = assets_list.filter(status=status_filter)
+    if location_filter:
+        assets_list = assets_list.filter(location__icontains=location_filter)
+
+    paginator = Paginator(assets_list, 10)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
-    return render(request, 'tickets/asset_list.html', {
+
+    users = User.objects.filter(is_active=True).order_by('first_name', 'last_name')
+
+    context = {
         'assets': page_obj,
+        'users': users,
+        'asset_types': Asset.AssetType.choices,
+        'status_choices': Asset.Status.choices,
+        'query': query,
+        'selected_type': asset_type,
+        'selected_status': status_filter,
+        'selected_location': location_filter,
         'sidebar_template': get_sidebar_template(request.user),
-    })
+    }
+
+    if request.headers.get('HX-Request'):
+        return render(request, 'partials/asset_table.html', context)
+
+    return render(request, 'tickets/asset_list.html', context)
+
 
 @login_required
 @require_http_methods(['GET', 'POST'])
 def asset_create(request):
-    """
-    Create a new asset (Admin/Superadmin only).
-    """
     if request.user.role not in ['ADMIN', 'SUPERADMIN']:
         return HttpResponse(status=403)
+
     if request.method == 'POST':
         name = request.POST.get('name')
         asset_type = request.POST.get('asset_type')
-        serial = request.POST.get('serial_number')
+        serial_number = request.POST.get('serial_number')
+        model = request.POST.get('model')
+        manufacturer = request.POST.get('manufacturer')
+        location = request.POST.get('location')
+        warranty_expiry = request.POST.get('warranty_expiry') or None
+        warranty_duration_years = int(request.POST.get('warranty_duration', 0))
         assigned_to_id = request.POST.get('assigned_to')
         status = request.POST.get('status')
         purchase_date = request.POST.get('purchase_date') or None
         notes = request.POST.get('notes')
-        Asset.objects.create(
-            name=name, asset_type=asset_type, serial_number=serial,
-            assigned_to_id=assigned_to_id or None, status=status,
-            purchase_date=purchase_date, notes=notes
+
+        asset = Asset.objects.create(
+            name=name,
+            asset_type=asset_type,
+            serial_number=serial_number,
+            model=model,
+            manufacturer=manufacturer,
+            location=location,
+            warranty_expiry=warranty_expiry,
+            warranty_duration_years=warranty_duration_years,
+            assigned_to_id=assigned_to_id or None,
+            status=status,
+            purchase_date=purchase_date,
+            notes=notes
         )
+        AssetLog.objects.create(
+            asset=asset,
+            action=AssetLog.Action.CREATED,
+            actor=request.user,
+            details={'name': name, 'type': asset_type}
+        )
+
+        if request.headers.get('HX-Request'):
+            # --- Get filter values from POST (renamed to avoid conflicts) ---
+            filter_q = request.POST.get('filter_q', '')
+            filter_type = request.POST.get('filter_type', '')
+            filter_status = request.POST.get('filter_status', '')
+            filter_location = request.POST.get('filter_location', '')
+
+            assets_list = Asset.objects.all().order_by('-created_at')
+            if filter_q:
+                assets_list = assets_list.filter(
+                    Q(name__icontains=filter_q) |
+                    Q(tracking_id__icontains=filter_q) |
+                    Q(serial_number__icontains=filter_q) |
+                    Q(model__icontains=filter_q) |
+                    Q(manufacturer__icontains=filter_q)
+                )
+            if filter_type:
+                assets_list = assets_list.filter(asset_type=filter_type)
+            if filter_status:
+                assets_list = assets_list.filter(status=filter_status)
+            if filter_location:
+                assets_list = assets_list.filter(location__icontains=filter_location)
+
+            paginator = Paginator(assets_list, 10)
+            page_number = request.POST.get('page', 1)
+            page_obj = paginator.get_page(page_number)
+
+            context = {
+                'assets': page_obj,
+                'users': User.objects.filter(is_active=True),
+                'asset_types': Asset.AssetType.choices,
+                'status_choices': Asset.Status.choices,
+                'query': filter_q,
+                'selected_type': filter_type,
+                'selected_status': filter_status,
+                'selected_location': filter_location,
+                'sidebar_template': get_sidebar_template(request.user),
+            }
+            response = render(request, 'partials/asset_table.html', context)
+            response['HX-Trigger'] = 'closeModal'
+            return response
+
         return redirect('tickets:assets')
-    users = User.objects.filter(role__in=['END_USER', 'AGENT'])
-    return render(request, 'tickets/asset_form.html', {
-        'users': users,
-        'sidebar_template': get_sidebar_template(request.user),
+
+    # GET: return modal
+    return render(request, 'tickets/asset_form_modal.html', {
+        'users': User.objects.filter(is_active=True),
+        'asset': None,
+        'action': 'create',
+        'asset_types': Asset.AssetType.choices,
+        'status_choices': Asset.Status.choices,
+    })
+
+
+@login_required
+@require_http_methods(['GET', 'POST'])
+def asset_edit(request, pk):
+    if request.user.role not in ['ADMIN', 'SUPERADMIN']:
+        return HttpResponse(status=403)
+
+    asset = get_object_or_404(Asset, pk=pk)
+    # Read source from GET for modal loading, from POST for form submission
+    source = request.GET.get('source', request.POST.get('source', 'list'))
+
+    if request.method == 'POST':
+        old_status = asset.status
+        old_assignee = asset.assigned_to
+
+        asset.name = request.POST.get('name')
+        asset.asset_type = request.POST.get('asset_type')
+        asset.serial_number = request.POST.get('serial_number')
+        asset.model = request.POST.get('model')
+        asset.manufacturer = request.POST.get('manufacturer')
+        asset.location = request.POST.get('location')
+        asset.warranty_expiry = request.POST.get('warranty_expiry') or None
+        asset.warranty_duration_years = int(request.POST.get('warranty_duration', 0))
+        asset.assigned_to_id = request.POST.get('assigned_to') or None
+        asset.status = request.POST.get('status')
+        asset.purchase_date = request.POST.get('purchase_date') or None
+        asset.notes = request.POST.get('notes')
+        asset.save()
+
+        details = {}
+        if old_status != asset.status:
+            details['status_change'] = {'from': old_status, 'to': asset.status}
+        if old_assignee != asset.assigned_to:
+            details['assignee_change'] = {
+                'from': old_assignee.get_full_name() if old_assignee else None,
+                'to': asset.assigned_to.get_full_name() if asset.assigned_to else None
+            }
+        if details:
+            AssetLog.objects.create(
+                asset=asset,
+                action=AssetLog.Action.UPDATED,
+                actor=request.user,
+                details=details
+            )
+
+        if request.headers.get('HX-Request'):
+             # If coming from detail page, redirect to detail after success
+            if source == 'detail':
+                # Return a redirect response that HTMX will follow
+                response = HttpResponse(status=200)
+                response['HX-Redirect'] = reverse('tickets:asset_detail', args=[asset.pk])
+                return response
+            filter_q = request.POST.get('filter_q', '')
+            filter_type = request.POST.get('filter_type', '')
+            filter_status = request.POST.get('filter_status', '')
+            filter_location = request.POST.get('filter_location', '')
+
+            assets_list = Asset.objects.all().order_by('-created_at')
+            if filter_q:
+                assets_list = assets_list.filter(
+                    Q(name__icontains=filter_q) |
+                    Q(tracking_id__icontains=filter_q) |
+                    Q(serial_number__icontains=filter_q) |
+                    Q(model__icontains=filter_q) |
+                    Q(manufacturer__icontains=filter_q)
+                )
+            if filter_type:
+                assets_list = assets_list.filter(asset_type=filter_type)
+            if filter_status:
+                assets_list = assets_list.filter(status=filter_status)
+            if filter_location:
+                assets_list = assets_list.filter(location__icontains=filter_location)
+
+            paginator = Paginator(assets_list, 10)
+            page_number = request.POST.get('page', 1)
+            page_obj = paginator.get_page(page_number)
+
+            context = {
+                'assets': page_obj,
+                'users': User.objects.filter(is_active=True),
+                'asset_types': Asset.AssetType.choices,
+                'status_choices': Asset.Status.choices,
+                'query': filter_q,
+                'selected_type': filter_type,
+                'selected_status': filter_status,
+                'selected_location': filter_location,
+                'sidebar_template': get_sidebar_template(request.user),
+            }
+            response = render(request, 'partials/asset_table.html', context)
+            response['HX-Trigger'] = 'closeModal'
+            return response
+
+        return redirect('tickets:assets')
+
+    # GET: return modal
+    return render(request, 'tickets/asset_form_modal.html', {
+        'asset': asset,
+        'users': User.objects.filter(is_active=True),
+        'action': 'edit',
+        'asset_types': Asset.AssetType.choices,
+        'status_choices': Asset.Status.choices,
+        'source': source,
     })
 
 @login_required
-def asset_edit(request, pk):
-    """
-    (Optional) Edit an existing asset. Not yet implemented.
-    """
-    pass
+@require_POST
+def asset_reassign(request, pk):
+    if request.user.role not in ['ADMIN', 'SUPERADMIN', 'TEAM_LEAD']:
+        return HttpResponse(status=403)
+
+    asset = get_object_or_404(Asset, pk=pk)
+    new_user_id = request.POST.get('assigned_to')
+    comment = request.POST.get('comment', '')
+
+    old_user = asset.assigned_to
+    if new_user_id:
+        new_user = get_object_or_404(User, pk=new_user_id)
+        asset.assigned_to = new_user
+    else:
+        asset.assigned_to = None
+    asset.save()
+
+    AssetLog.objects.create(
+        asset=asset,
+        action=AssetLog.Action.ASSIGNED if new_user_id else AssetLog.Action.UNASSIGNED,
+        actor=request.user,
+        details={
+            'from': old_user.get_full_name() if old_user else None,
+            'to': new_user.get_full_name() if new_user_id else None,
+            'comment': comment
+        }
+    )
+
+    return redirect('tickets:assets')
+
+@login_required
+def asset_detail(request, pk):
+    if request.user.role not in ['ADMIN', 'SUPERADMIN', 'AGENT', 'TEAM_LEAD']:
+        return HttpResponse(status=403)
+    
+    asset = get_object_or_404(Asset, pk=pk)
+    logs = asset.logs.all()[:10]  # Recent activity
+    
+    return render(request, 'tickets/asset_detail.html', {
+        'asset': asset,
+        'logs': logs,
+        'sidebar_template': get_sidebar_template(request.user),
+    })
+
+
+@login_required
+@require_POST
+def asset_scrap_request(request, pk):
+    if request.user.role not in ['ADMIN', 'SUPERADMIN', 'TEAM_LEAD']:
+        return HttpResponse(status=403)
+
+    asset = get_object_or_404(Asset, pk=pk)
+    comment = request.POST.get('comment', '')
+
+    if asset.status == Asset.Status.SCRAPPED:
+        return JsonResponse({'error': 'Asset already scrapped.'}, status=400)
+
+    asset.status = Asset.Status.DAMAGED
+    asset.save()
+
+    AssetLog.objects.create(
+        asset=asset,
+        action=AssetLog.Action.SCRAP_REQUESTED,
+        actor=request.user,
+        details={'comment': comment}
+    )
+
+    return redirect('tickets:assets')
+
+
+@login_required
+@require_POST
+def asset_scrap_approve(request, pk):
+    if request.user.role not in ['ADMIN', 'SUPERADMIN']:
+        return HttpResponse(status=403)
+
+    asset = get_object_or_404(Asset, pk=pk)
+    action = request.POST.get('action')  # 'approve' or 'reject'
+
+    if action == 'approve':
+        asset.status = Asset.Status.SCRAPPED
+        asset.scrap_approved = True
+        asset.scrap_approved_at = timezone.now()
+        asset.scrap_approved_by = request.user
+        asset.save()
+        AssetLog.objects.create(
+            asset=asset,
+            action=AssetLog.Action.SCRAP_APPROVED,
+            actor=request.user,
+            details={'comment': request.POST.get('comment', '')}
+        )
+    else:
+        # Reject: revert to previous status (e.g., ACTIVE or IN_STORE)
+        asset.status = Asset.Status.ACTIVE  # or a configurable fallback
+        asset.save()
+        AssetLog.objects.create(
+            asset=asset,
+            action=AssetLog.Action.SCRAP_REJECTED,
+            actor=request.user,
+            details={'comment': request.POST.get('comment', '')}
+        )
+
+    return redirect('tickets:assets')
+
+# apps/tickets/views.py
+
+@login_required
+def asset_calculate_warranty(request):
+    purchase_date_str = request.GET.get('purchase_date')
+    duration_years = request.GET.get('warranty_duration', 0)  # Changed from 'duration'
+    expiry_date_str = ''
+    try:
+        duration_years = int(duration_years)
+        if duration_years > 0 and purchase_date_str:
+            from datetime import datetime
+            purchase_date = datetime.strptime(purchase_date_str, '%Y-%m-%d').date()
+            expiry_date = purchase_date.replace(year=purchase_date.year + duration_years)
+            expiry_date_str = expiry_date.strftime('%Y-%m-%d')
+    except (ValueError, TypeError, OverflowError):
+        pass
+    # If we couldn't calculate, return the current expiry if present, else empty
+    if not expiry_date_str:
+        current_expiry = request.GET.get('current_expiry', '')
+        expiry_date_str = current_expiry
+    return render(request, 'partials/warranty_expiry_input.html', {'value': expiry_date_str})
 
 # ==========================================================================
 # REMOTE SESSION REQUESTS (Quick Assist integration)
@@ -1124,7 +1484,8 @@ def request_remote_session(request, pk):
     Notification.objects.create(
         recipient=ticket.requester,
         message=f"Remote session requested for ticket {ticket.number}. Click to accept.",
-        url=reverse('tickets:remote_session_detail', args=[session.pk])
+        url=reverse('tickets:remote_session_detail', args=[session.pk]),
+        type=Notification.Type.REMOTE_SESSION
     )
 
     # Send email notification to the requester
@@ -1201,7 +1562,8 @@ def remote_session_detail(request, session_pk):
                 Notification.objects.create(
                     recipient=session.agent,
                     message=f"{session.requester.get_full_name()} accepted the remote session for ticket {session.ticket.number}.",
-                    url=reverse('tickets:remote_session_detail', args=[session.pk])
+                    url=reverse('tickets:remote_session_detail', args=[session.pk]),
+                    type=Notification.Type.REMOTE_SESSION
                 )
                 TicketActivityLog.objects.create(
                     ticket=session.ticket,
@@ -1275,6 +1637,24 @@ def remote_session_detail(request, session_pk):
     return render(request, 'tickets/remote_session_detail.html', context)
 
 @login_required
+def remote_session_pending_count(request):
+    """
+    Returns the count of pending remote sessions for the current user.
+    For agents: sessions they requested with status REQUESTED or ACCEPTED.
+    For requesters: sessions requested for their tickets with status REQUESTED.
+    """
+    user = request.user
+    if user.role in ['ADMIN', 'SUPERADMIN']:
+        # Admins see all pending sessions
+        count = RemoteSession.objects.filter(status__in=['REQUESTED', 'ACCEPTED']).count()
+    elif user.role in ['AGENT', 'TEAM_LEAD']:
+        count = RemoteSession.objects.filter(agent=user, status__in=['REQUESTED', 'ACCEPTED']).count()
+    else:
+        # End users: sessions requested for their tickets
+        count = RemoteSession.objects.filter(requester=user, status='REQUESTED').count()
+    return render(request, 'partials/remote_session_badge.html', {'count': count})
+
+@login_required
 def remote_sessions_list(request):
     """
     List all remote sessions relevant to the logged‑in user.
@@ -1300,6 +1680,90 @@ def remote_sessions_list(request):
         'sidebar_template': get_sidebar_template(request.user),
     }
     return render(request, 'tickets/remote_sessions_list.html', context)
+
+@login_required
+def escalated_tickets(request):
+    if request.user.role not in [User.Role.TEAM_LEAD, User.Role.ADMIN, User.Role.SUPERADMIN]:
+        return HttpResponse(status=403)
+
+    tickets = Ticket.objects.filter(status=Ticket.Status.ESCALATED).order_by('-created_at')
+
+    # If Team Lead, filter by their department
+    if request.user.role == User.Role.TEAM_LEAD:
+        tickets = tickets.filter(assigned_to__department=request.user.department)
+
+    # Agents in the same department (for reassign)
+    agents = User.objects.filter(department=request.user.department, role=User.Role.AGENT, is_active=True)
+
+    # Workload: open tickets per agent
+    open_statuses = ['NEW', 'TRIAGED', 'ASSIGNED', 'IN_PROGRESS', 'PENDING_USER', 'PENDING_VENDOR']
+    agent_workload = {}
+    for agent in agents:
+        agent_workload[agent.pk] = Ticket.objects.filter(
+            assigned_to=agent,
+            status__in=open_statuses
+        ).count()
+
+    # Reason macros
+    reassign_reasons = Macro.objects.filter(type=Macro.Type.REASSIGN_REASON)
+    return_reasons = Macro.objects.filter(type=Macro.Type.RETURN_REASON)
+
+    context = {
+        'tickets': tickets,
+        'assignable_agents': agents,
+        'agent_workload': agent_workload,
+        'reassign_reasons': reassign_reasons,
+        'return_reasons': return_reasons,
+        'sidebar_template': get_sidebar_template(request.user),
+    }
+    return render(request, 'team_lead/escalated_tickets.html', context)
+
+@login_required
+@require_POST
+def reassign_escalated(request, pk):
+    if request.user.role not in [User.Role.TEAM_LEAD, User.Role.ADMIN, User.Role.SUPERADMIN]:
+        return HttpResponse(status=403)
+    ticket = get_object_or_404(Ticket, pk=pk, status=Ticket.Status.ESCALATED)
+    agent_id = request.POST.get('agent_id')
+    comment = request.POST.get('comment', '')
+    agent = get_object_or_404(User, pk=agent_id, role=User.Role.AGENT)
+    ticket.assigned_to = agent
+    ticket.status = Ticket.Status.ASSIGNED
+    ticket.save()
+    TicketActivityLog.objects.create(
+        ticket=ticket,
+        action='reassigned_escalated',
+        actor=request.user,
+        details={'to': agent.get_full_name(), 'comment': comment}
+    )
+    # Notify agent
+    Notification.objects.create(
+        recipient=agent,
+        message=f"Ticket {ticket.number} has been reassigned to you by {request.user.get_full_name()}.",
+        url=reverse('tickets:detail', args=[ticket.pk])
+    )
+    return redirect('tickets:escalated_tickets')
+
+@login_required
+@require_POST
+def return_escalated_to_pool(request, pk):
+    if request.user.role not in [User.Role.TEAM_LEAD, User.Role.ADMIN, User.Role.SUPERADMIN]:
+        return HttpResponse(status=403)
+    ticket = get_object_or_404(Ticket, pk=pk, status=Ticket.Status.ESCALATED)
+    comment = request.POST.get('comment', '')
+    if not comment:
+        return JsonResponse({'error': 'Comment is required'}, status=400)
+    ticket.assigned_to = None
+    ticket.status = Ticket.Status.NEW
+    ticket.save()
+    TicketActivityLog.objects.create(
+        ticket=ticket,
+        action='returned_to_pool',
+        actor=request.user,
+        details={'comment': comment}
+    )
+    # Notify? optional
+    return redirect('tickets:escalated_tickets')
 
 
 def kb_suggestions(request):
@@ -1373,8 +1837,67 @@ def reject_ticket(request, pk):
     return redirect('tickets:approver_pending')
 
 # ==========================================================================
-# ATTACHMENT DOWNLOAD
+# ATTACHMENT PREVIEW AND DOWNLOAD
 # ==========================================================================
+
+@login_required
+def attachment_preview(request, pk):
+    """
+    Returns a modal with a preview of the attachment.
+    Supports images, PDF, Office documents, and text files.
+    """
+    attachment = get_object_or_404(Attachment, pk=pk)
+    ticket = attachment.ticket
+
+    # Permission check: same as download
+    if request.user != ticket.requester and request.user.role not in ['AGENT', 'TEAM_LEAD', 'ADMIN', 'SUPERADMIN']:
+        return HttpResponse(status=403)
+
+    # Get file URL for embedding
+    file_url = request.build_absolute_uri(attachment.file.url)
+    content_type = attachment.content_type or ''
+    filename = attachment.filename
+
+    # Determine preview type
+    preview_type = 'unknown'
+    embed_url = None
+    text_content = None
+
+    if content_type.startswith('image/'):
+        preview_type = 'image'
+    elif content_type == 'application/pdf':
+        preview_type = 'pdf'
+        embed_url = f"https://docs.google.com/gview?url={file_url}&embedded=true"
+    elif content_type in [
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.ms-powerpoint',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+    ]:
+        preview_type = 'office'
+        embed_url = f"https://docs.google.com/gview?url={file_url}&embedded=true"
+    elif content_type.startswith('text/') or filename.endswith(('.txt', '.csv', '.log', '.py', '.js', '.html', '.css')):
+        preview_type = 'text'
+        # Fetch the file content (for small text files only)
+        try:
+            with attachment.file.open('r') as f:
+                text_content = f.read()
+                # Limit size to prevent huge files
+                if len(text_content) > 100000:  # 100KB limit
+                    text_content = "File too large to preview as text."
+        except Exception:
+            text_content = "Could not read file content."
+
+    context = {
+        'attachment': attachment,
+        'preview_type': preview_type,
+        'embed_url': embed_url,
+        'text_content': text_content,
+        'file_url': file_url,
+    }
+    return render(request, 'tickets/attachment_preview.html', context)
 
 @login_required
 def attachment_download(request, pk):
@@ -1483,3 +2006,139 @@ def calendar_delete(request, pk):
     cal = get_object_or_404(BusinessCalendar, pk=pk)
     cal.delete()
     return redirect('tickets:sla_management')
+
+# ==========================================================================
+# MANAGER WORKFLOW (Team Lead reviews service requests)
+# ==========================================================================
+
+@login_required
+def manager_review_queue(request):
+    """Team Lead view – list service requests pending manager review."""
+    if request.user.role != User.Role.TEAM_LEAD:
+        return HttpResponse(status=403)
+
+    tickets = Ticket.objects.filter(
+        status=Ticket.Status.PENDING_MANAGER_REVIEW,
+        requester__department=request.user.department
+    ).order_by('-created_at')
+
+    context = {
+        'tickets': tickets,
+        'sidebar_template': get_sidebar_template(request.user),
+    }
+    return render(request, 'team_lead/manager_review_queue.html', context)
+
+
+@login_required
+def manager_review_ticket(request, pk):
+    """Team Lead review page for a single service request."""
+    if request.user.role != User.Role.TEAM_LEAD:
+        return HttpResponse(status=403)
+
+    ticket = get_object_or_404(Ticket, pk=pk)
+
+    # Security: ensure ticket belongs to Team Lead's department
+    if ticket.requester.department != request.user.department:
+        return HttpResponse(status=403)
+
+    # Only allow review of PENDING_MANAGER_REVIEW tickets
+    if ticket.status != Ticket.Status.PENDING_MANAGER_REVIEW:
+        messages.warning(request, f'Ticket {ticket.number} is not pending manager review.')
+        return redirect('tickets:manager_review_queue')
+
+    if request.method == 'POST':
+        action = request.POST.get('action', '').strip()
+        comment = request.POST.get('comment', '').strip()
+
+        # Log for debugging
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"Manager review action received: '{action}'")
+
+        if not comment:
+            messages.error(request, 'Please provide a comment.')
+            return redirect('tickets:manager_review_ticket', pk=pk)
+
+        if action == 'approve':
+            ticket.status = Ticket.Status.PENDING_APPROVAL
+            ticket.save()
+            TicketActivityLog.objects.create(
+                ticket=ticket,
+                action='manager_approved',
+                actor=request.user,
+                details={'comment': comment}
+            )
+            # Notify Approvers
+            approvers = User.objects.filter(role=User.Role.APPROVER, is_active=True)
+            for approver in approvers:
+                Notification.objects.create(
+                    recipient=approver,
+                    message=f'Service request {ticket.number} approved by {request.user.get_full_name()} and pending your approval.',
+                    url=reverse('tickets:detail', args=[ticket.pk])
+                )
+            Notification.objects.create(
+                recipient=ticket.requester,
+                message=f'Your service request {ticket.number} has been approved by your manager and is now pending final approval.',
+                url=reverse('tickets:detail', args=[ticket.pk])
+            )
+            messages.success(request, f'Ticket {ticket.number} approved and sent to Approver.')
+
+        elif action == 'reject':
+            ticket.status = Ticket.Status.CLOSED
+            ticket.save()
+            TicketActivityLog.objects.create(
+                ticket=ticket,
+                action='manager_rejected',
+                actor=request.user,
+                details={'comment': comment}
+            )
+            Notification.objects.create(
+                recipient=ticket.requester,
+                message=f'Your service request {ticket.number} was rejected by your manager. Reason: {comment}',
+                url=reverse('tickets:detail', args=[ticket.pk])
+            )
+            messages.info(request, f'Ticket {ticket.number} rejected.')
+
+        elif action == 'request_changes':
+            ticket.status = Ticket.Status.PENDING_USER
+            ticket.save()
+            TicketActivityLog.objects.create(
+                ticket=ticket,
+                action='manager_requested_changes',
+                actor=request.user,
+                details={'comment': comment}
+            )
+            Notification.objects.create(
+                recipient=ticket.requester,
+                message=f'Changes requested for ticket {ticket.number} by your manager: {comment}',
+                url=reverse('tickets:detail', args=[ticket.pk])
+            )
+            messages.info(request, f'Changes requested on ticket {ticket.number}.')
+
+        else:
+            messages.error(request, f'Invalid action: "{action}"')
+            return redirect('tickets:manager_review_ticket', pk=pk)
+
+        return redirect('tickets:manager_review_queue')
+
+    # GET – render review page
+    comments = ticket.comments.all().order_by('created_at')
+    initial_attachments = ticket.attachments.filter(comment__isnull=True)
+
+    context = {
+        'ticket': ticket,
+        'comments': comments,
+        'initial_attachments': initial_attachments,
+        'sidebar_template': get_sidebar_template(request.user),
+    }
+    return render(request, 'team_lead/manager_review_ticket.html', context)
+
+@login_required
+def manager_review_count(request):
+    if request.user.role != User.Role.TEAM_LEAD:
+        return HttpResponse('')
+    count = Ticket.objects.filter(
+        status=Ticket.Status.PENDING_MANAGER_REVIEW,
+        requester__department=request.user.department
+    ).count()
+    return render(request, 'partials/manager_review_badge.html', {'count': count})

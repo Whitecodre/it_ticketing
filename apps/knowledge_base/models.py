@@ -1,5 +1,6 @@
 from django.db import models
 from django.conf import settings
+from django.utils.text import slugify
 from apps.common.models import Category
 
 class Article(models.Model):
@@ -23,6 +24,11 @@ class Article(models.Model):
     tags = models.ManyToManyField('common.Tag', blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.title)
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.title

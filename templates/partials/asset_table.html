@@ -1,0 +1,102 @@
+{% load lucide %}
+
+<div class="overflow-x-auto">
+    <table class="w-full text-sm">
+        <thead>
+            <tr class="border-b" style="border-color: var(--color-border);">
+                <th class="text-left py-3 px-4 font-semibold text-text-secondary uppercase tracking-wider text-xs">Tracking ID</th>
+                <th class="text-left py-3 px-4 font-semibold text-text-secondary uppercase tracking-wider text-xs">Name</th>
+                <th class="text-left py-3 px-4 font-semibold text-text-secondary uppercase tracking-wider text-xs">Type</th>
+                <th class="text-left py-3 px-4 font-semibold text-text-secondary uppercase tracking-wider text-xs">Serial</th>
+                <th class="text-left py-3 px-4 font-semibold text-text-secondary uppercase tracking-wider text-xs">Assigned To</th>
+                <th class="text-left py-3 px-4 font-semibold text-text-secondary uppercase tracking-wider text-xs">Status</th>
+                <th class="text-left py-3 px-4 font-semibold text-text-secondary uppercase tracking-wider text-xs">Location</th>
+                <th class="text-center py-3 px-4 font-semibold text-text-secondary uppercase tracking-wider text-xs">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for asset in assets %}
+            <tr class="border-b hover:bg-black/5 transition-colors" style="border-color: var(--color-border);">
+                <td class="py-3 px-4 font-mono text-xs text-primary">{{ asset.tracking_id }}</td>
+                <td class="py-3 px-4 text-text-primary">{{ asset.name }}</td>
+                <td class="py-3 px-4">{{ asset.get_asset_type_display }}</td>
+                <td class="py-3 px-4 text-text-secondary">{{ asset.serial_number|default:"—" }}</td>
+                <td class="py-3 px-4">{{ asset.assigned_to.get_full_name|default:"—" }}</td>
+                <td class="py-3 px-4">
+                    <span class="status-chip 
+                        {% if asset.status == 'ACTIVE' %}resolved
+                        {% elif asset.status == 'IN_STORE' %}open
+                        {% elif asset.status == 'MAINTENANCE' %}in-progress
+                        {% elif asset.status == 'DAMAGED' %}escalated
+                        {% elif asset.status == 'SCRAPPED' %}closed
+                        {% else %}open{% endif %} text-xs">
+                        {{ asset.get_status_display }}
+                    </span>
+                </td>
+                <td class="py-3 px-4 text-text-secondary">{{ asset.location|default:"—" }}</td>
+                <td class="py-3 px-4 text-center">
+                    <div class="flex items-center justify-center gap-1">
+                        <a href="{% url 'tickets:asset_detail' asset.pk %}"
+                        class="btn-ghost p-1 text-text-secondary hover:text-primary transition"
+                        title="View Details">
+                            {% lucide "eye" size=16 %}
+                        </a>
+                        <button class="btn-ghost p-1 text-text-secondary hover:text-primary transition"
+                                onclick="openReassignModal({{ asset.pk }})"
+                                title="Reassign">
+                            {% lucide "user-plus" size=16 %}
+                        </button>
+                        {% if user.role == 'ADMIN' or user.role == 'SUPERADMIN' %}
+                        <button class="btn-ghost p-1 text-text-secondary hover:text-primary transition"
+                                hx-get="{% url 'tickets:asset_edit' asset.pk %}?source=list"
+                                hx-target="#modalContainer"
+                                hx-swap="innerHTML"
+                                onclick="document.getElementById('modalOverlay').classList.remove('hidden')"
+                                title="Edit">
+                            {% lucide "pencil" size=16 %}
+                        </button>
+                        {% endif %}
+                        {% if asset.status != 'SCRAPPED' and asset.status != 'DAMAGED' %}
+                        <button class="btn-ghost p-1 text-text-secondary hover:text-danger transition"
+                                onclick="openScrapRequestModal({{ asset.pk }})"
+                                title="Request Scrap">
+                            {% lucide "trash-2" size=16 %}
+                        </button>
+                        {% endif %}
+                        {% if asset.status == 'DAMAGED' and user.role in 'ADMIN,SUPERADMIN' %}
+                        <button class="btn-ghost p-1 text-text-secondary hover:text-success transition"
+                                onclick="openScrapApproveModal({{ asset.pk }})"
+                                title="Approve Scrap">
+                            {% lucide "check-circle" size=16 %}
+                        </button>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="8" class="text-center py-10 text-text-secondary">No assets found.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Pagination -->
+{% if assets.has_other_pages %}
+<div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t" style="border-color: var(--color-border);">
+    <span class="text-sm text-text-secondary">Page {{ assets.number }} of {{ assets.paginator.num_pages }}</span>
+    <div class="flex gap-1.5">
+        {% if assets.has_previous %}
+        <button class="btn-ghost text-sm px-3 py-1 rounded border border-border hover:bg-black/5 transition"
+                hx-get="{% url 'tickets:assets' %}?page={{ assets.previous_page_number }}&q={{ query }}&type={{ selected_type }}&status={{ selected_status }}&location={{ selected_location }}"
+                hx-target="#assetTableContainer"
+                hx-swap="innerHTML">← Prev</button>
+        {% endif %}
+        {% if assets.has_next %}
+        <button class="btn-ghost text-sm px-3 py-1 rounded border border-border hover:bg-black/5 transition"
+                hx-get="{% url 'tickets:assets' %}?page={{ assets.next_page_number }}&q={{ query }}&type={{ selected_type }}&status={{ selected_status }}&location={{ selected_location }}"
+                hx-target="#assetTableContainer"
+                hx-swap="innerHTML">Next →</button>
+        {% endif %}
+    </div>
+</div>
+{% endif %}

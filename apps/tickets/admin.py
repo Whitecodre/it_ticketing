@@ -45,9 +45,10 @@ class RemoteConnectorAdmin(admin.ModelAdmin):
 
 @admin.register(Asset)
 class AssetAdmin(admin.ModelAdmin):
-    list_display = ['name', 'asset_type', 'serial_number', 'assigned_to', 'status', 'created_at']
-    list_filter = ['asset_type', 'status']
-    search_fields = ['name', 'serial_number']
+    list_display = ['tracking_id', 'name', 'asset_type', 'serial_number', 'assigned_to', 'status', 'location']
+    list_filter = ['asset_type', 'status', 'location']
+    search_fields = ['tracking_id', 'name', 'serial_number', 'model', 'manufacturer']
+    readonly_fields = ['tracking_id', 'created_at', 'updated_at']
 
 @admin.register(RemoteSession)
 class RemoteSessionAdmin(admin.ModelAdmin):

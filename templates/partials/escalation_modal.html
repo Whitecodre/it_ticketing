@@ -1,0 +1,54 @@
+{% load lucide %}
+<div id="escalationModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+     style="background-color: rgba(0,0,0,0.5);">
+    <div class="bg-surface rounded-xl shadow-xl w-full max-w-lg p-6 mx-4"
+         style="background-color: var(--color-surface);">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-base font-semibold" style="color: var(--color-text-primary);">
+                Escalate Ticket {{ ticket.number }}
+            </h3>
+            <button onclick="closeEscalationModal()" class="btn-ghost p-1">
+                {% lucide "x" size=18 %}
+            </button>
+        </div>
+        <form id="escalateForm" method="post" action="{% url 'tickets:escalate_ticket' ticket.pk %}"
+              hx-post="{% url 'tickets:escalate_ticket' ticket.pk %}"
+              hx-target="#escalationModalContainer"
+              hx-swap="outerHTML">
+            {% csrf_token %}
+            <div class="mb-4">
+                <label for="escalationComment" class="text-sm font-medium block mb-1" style="color: var(--color-text-primary);">
+                    Reason for escalation <span class="text-error">*</span>
+                </label>
+                <textarea id="escalationComment" name="comment" rows="4" required
+                          class="w-full rounded-lg border p-3 text-sm resize-none focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary"
+                          placeholder="Explain why this ticket needs escalation…"></textarea>
+            </div>
+            <div class="flex justify-end gap-2">
+                <button type="button" onclick="closeEscalationModal()" class="btn-ghost text-sm px-4 py-2">Cancel</button>
+                <button type="submit" class="btn-danger text-sm px-4 py-2 rounded-lg flex items-center gap-1">
+                    {% lucide "alert-triangle" size=14 %} Escalate
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function closeEscalationModal() {
+        const container = document.getElementById('escalationModalContainer');
+        if (container) {
+            container.innerHTML = '';
+        }
+    }
+    document.addEventListener('htmx:afterRequest', function(evt) {
+        if (evt.detail.target.id === 'escalationModalContainer' && evt.detail.xhr.status === 200) {
+            const response = evt.detail.xhr.responseText;
+            if (response.includes('location.reload()')) {
+                // page reload will happen
+            } else {
+                closeEscalationModal();
+            }
+        }
+    });
+</script>

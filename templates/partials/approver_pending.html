@@ -25,7 +25,7 @@
                     </div>
                     <h3 class="text-sm font-semibold truncate" style="color: var(--color-text-primary);">{{ ticket.title }}</h3>
                     <p class="text-xs mt-1 text-text-secondary">
-                        {{ ticket.requester.get_full_name|default:ticket.requester.email }} · {{ ticket.created_at|date:"M d, Y" }}
+                        {{ ticket.requester.get_full_name_with_role|default:ticket.requester.email }} · {{ ticket.created_at|date:"M d, Y" }}
                     </p>
                     <p class="text-xs mt-2 text-text-primary">{{ ticket.description|truncatechars:200 }}</p>
                 </div>

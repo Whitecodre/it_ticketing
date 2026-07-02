@@ -22,7 +22,7 @@ from ..forms import ProfileForm, EmailAuthenticationForm, RegistrationStep1Form,
 from ..models import User, UserProfile
 from ..utils import validate_password_strength
 from apps.tickets.models import Ticket, TicketActivityLog, SLA, BusinessCalendar, EscalationRule
-
+from apps.tickets.views import get_sidebar_template
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
@@ -120,12 +120,22 @@ def dashboard(request):
         # Unassigned queue count
         context['unassigned_count'] = Ticket.objects.filter(
             assigned_to__isnull=True
-        ).exclude(status__in=['RESOLVED', 'CLOSED', 'PENDING_APPROVAL']).count()
+        ).exclude(status__in=[
+            Ticket.Status.RESOLVED,
+            Ticket.Status.CLOSED,
+            Ticket.Status.PENDING_APPROVAL,
+            Ticket.Status.PENDING_MANAGER_REVIEW
+        ]).count()
         
         # Recent unassigned (5)
         context['recent_unassigned'] = Ticket.objects.filter(
             assigned_to__isnull=True
-        ).exclude(status__in=['RESOLVED', 'CLOSED', 'PENDING_APPROVAL']).order_by('-created_at')[:5]
+        ).exclude(status__in=[
+            Ticket.Status.RESOLVED,
+            Ticket.Status.CLOSED,
+            Ticket.Status.PENDING_APPROVAL,
+            Ticket.Status.PENDING_MANAGER_REVIEW
+        ]).order_by('-created_at')[:5]
         
         # Recent assigned to me (5)
         context['assigned_to_me_tickets'] = Ticket.objects.filter(
@@ -194,6 +204,10 @@ def dashboard(request):
         context['team_open_tickets'] = Ticket.objects.filter(
             status__in=open_statuses,
             assigned_to__in=team_members
+        ).count()
+        context['pending_reviews'] = Ticket.objects.filter(
+            status=Ticket.Status.PENDING_MANAGER_REVIEW,
+            requester__department=request.user.department
         ).count()
         context['unassigned_count'] = Ticket.objects.filter(
             assigned_to__isnull=True

@@ -25,7 +25,7 @@
                 {% for agent in assignable_agents %}
                 <button class="block w-full text-left text-xs px-3 py-1.5 rounded hover:bg-black/5"
                         onclick="submitBulkAction('assign', {{ agent.pk }})">
-                    {{ agent.get_full_name|default:agent.email }}
+                    {{ agent.get_full_name_with_role|default:agent.email }}
                 </button>
                 {% endfor %}
             </div>
@@ -72,7 +72,9 @@
         </thead>
         <tbody>
             {% for ticket in tickets %}
-            <tr class="border-b hover:bg-black/5 transition-colors group" style="border-color: var(--color-border);"
+            <tr class="border-b hover:bg-black/5 transition-colors group 
+                {% if ticket.status == 'ESCALATED' %}border-l-4 border-l-red-500{% endif %}" 
+                style="border-color: var(--color-border);"
                 data-ticket-id="{{ ticket.pk }}">
                 <td class="py-3 px-2">
                     <input type="checkbox" value="{{ ticket.pk }}" class="ticket-checkbox rounded" onchange="updateBulkBar()">
@@ -83,7 +85,7 @@
                     </div>
                 </td>
                 <td class="py-3 px-2 max-w-xs truncate text-text-primary">{{ ticket.title }}</td>
-                <td class="py-3  text-text-secondary">{{ ticket.requester.get_full_name|default:ticket.requester.email }}</td>
+                <td class="py-3  text-text-secondary">{{ ticket.requester.get_full_name_with_role|default:ticket.requester.email }}</td>
                 <td class="py-3 text-text-secondary">
                     <span class="status-chip {{ ticket.status|lower }} text-xs">{{ ticket.get_status_display }}</span>
                 </td>
@@ -140,7 +142,7 @@
             <tr>
                 <td colspan="8" class="text-center py-4">
                     <div class="flex flex-col items-center gap-0.5">
-                        <span class="text-2xl">📭</span>
+                        {% comment %} <span class="text-2xl">📭</span> {% endcomment %}
                         <p class="text-text-secondary text-sm">No tickets here.</p>
                         <p class="text-text-secondary text-xs">Great job! 🎉</p>
                     </div>

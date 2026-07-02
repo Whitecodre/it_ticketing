@@ -22,10 +22,25 @@ class Tag(models.Model):
 
 
 class Notification(models.Model):
+    class Type(models.TextChoices):
+        GENERAL = 'GENERAL', 'General'
+        TICKET = 'TICKET', 'Ticket'
+        REMOTE_SESSION = 'REMOTE_SESSION', 'Remote Session'
+        MANAGER_REVIEW = 'MANAGER_REVIEW', 'Manager Review'
+        APPROVAL = 'APPROVAL', 'Approval'
+
+    sender = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='sent_notifications'
+    )
     recipient = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='notifications')
     message = models.CharField(max_length=500)
     is_read = models.BooleanField(default=False)
-    url = models.URLField(blank=True)  # deep link to the relevant object
+    url = models.URLField(blank=True)
+    type = models.CharField(max_length=20, choices=Type.choices, default=Type.GENERAL)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -33,3 +48,15 @@ class Notification(models.Model):
 
     def __str__(self):
         return f"Notification for {self.recipient}: {self.message[:50]}"
+
+
+class PushSubscription(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='push_subscriptions')
+    endpoint = models.URLField(unique=True)
+    auth_key = models.CharField(max_length=255)
+    p256dh_key = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('user', 'endpoint')

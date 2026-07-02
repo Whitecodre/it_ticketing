@@ -1,0 +1,59 @@
+# apps/common/signals.py
+import json
+import logging
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
+from django.conf import settings
+from .models import Notification
+from .utils import send_push_notification
+
+logger = logging.getLogger(__name__)
+
+@receiver(post_save, sender=Notification)
+def broadcast_notification(sender, instance, created, **kwargs):
+    if not created:
+        return
+
+    # --- WebSocket broadcast (always attempt, handle errors) ---
+    try:
+        channel_layer = get_channel_layer()
+        group_name = f"user_{instance.recipient.pk}"
+
+        from django.db.models import Count
+        unread_count = Notification.objects.filter(
+            recipient=instance.recipient,
+            is_read=False
+        ).count()
+
+        async_to_sync(channel_layer.group_send)(
+            group_name,
+            {
+                'type': 'send_notification',
+                'message': instance.message,
+                'url': instance.url,
+                'notification_id': instance.pk,
+                'notification_type': instance.type or 'general',
+                'unread_count': unread_count,
+            }
+        )
+    except Exception as e:
+        # Log error but don't break the flow (Redis may not be running)
+        logger.warning(f"WebSocket broadcast skipped: {e}")
+
+    # --- Push notifications (send always, but can be conditionally skipped) ---
+    # By default, skip push in DEBUG unless TEST_PUSH=True
+    send_push = True
+    if settings.DEBUG and not getattr(settings, 'TEST_PUSH', False):
+        send_push = False
+
+    if send_push:
+        try:
+            result = send_push_notification(instance)
+            if result['sent'] > 0:
+                logger.info(f"Push sent to {result['sent']} devices for notification {instance.pk}")
+            if result['expired'] > 0:
+                logger.info(f"Removed {result['expired']} expired push subscriptions")
+        except Exception as e:
+            logger.error(f"Push notification failed: {e}")

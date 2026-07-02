@@ -1,0 +1,213 @@
+{% extends "base_dashboard.html" %}
+{% load static %}
+{% load lucide %}
+
+{% block dashboard_title %}Review Service Request{% endblock %}
+{% block page_title_area %}{% endblock %}
+{% block role_label %}{{ request.user.get_role_display }}{% endblock %}
+{% block role_badge %}{{ request.user.get_role_display|upper }}{% endblock %}
+
+{% block sidebar_nav %}
+    {% include sidebar_template %}
+{% endblock %}
+
+{% block dashboard_content %}
+<div class="max-w-5xl mx-auto">
+    <!-- Back button -->
+    <div class="mb-4">
+        <a href="{% url 'tickets:manager_review_queue' %}" class="btn-ghost text-sm flex items-center gap-1 hover:text-primary transition">
+            {% lucide "arrow-left" size=16 %} Back to Queue
+        </a>
+    </div>
+
+    <!-- Messages -->
+    {% if messages %}
+    <div class="message-container mb-4 space-y-2">
+        {% for message in messages %}
+        <div class="message p-4 rounded-lg 
+            {% if message.tags == 'success' %}bg-success/10 text-success border border-success/30
+            {% elif message.tags == 'error' %}bg-error/10 text-error border border-error/30
+            {% elif message.tags == 'warning' %}bg-warning/10 text-warning border border-warning/30
+            {% else %}bg-info/10 text-info border border-info/30{% endif %}">
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Main Card -->
+    <div class="dashboard-card p-0 overflow-hidden">
+        <!-- Header -->
+        <div class="px-6 py-5 border-b" style="background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%); border-color: var(--color-border);">
+            <div class="flex flex-wrap items-start justify-between gap-4">
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-3 flex-wrap">
+                        <h1 class="text-xl font-bold text-white truncate">{{ ticket.title }}</h1>
+                        <span class="status-chip pending_approval text-xs bg-white/20 text-white border-0">{{ ticket.get_status_display }}</span>
+                    </div>
+                    <div class="flex items-center gap-3 mt-1.5 text-white/80 text-sm">
+                        <span class="font-mono">{{ ticket.number }}</span>
+                        <span>•</span>
+                        <span>{{ ticket.get_type_display }}</span>
+                        <span>•</span>
+                        <span class="priority-chip 
+                            {% if ticket.priority == 'P1' %}critical bg-white/20 text-white border-0
+                            {% elif ticket.priority == 'P2' %}high bg-white/20 text-white border-0
+                            {% elif ticket.priority == 'P3' %}medium bg-white/20 text-white border-0
+                            {% else %}low bg-white/20 text-white border-0{% endif %} text-xs">
+                            {{ ticket.get_priority_display }}
+                        </span>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                    <span class="text-xs text-white/70">{{ ticket.created_at|date:"M d, Y H:i" }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Body -->
+        <div class="p-6">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Left: Main Content (2/3) -->
+                <div class="lg:col-span-2 space-y-5">
+                    <!-- Requester Info -->
+                    <div class="flex items-center gap-3 p-3 rounded-lg border" style="border-color: var(--color-border); background-color: var(--color-background);">
+                        <div class="flex h-10 w-10 items-center justify-center rounded-full text-white text-sm font-semibold shrink-0" style="background-color: var(--color-primary);">
+                            {{ ticket.requester.get_full_name_with_role|slice:":1"|upper }}
+                        </div>
+                        <div>
+                            <p class="text-sm font-medium" style="color: var(--color-text-primary);">{{ ticket.requester.get_full_name_with_role }}</p>
+                            <p class="text-xs" style="color: var(--color-text-secondary);">{{ ticket.requester.get_department_display }} • {{ ticket.requester.email }}</p>
+                        </div>
+                    </div>
+
+                    <!-- Description -->
+                    <div>
+                        <h3 class="text-sm font-semibold mb-2 flex items-center gap-2" style="color: var(--color-text-secondary);">
+                            {% lucide "file-text" size=14 %} Description
+                        </h3>
+                        <div class="text-sm leading-relaxed p-4 rounded-lg border" style="border-color: var(--color-border); background-color: var(--color-background); color: var(--color-text-primary);">
+                            {{ ticket.description|linebreaks }}
+                        </div>
+                    </div>
+
+                    <!-- Comments -->
+                    <div>
+                        <h3 class="text-sm font-semibold mb-2 flex items-center gap-2" style="color: var(--color-text-secondary);">
+                            {% lucide "message-square" size=14 %} Activity
+                            <span class="text-xs font-normal text-text-secondary">({{ comments|length }})</span>
+                        </h3>
+                        <div class="space-y-2 max-h-64 overflow-y-auto pr-1">
+                            {% for comment in comments %}
+                            <div class="text-sm p-3 rounded-lg border" style="border-color: var(--color-border); background-color: var(--color-background);">
+                                <div class="flex items-center justify-between">
+                                    <span class="font-medium" style="color: var(--color-text-primary);">{{ comment.author.get_full_name_with_role }}</span>
+                                    <span class="text-xs" style="color: var(--color-text-secondary);">{{ comment.created_at|date:"M d, H:i" }}</span>
+                                </div>
+                                <div class="mt-1" style="color: var(--color-text-primary);">{{ comment.body|safe }}</div>
+                            </div>
+                            {% empty %}
+                            <p class="text-sm text-center py-4" style="color: var(--color-text-secondary);">No comments yet.</p>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right: Metadata & Actions (1/3) -->
+                <div class="space-y-4">
+                    <!-- Metadata -->
+                    <div class="rounded-lg border p-4" style="border-color: var(--color-border); background-color: var(--color-background);">
+                        <h3 class="text-xs font-semibold uppercase tracking-wider mb-3" style="color: var(--color-text-secondary);">Details</h3>
+                        <dl class="space-y-2 text-sm">
+                            <div class="flex justify-between">
+                                <dt class="text-text-secondary">Category</dt>
+                                <dd class="text-text-primary">{{ ticket.category.name|default:"—" }}</dd>
+                            </div>
+                            <div class="flex justify-between">
+                                <dt class="text-text-secondary">Created</dt>
+                                <dd class="text-text-primary">{{ ticket.created_at|date:"M d, Y" }}</dd>
+                            </div>
+                            <div class="flex justify-between">
+                                <dt class="text-text-secondary">Department</dt>
+                                <dd class="text-text-primary">{{ ticket.requester.get_department_display }}</dd>
+                            </div>
+                            {% if ticket.attachments.all %}
+                            <div class="flex justify-between">
+                                <dt class="text-text-secondary">Attachments</dt>
+                                <dd class="text-text-primary">{{ ticket.attachments.count }}</dd>
+                            </div>
+                            {% endif %}
+                        </dl>
+                    </div>
+
+                    <!-- Review Actions -->
+                    <div class="rounded-lg border p-4" style="border-color: var(--color-warning); background-color: rgba(245, 158, 11, 0.04);">
+                        <h3 class="text-sm font-semibold mb-3 flex items-center gap-2" style="color: var(--color-text-primary);">
+                            {% lucide "clipboard-check" size=16 %} Review Decision
+                        </h3>
+                        <form method="post" id="reviewForm" action="">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" id="actionInput" value="">
+                            <div class="space-y-3">
+                                <div>
+                                    <label for="reviewComment" class="block text-sm font-medium mb-1" style="color: var(--color-text-primary);">
+                                        Comment <span class="text-error">*</span>
+                                    </label>
+                                    <textarea id="reviewComment" name="comment" rows="4" required
+                                              class="w-full rounded-lg border p-3 text-sm resize-none focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary"
+                                              placeholder="Provide reason for your decision…"></textarea>
+                                </div>
+                                <div class="flex flex-wrap gap-2">
+                                    <button type="button" onclick="submitAction('approve')" 
+                                            class="btn-success text-sm px-4 py-2 rounded-lg flex items-center gap-1.5 hover:scale-105 transition-transform">
+                                        {% lucide "check-circle" size=14 %} Approve
+                                    </button>
+                                    <button type="button" onclick="submitAction('request_changes')" 
+                                            class="btn-warning text-sm px-4 py-2 rounded-lg flex items-center gap-1.5 hover:scale-105 transition-transform" 
+                                            style="background-color: var(--color-warning); color: white;">
+                                        {% lucide "refresh-cw" size=14 %} Request Changes
+                                    </button>
+                                    <button type="button" onclick="submitAction('reject')" 
+                                            class="btn-danger text-sm px-4 py-2 rounded-lg flex items-center gap-1.5 hover:scale-105 transition-transform">
+                                        {% lucide "x-circle" size=14 %} Reject
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function submitAction(action) {
+        document.getElementById('actionInput').value = action;
+        document.getElementById('reviewForm').submit();
+    }
+
+    // Prevent double submission and show spinner
+    document.getElementById('reviewForm')?.addEventListener('submit', function() {
+        const buttons = this.querySelectorAll('button');
+        buttons.forEach(function(btn) {
+            btn.disabled = true;
+            btn.classList.add('opacity-60');
+        });
+    });
+
+    // Auto-dismiss messages after 5 seconds
+    document.addEventListener('DOMContentLoaded', function() {
+        const messages = document.querySelectorAll('.message-container .message');
+        messages.forEach(function(msg) {
+            setTimeout(function() {
+                msg.style.transition = 'opacity 0.5s ease';
+                msg.style.opacity = '0';
+                setTimeout(function() {
+                    msg.remove();
+                }, 500);
+            }, 5000);
+        });
+    });
+</script>
+{% endblock %}

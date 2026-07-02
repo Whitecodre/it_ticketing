@@ -60,10 +60,15 @@
     </a>
 </div>
 
-<div class="px-3">
+<div class="px-3 relative">
     <a href="{% url 'tickets:remote_sessions_list' %}"
        class="flex items-center justify-center p-2 rounded-sm transition sidebar-link" data-tooltip="Remote Session"
        style="{% if '/remote-sessions/' in request.path %}background-color: var(--color-primary); color: white;{% else %}color: var(--color-text-secondary);{% endif %}">
         {% lucide "monitor" size=18 class="h-4.5 w-4.5" %}
     </a>
+    <div id="remoteSessionBadge" class="absolute top-0 right-2"
+         hx-get="{% url 'tickets:remote_session_pending_count' %}"
+         hx-trigger="every 5s"
+         hx-swap="innerHTML">
+    </div>
 </div>
