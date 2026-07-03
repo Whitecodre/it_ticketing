@@ -1,5 +1,6 @@
 import random, hashlib, os, re, csv, json
 from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Alignment
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
@@ -15,10 +16,10 @@ from django.utils import timezone
 from django.utils.html import strip_tags
 from django.urls import reverse
 from django.template.loader import render_to_string
-from datetime import timedelta
+from datetime import timedelta, datetime
 from django.core.mail import send_mail
 from django.conf import settings
-from .forms import TicketForm, CommentForm
+from .forms import TicketForm, CommentForm, AssetForm
 from .models import *
 from apps.accounts.models import User
 from apps.common.models import Notification
@@ -26,6 +27,7 @@ from bs4 import BeautifulSoup
 
 import logging
 logger = logging.getLogger(__name__)
+
 # ==========================================================================
 # HELPER FUNCTIONS
 # ==========================================================================
@@ -90,6 +92,15 @@ def apply_sla(ticket):
     ticket.response_due_at = now + timedelta(minutes=sla.response_minutes)
     ticket.resolution_due_at = now + timedelta(minutes=sla.resolution_minutes)
     ticket.save(update_fields=['response_due_at', 'resolution_due_at'])
+
+# Helper function to handle "Other" field logic
+def get_other_value(data, select_field, other_field, default_value):
+    """Helper to handle 'Other' field logic for asset forms."""
+    value = data.get(select_field)
+    if value == 'OTHER':
+        other_val = data.get(other_field, '').strip()
+        return other_val if other_val else default_value
+    return value
 
 # Allowed MIME types for file attachments
 ALLOWED_MIMES = [
@@ -1055,7 +1066,31 @@ def connector_edit(request, pk):
         'sidebar_template': get_sidebar_template(request.user),
     })
 
-# apps/tickets/views.py
+# ==========================================================================
+# ASSET MANAGEMENT
+# ==========================================================================
+
+# ==========================================================================
+# HELPER: Parse date for asset import
+# ==========================================================================
+
+def parse_date(value):
+    """Parse date from various formats for asset import."""
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, str):
+        for fmt in ['%Y-%m-%d', '%m/%d/%Y', '%d/%m/%Y', '%b %d, %Y']:
+            try:
+                return datetime.strptime(value, fmt).date()
+            except ValueError:
+                continue
+    return None
+
+# ==========================================================================
+# ASSET LIST
+# ==========================================================================
 
 @login_required
 def assets(request):
@@ -1095,7 +1130,11 @@ def assets(request):
         'assets': page_obj,
         'users': users,
         'asset_types': Asset.AssetType.choices,
+        'asset_type_values': [v for v, _ in Asset.AssetType.choices],
         'status_choices': Asset.Status.choices,
+        'status_values': [v for v, _ in Asset.Status.choices],
+        'location_choices': Asset.Location.choices,
+        'location_values': [v for v, _ in Asset.Location.choices],
         'query': query,
         'selected_type': asset_type,
         'selected_status': status_filter,
@@ -1109,6 +1148,10 @@ def assets(request):
     return render(request, 'tickets/asset_list.html', context)
 
 
+# ==========================================================================
+# ASSET CREATE - Updated with proper error handling
+# ==========================================================================
+
 @login_required
 @require_http_methods(['GET', 'POST'])
 def asset_create(request):
@@ -1116,42 +1159,20 @@ def asset_create(request):
         return HttpResponse(status=403)
 
     if request.method == 'POST':
-        name = request.POST.get('name')
-        asset_type = request.POST.get('asset_type')
-        serial_number = request.POST.get('serial_number')
-        model = request.POST.get('model')
-        manufacturer = request.POST.get('manufacturer')
-        location = request.POST.get('location')
-        warranty_expiry = request.POST.get('warranty_expiry') or None
-        warranty_duration_years = int(request.POST.get('warranty_duration', 0))
-        assigned_to_id = request.POST.get('assigned_to')
-        status = request.POST.get('status')
-        purchase_date = request.POST.get('purchase_date') or None
-        notes = request.POST.get('notes')
+        form = AssetForm(request.POST)
+        if form.is_valid():
+            asset = form.save(commit=False)
+            asset.tracking_id = None
+            asset.save()
+            
+            AssetLog.objects.create(
+                asset=asset,
+                action=AssetLog.Action.CREATED,
+                actor=request.user,
+                details={'name': asset.name, 'type': asset.asset_type}
+            )
 
-        asset = Asset.objects.create(
-            name=name,
-            asset_type=asset_type,
-            serial_number=serial_number,
-            model=model,
-            manufacturer=manufacturer,
-            location=location,
-            warranty_expiry=warranty_expiry,
-            warranty_duration_years=warranty_duration_years,
-            assigned_to_id=assigned_to_id or None,
-            status=status,
-            purchase_date=purchase_date,
-            notes=notes
-        )
-        AssetLog.objects.create(
-            asset=asset,
-            action=AssetLog.Action.CREATED,
-            actor=request.user,
-            details={'name': name, 'type': asset_type}
-        )
-
-        if request.headers.get('HX-Request'):
-            # --- Get filter values from POST (renamed to avoid conflicts) ---
+            # --- SUCCESS: Return the table ---
             filter_q = request.POST.get('filter_q', '')
             filter_type = request.POST.get('filter_type', '')
             filter_status = request.POST.get('filter_status', '')
@@ -1181,7 +1202,11 @@ def asset_create(request):
                 'assets': page_obj,
                 'users': User.objects.filter(is_active=True),
                 'asset_types': Asset.AssetType.choices,
+                'asset_type_values': [v for v, _ in Asset.AssetType.choices],
                 'status_choices': Asset.Status.choices,
+                'status_values': [v for v, _ in Asset.Status.choices],
+                'location_choices': Asset.Location.choices,
+                'location_values': [v for v, _ in Asset.Location.choices],
                 'query': filter_q,
                 'selected_type': filter_type,
                 'selected_status': filter_status,
@@ -1192,7 +1217,21 @@ def asset_create(request):
             response['HX-Trigger'] = 'closeModal'
             return response
 
-        return redirect('tickets:assets')
+        else:
+            # --- ERROR: Return the modal with errors ---
+            # This is the critical fix - return the modal HTML, not the table
+            return render(request, 'tickets/asset_form_modal.html', {
+                'form': form,
+                'users': User.objects.filter(is_active=True),
+                'asset': None,
+                'action': 'create',
+                'asset_types': Asset.AssetType.choices,
+                'asset_type_values': [v for v, _ in Asset.AssetType.choices],
+                'status_choices': Asset.Status.choices,
+                'status_values': [v for v, _ in Asset.Status.choices],
+                'location_choices': Asset.Location.choices,
+                'location_values': [v for v, _ in Asset.Location.choices],
+            })
 
     # GET: return modal
     return render(request, 'tickets/asset_form_modal.html', {
@@ -1200,9 +1239,17 @@ def asset_create(request):
         'asset': None,
         'action': 'create',
         'asset_types': Asset.AssetType.choices,
+        'asset_type_values': [v for v, _ in Asset.AssetType.choices],
         'status_choices': Asset.Status.choices,
+        'status_values': [v for v, _ in Asset.Status.choices],
+        'location_choices': Asset.Location.choices,
+        'location_values': [v for v, _ in Asset.Location.choices],
     })
 
+
+# ==========================================================================
+# ASSET EDIT - Updated with proper error handling
+# ==========================================================================
 
 @login_required
 @require_http_methods(['GET', 'POST'])
@@ -1211,50 +1258,27 @@ def asset_edit(request, pk):
         return HttpResponse(status=403)
 
     asset = get_object_or_404(Asset, pk=pk)
-    # Read source from GET for modal loading, from POST for form submission
     source = request.GET.get('source', request.POST.get('source', 'list'))
 
     if request.method == 'POST':
-        old_status = asset.status
-        old_assignee = asset.assigned_to
-
-        asset.name = request.POST.get('name')
-        asset.asset_type = request.POST.get('asset_type')
-        asset.serial_number = request.POST.get('serial_number')
-        asset.model = request.POST.get('model')
-        asset.manufacturer = request.POST.get('manufacturer')
-        asset.location = request.POST.get('location')
-        asset.warranty_expiry = request.POST.get('warranty_expiry') or None
-        asset.warranty_duration_years = int(request.POST.get('warranty_duration', 0))
-        asset.assigned_to_id = request.POST.get('assigned_to') or None
-        asset.status = request.POST.get('status')
-        asset.purchase_date = request.POST.get('purchase_date') or None
-        asset.notes = request.POST.get('notes')
-        asset.save()
-
-        details = {}
-        if old_status != asset.status:
-            details['status_change'] = {'from': old_status, 'to': asset.status}
-        if old_assignee != asset.assigned_to:
-            details['assignee_change'] = {
-                'from': old_assignee.get_full_name() if old_assignee else None,
-                'to': asset.assigned_to.get_full_name() if asset.assigned_to else None
-            }
-        if details:
+        form = AssetForm(request.POST, instance=asset)
+        if form.is_valid():
+            asset = form.save()
+            
             AssetLog.objects.create(
                 asset=asset,
                 action=AssetLog.Action.UPDATED,
                 actor=request.user,
-                details=details
+                details={'source': 'form_edit'}
             )
 
-        if request.headers.get('HX-Request'):
-             # If coming from detail page, redirect to detail after success
+            # Save from detail page
             if source == 'detail':
-                # Return a redirect response that HTMX will follow
                 response = HttpResponse(status=200)
                 response['HX-Redirect'] = reverse('tickets:asset_detail', args=[asset.pk])
                 return response
+
+            # --- SUCCESS: Return the table ---
             filter_q = request.POST.get('filter_q', '')
             filter_type = request.POST.get('filter_type', '')
             filter_status = request.POST.get('filter_status', '')
@@ -1284,7 +1308,11 @@ def asset_edit(request, pk):
                 'assets': page_obj,
                 'users': User.objects.filter(is_active=True),
                 'asset_types': Asset.AssetType.choices,
+                'asset_type_values': [v for v, _ in Asset.AssetType.choices],
                 'status_choices': Asset.Status.choices,
+                'status_values': [v for v, _ in Asset.Status.choices],
+                'location_choices': Asset.Location.choices,
+                'location_values': [v for v, _ in Asset.Location.choices],
                 'query': filter_q,
                 'selected_type': filter_type,
                 'selected_status': filter_status,
@@ -1295,7 +1323,21 @@ def asset_edit(request, pk):
             response['HX-Trigger'] = 'closeModal'
             return response
 
-        return redirect('tickets:assets')
+        else:
+            # --- ERROR: Return the modal with errors ---
+            return render(request, 'tickets/asset_form_modal.html', {
+                'form': form,
+                'asset': asset,
+                'users': User.objects.filter(is_active=True),
+                'action': 'edit',
+                'asset_types': Asset.AssetType.choices,
+                'asset_type_values': [v for v, _ in Asset.AssetType.choices],
+                'status_choices': Asset.Status.choices,
+                'status_values': [v for v, _ in Asset.Status.choices],
+                'location_choices': Asset.Location.choices,
+                'location_values': [v for v, _ in Asset.Location.choices],
+                'source': source,
+            })
 
     # GET: return modal
     return render(request, 'tickets/asset_form_modal.html', {
@@ -1303,9 +1345,17 @@ def asset_edit(request, pk):
         'users': User.objects.filter(is_active=True),
         'action': 'edit',
         'asset_types': Asset.AssetType.choices,
+        'asset_type_values': [v for v, _ in Asset.AssetType.choices],
         'status_choices': Asset.Status.choices,
+        'status_values': [v for v, _ in Asset.Status.choices],
+        'location_choices': Asset.Location.choices,
+        'location_values': [v for v, _ in Asset.Location.choices],
         'source': source,
     })
+
+# ==========================================================================
+# ASSET REASSIGN
+# ==========================================================================
 
 @login_required
 @require_POST
@@ -1338,6 +1388,10 @@ def asset_reassign(request, pk):
 
     return redirect('tickets:assets')
 
+# ==========================================================================
+# ASSET DETAIL
+# ==========================================================================
+
 @login_required
 def asset_detail(request, pk):
     if request.user.role not in ['ADMIN', 'SUPERADMIN', 'AGENT', 'TEAM_LEAD']:
@@ -1352,6 +1406,9 @@ def asset_detail(request, pk):
         'sidebar_template': get_sidebar_template(request.user),
     })
 
+# ==========================================================================
+# ASSET SCRAP REQUEST
+# ==========================================================================
 
 @login_required
 @require_POST
@@ -1377,6 +1434,9 @@ def asset_scrap_request(request, pk):
 
     return redirect('tickets:assets')
 
+# ==========================================================================
+# ASSET SCRAP APPROVE
+# ==========================================================================
 
 @login_required
 @require_POST
@@ -1412,26 +1472,41 @@ def asset_scrap_approve(request, pk):
 
     return redirect('tickets:assets')
 
-# apps/tickets/views.py
+# ==========================================================================
+# ASSET CALCULATE WARRANTY - DEBUG VERSION
+# ==========================================================================
 
 @login_required
 def asset_calculate_warranty(request):
-    purchase_date_str = request.GET.get('purchase_date')
-    duration_years = request.GET.get('warranty_duration', 0)  # Changed from 'duration'
-    expiry_date_str = ''
+    """Calculate warranty expiry date based on purchase date and duration."""
     try:
-        duration_years = int(duration_years)
+        purchase_date_str = request.GET.get('purchase_date')
+        duration_years = request.GET.get('warranty_duration', 0)
+        expiry_date_str = ''
+        
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"Warranty calculation: purchase_date={purchase_date_str}, duration={duration_years}")
+        
+        try:
+            duration_years = int(duration_years)
+        except (ValueError, TypeError):
+            duration_years = 0
+        
         if duration_years > 0 and purchase_date_str:
             from datetime import datetime
             purchase_date = datetime.strptime(purchase_date_str, '%Y-%m-%d').date()
             expiry_date = purchase_date.replace(year=purchase_date.year + duration_years)
             expiry_date_str = expiry_date.strftime('%Y-%m-%d')
-    except (ValueError, TypeError, OverflowError):
+            logger.info(f"Warranty calculation result: {expiry_date_str}")
+            
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Warranty calculation error: {e}", exc_info=True)
+        # Return empty on error
         pass
-    # If we couldn't calculate, return the current expiry if present, else empty
-    if not expiry_date_str:
-        current_expiry = request.GET.get('current_expiry', '')
-        expiry_date_str = current_expiry
+    
     return render(request, 'partials/warranty_expiry_input.html', {'value': expiry_date_str})
 
 # ==========================================================================
@@ -1457,7 +1532,8 @@ def request_remote_session(request, pk):
     # Get the first active remote connector (e.g., Quick Assist)
     connector = RemoteConnector.objects.filter(is_active=True).first()
     if not connector:
-        return HttpResponse("No active remote connector configured.", status=400)
+        messages.error(request, 'No active remote connector configured. Please contact your administrator.')
+        return redirect('tickets:conversation', pk=pk)
 
     # Check if there's already a pending or active session for this ticket
     existing = RemoteSession.objects.filter(ticket=ticket, status__in=['REQUESTED', 'ACCEPTED', 'STARTED']).first()
@@ -1490,7 +1566,7 @@ def request_remote_session(request, pk):
 
     # Send email notification to the requester
     accept_url = request.build_absolute_uri(reverse('tickets:remote_session_detail', args=[session.pk]))
-    reject_url = request.build_absolute_uri(reverse('tickets:remote_session_detail', args=[session.pk])) + '?action=reject'  # You can add a GET param if needed, or just use same URL but with POST later.
+    reject_url = request.build_absolute_uri(reverse('tickets:remote_session_detail', args=[session.pk])) + '?action=reject'
 
     html_message = render_to_string('emails/remote_session_request.html', {
         'requester_name': ticket.requester.get_full_name() or ticket.requester.email,
@@ -1498,7 +1574,7 @@ def request_remote_session(request, pk):
         'accept_url': accept_url,
         'reject_url': reject_url,
     })
-    plain_message = strip_tags(html_message)  # fallback
+    plain_message = strip_tags(html_message)
 
     send_mail(
         subject=f"Remote Session Request – Ticket {ticket.number}",
@@ -2142,3 +2218,244 @@ def manager_review_count(request):
         requester__department=request.user.department
     ).count()
     return render(request, 'partials/manager_review_badge.html', {'count': count})
+
+# ==========================================================================
+# ASSET EXPORT
+# ==========================================================================
+
+@login_required
+def asset_export(request):
+    """Export assets as CSV, Excel, or JSON"""
+    if request.user.role not in ['ADMIN', 'SUPERADMIN']:
+        return HttpResponse(status=403)
+    
+    export_format = request.GET.get('format', 'csv')
+    filename = f"assets_{timezone.now().strftime('%Y%m%d_%H%M%S')}"
+    
+    # Get filtered assets (respect current filters)
+    query = request.GET.get('q', '')
+    asset_type = request.GET.get('type', '')
+    status_filter = request.GET.get('status', '')
+    location_filter = request.GET.get('location', '')
+    
+    assets = Asset.objects.all().order_by('tracking_id')
+    
+    if query:
+        assets = assets.filter(
+            Q(name__icontains=query) |
+            Q(tracking_id__icontains=query) |
+            Q(serial_number__icontains=query) |
+            Q(model__icontains=query) |
+            Q(manufacturer__icontains=query)
+        )
+    if asset_type:
+        assets = assets.filter(asset_type=asset_type)
+    if status_filter:
+        assets = assets.filter(status=status_filter)
+    if location_filter:
+        assets = assets.filter(location__icontains=location_filter)
+    
+    # Prepare data
+    data = []
+    for asset in assets:
+        data.append({
+            'Tracking ID': asset.tracking_id,
+            'Name': asset.name,
+            'Type': asset.get_asset_type_display(),
+            'Serial Number': asset.serial_number,
+            'Model': asset.model,
+            'Manufacturer': asset.manufacturer,
+            'Location': asset.location,
+            'Status': asset.get_status_display(),
+            'Assigned To': asset.assigned_to.get_full_name() if asset.assigned_to else '',
+            'Assigned Department': asset.assigned_to.department if asset.assigned_to else '',
+            'Purchase Date': asset.purchase_date.strftime('%Y-%m-%d') if asset.purchase_date else '',
+            'Warranty Expiry': asset.warranty_expiry.strftime('%Y-%m-%d') if asset.warranty_expiry else '',
+            'Warranty Duration (Years)': asset.warranty_duration_years,
+            'Notes': asset.notes,
+            'Created': asset.created_at.strftime('%Y-%m-%d %H:%M'),
+            'Updated': asset.updated_at.strftime('%Y-%m-%d %H:%M'),
+        })
+    
+    # Export based on format
+    if export_format == 'csv':
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="{filename}.csv"'
+        
+        writer = csv.DictWriter(response, fieldnames=data[0].keys() if data else [])
+        writer.writeheader()
+        writer.writerows(data)
+        return response
+    
+    elif export_format == 'excel':
+        response = HttpResponse(
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = f'attachment; filename="{filename}.xlsx"'
+        
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Assets"
+        
+        if data:
+            # Headers
+            headers = list(data[0].keys())
+            for col, header in enumerate(headers, 1):
+                cell = ws.cell(row=1, column=col, value=header)
+                cell.font = Font(bold=True)
+                cell.fill = PatternFill(start_color="E2E8F0", end_color="E2E8F0", fill_type="solid")
+                cell.alignment = Alignment(horizontal='center')
+            
+            # Data
+            for row_idx, row_data in enumerate(data, 2):
+                for col_idx, key in enumerate(headers, 1):
+                    ws.cell(row=row_idx, column=col_idx, value=row_data.get(key, ''))
+            
+            # Auto-fit columns
+            for col in ws.columns:
+                max_length = 0
+                column = col[0].column_letter
+                for cell in col:
+                    try:
+                        if len(str(cell.value)) > max_length:
+                            max_length = len(str(cell.value))
+                    except:
+                        pass
+                adjusted_width = min(max_length + 2, 50)
+                ws.column_dimensions[column].width = adjusted_width
+        
+        wb.save(response)
+        return response
+    
+    elif export_format == 'json':
+        response = HttpResponse(
+            json.dumps(data, indent=2),
+            content_type='application/json'
+        )
+        response['Content-Disposition'] = f'attachment; filename="{filename}.json"'
+        return response
+    
+    return HttpResponse('Invalid format', status=400)
+
+
+# ==========================================================================
+# ASSET IMPORT
+# ==========================================================================
+
+@login_required
+@require_POST
+def asset_import(request):
+    """Import assets from CSV or Excel file"""
+    if request.user.role not in ['ADMIN', 'SUPERADMIN']:
+        return HttpResponse(status=403)
+    
+    file = request.FILES.get('file')
+    if not file:
+        messages.error(request, 'Please select a file to import.')
+        return redirect('tickets:assets')
+    
+    # Check file type
+    file_name = file.name.lower()
+    is_csv = file_name.endswith('.csv')
+    is_excel = file_name.endswith(('.xlsx', '.xls'))
+    
+    if not (is_csv or is_excel):
+        messages.error(request, 'Please upload a CSV or Excel file.')
+        return redirect('tickets:assets')
+    
+    imported = 0
+    errors = []
+    warnings = []
+    
+    try:
+        if is_csv:
+            # Parse CSV
+            decoded = file.read().decode('utf-8')
+            reader = csv.DictReader(decoded.splitlines())
+            rows = list(reader)
+        else:
+            # Parse Excel
+            wb = Workbook()
+            ws = wb.active
+            # Read Excel manually since we're using openpyxl
+            import openpyxl
+            wb = openpyxl.load_workbook(file)
+            ws = wb.active
+            
+            # Get headers from first row
+            headers = []
+            for cell in ws[1]:
+                headers.append(cell.value)
+            
+            rows = []
+            for row in ws.iter_rows(min_row=2, values_only=True):
+                row_dict = {}
+                for idx, header in enumerate(headers):
+                    if idx < len(row):
+                        row_dict[header] = row[idx]
+                rows.append(row_dict)
+        
+        # Import each row
+        for row in rows:
+            try:
+                # Skip empty rows
+                if not row.get('Name') and not row.get('name'):
+                    continue
+                
+                # Map columns (case-insensitive)
+                name = row.get('Name') or row.get('name')
+                asset_type = row.get('Type') or row.get('type')
+                serial_number = row.get('Serial Number') or row.get('serial_number') or row.get('Serial') or ''
+                model = row.get('Model') or row.get('model') or ''
+                manufacturer = row.get('Manufacturer') or row.get('manufacturer') or ''
+                location = row.get('Location') or row.get('location') or ''
+                status = row.get('Status') or row.get('status') or 'ACTIVE'
+                purchase_date = parse_date(row.get('Purchase Date') or row.get('purchase_date'))
+                warranty_expiry = parse_date(row.get('Warranty Expiry') or row.get('warranty_expiry'))
+                warranty_duration = row.get('Warranty Duration (Years)') or row.get('warranty_duration') or 0
+                notes = row.get('Notes') or row.get('notes') or ''
+                assigned_to_name = row.get('Assigned To') or row.get('assigned_to') or ''
+                
+                # Find assigned user by name or email
+                assigned_to = None
+                if assigned_to_name:
+                    assigned_to = User.objects.filter(
+                        Q(first_name__icontains=assigned_to_name) |
+                        Q(last_name__icontains=assigned_to_name) |
+                        Q(email__icontains=assigned_to_name)
+                    ).first()
+                
+                # Create asset
+                asset = Asset.objects.create(
+                    name=name,
+                    asset_type=asset_type or 'OTHER',
+                    serial_number=serial_number,
+                    model=model,
+                    manufacturer=manufacturer,
+                    location=location,
+                    status=status,
+                    purchase_date=purchase_date if purchase_date else None,
+                    warranty_expiry=warranty_expiry if warranty_expiry else None,
+                    warranty_duration_years=int(warranty_duration) if warranty_duration else 0,
+                    notes=notes,
+                    assigned_to=assigned_to,
+                )
+                
+                imported += 1
+                
+            except Exception as e:
+                errors.append(f"Row {len(rows)}: {str(e)}")
+        
+    except Exception as e:
+        messages.error(request, f'Error reading file: {str(e)}')
+        return redirect('tickets:assets')
+    
+    # Show results
+    if imported > 0:
+        messages.success(request, f'✅ Successfully imported {imported} asset(s).')
+    if errors:
+        messages.warning(request, f'⚠️ {len(errors)} error(s) occurred.')
+    if not imported and not errors:
+        messages.warning(request, 'No assets were imported. Please check your file format.')
+    
+    return redirect('tickets:assets')

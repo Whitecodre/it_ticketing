@@ -23,7 +23,8 @@ def send_push_notification(notification):
 
     # Decode private key if needed (if stored as base64)
     private_key = settings.VAPID_PRIVATE_KEY
-    if not private_key.startswith('-----BEGIN'):
+    # Handle both raw base64 and PEM formats
+    if private_key.startswith('LS0tLS1CRUdJTiB'):  # Base64 for '-----BEGIN'
         private_key = base64.b64decode(private_key).decode('utf-8')
 
     sent = 0

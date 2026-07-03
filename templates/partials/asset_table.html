@@ -46,9 +46,10 @@
                                 title="Reassign">
                             {% lucide "user-plus" size=16 %}
                         </button>
+                        <!-- In partials/asset_table.html, update the edit button -->
                         {% if user.role == 'ADMIN' or user.role == 'SUPERADMIN' %}
                         <button class="btn-ghost p-1 text-text-secondary hover:text-primary transition"
-                                hx-get="{% url 'tickets:asset_edit' asset.pk %}?source=list"
+                                hx-get="{% url 'tickets:asset_edit' asset.pk %}?source=list&q={{ query }}&type={{ selected_type }}&status={{ selected_status }}&location={{ selected_location }}"
                                 hx-target="#modalContainer"
                                 hx-swap="innerHTML"
                                 onclick="document.getElementById('modalOverlay').classList.remove('hidden')"

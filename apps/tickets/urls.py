@@ -80,4 +80,8 @@ urlpatterns = [
     path('manager/review/', views.manager_review_queue, name='manager_review_queue'),
     path('manager/review/<int:pk>/', views.manager_review_ticket, name='manager_review_ticket'),
     path('manager/review/count/', views.manager_review_count, name='manager_review_count'),
+
+    # ASSET EXPORT AND IMPORT
+    path('assets/export/', views.asset_export, name='asset_export'),
+    path('assets/import/', views.asset_import, name='asset_import'),
     ]

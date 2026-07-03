@@ -55,7 +55,7 @@ class Command(BaseCommand):
                 self.execute_escalation(ticket, rule, timer_type, percent_elapsed)
 
         # --- NEW: Auto‑escalation on SLA breach (100%) ---
-        if percent_elapsed >= 100 and ticket.status != Ticket.Status.ESCALATED:
+        if percent_elapsed >= 99.99 and ticket.status != Ticket.Status.ESCALATED:
             if not TicketActivityLog.objects.filter(
                 ticket=ticket,
                 action='escalated',

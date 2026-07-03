@@ -415,7 +415,7 @@
 
         // Register Service Worker for Push Notifications
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/static/js/sw.js')
+            navigator.serviceWorker.register('/sw.js', { scope: '/' })
                 .then(function(registration) {
                     console.log('Service Worker registered for push notifications.');
                 })

@@ -1,12 +1,14 @@
-import json
+import json, os
+from django.conf import settings
 from django.shortcuts import render
-from django.http import HttpResponse, JsonResponse
+from django.http import HttpResponse, JsonResponse, FileResponse
 from django.views.decorators.http import require_POST
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.csrf import csrf_exempt
 from django.middleware.csrf import get_token
 from .models import Notification, PushSubscription
 from .utils import send_push_notification
+
 
 
 @login_required
@@ -124,3 +126,10 @@ def delete_push_subscription(request):
         return JsonResponse({'status': 'ok'})
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+def service_worker(request):
+    file_path = os.path.join(settings.STATIC_ROOT, 'sw.js')
+    if not os.path.exists(file_path):
+        # Fallback to static directory
+        file_path = os.path.join(settings.BASE_DIR, 'static', 'sw.js')
+    return FileResponse(open(file_path, 'rb'), content_type='application/javascript')

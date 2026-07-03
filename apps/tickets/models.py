@@ -308,6 +308,16 @@ class Asset(models.Model):
         SOFTWARE = 'SOFTWARE', 'Software License'
         OTHER = 'OTHER', 'Other'
 
+     # Add location choices
+    class Location(models.TextChoices):
+        HQ = 'HQ', 'Headquarters'
+        BRANCH_A = 'BRANCH_A', 'Branch A - Lagos'
+        BRANCH_B = 'BRANCH_B', 'Branch B - Abuja'
+        BRANCH_C = 'BRANCH_C', 'Branch C - Port Harcourt'
+        WAREHOUSE = 'WAREHOUSE', 'Warehouse'
+        DATA_CENTER = 'DATA_CENTER', 'Data Center'
+        OTHER = 'OTHER', 'Other'  # <-- This triggers custom input
+
     class Status(models.TextChoices):
         ACTIVE = 'ACTIVE', 'Active'
         IN_STORE = 'IN_STORE', 'In Store'          # unassigned, available
@@ -315,6 +325,8 @@ class Asset(models.Model):
         DAMAGED = 'DAMAGED', 'Damaged'              # pending scrap approval
         SCRAPPED = 'SCRAPPED', 'Scrapped'           # removed from inventory
         RETIRED = 'RETIRED', 'Retired'              # legacy, can be merged with SCRAPPED
+        OTHER = 'OTHER', 'Other'  # <-- This triggers custom input
+
 
     # Basic info
     name = models.CharField(max_length=200)
@@ -325,7 +337,7 @@ class Asset(models.Model):
     tracking_id = models.CharField(max_length=50, unique=True, editable=False)  # auto-generated
     model = models.CharField(max_length=100, blank=True)
     manufacturer = models.CharField(max_length=100, blank=True)
-    location = models.CharField(max_length=200, blank=True)
+    location = models.CharField(max_length=200, blank=True, choices=Location.choices, default=Location.HQ)
     warranty_expiry = models.DateField(null=True, blank=True)
     warranty_duration_years = models.PositiveSmallIntegerField(default=0, help_text="Warranty duration in years")
     assigned_to_department = models.CharField(max_length=50, blank=True)

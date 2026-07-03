@@ -47,7 +47,7 @@ class UserAdmin(BaseUserAdmin):
 
     def save_model(self, request, obj, form, change):
         if not change and not obj.created_by:
-            obj.created_by = request.user
+            obj.created_by = request.user if request.user.is_authenticated else None
         super().save_model(request, obj, form, change)
 
 

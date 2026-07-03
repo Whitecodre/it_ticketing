@@ -9,15 +9,16 @@
     </div>
 
     <form method="post"
-          {% if action == 'create' %}
-          action="{% url 'tickets:asset_create' %}"
-          {% else %}
-          action="{% url 'tickets:asset_edit' asset.pk %}"
-          {% endif %}
-          hx-post="{% if action == 'create' %}{% url 'tickets:asset_create' %}{% else %}{% url 'tickets:asset_edit' asset.pk %}{% endif %}"
-          hx-target="#assetTableContainer"
-          hx-swap="innerHTML"
-          hx-on::after-request="if(event.detail.successful) { setTimeout(closeModal, 400); }">
+        {% if action == 'create' %}
+        action="{% url 'tickets:asset_create' %}"
+        {% else %}
+        action="{% url 'tickets:asset_edit' asset.pk %}"
+        {% endif %}
+        hx-post="{% if action == 'create' %}{% url 'tickets:asset_create' %}{% else %}{% url 'tickets:asset_edit' asset.pk %}{% endif %}"
+        hx-target="#modalContainer"
+        hx-swap="innerHTML"
+        hx-on::after-request="handleFormResponse(event)"
+        hx-trigger="submit">
         {% csrf_token %}
 
         <!-- Preserve source parameter for edit from detail page -->
@@ -36,11 +37,22 @@
             <!-- Type -->
             <div>
                 <label class="block text-sm font-medium mb-1 text-text-primary">Type</label>
-                <select name="asset_type" class="w-full rounded-lg border py-2 px-3 text-sm focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary">
+                <select name="asset_type" id="asset_type_select" 
+                        class="w-full rounded-lg border py-2 px-3 text-sm focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary"
+                        onchange="toggleOtherField('asset_type')">
+                    <option value="">-- Select Type --</option>
                     {% for value, label in asset_types %}
                     <option value="{{ value }}" {% if asset.asset_type == value %}selected{% endif %}>{{ label }}</option>
                     {% endfor %}
                 </select>
+                <div id="asset_type_other_container" 
+                    class="mt-2 {% if asset.asset_type in asset_type_values or not asset.asset_type %}hidden{% endif %}">
+                    <input type="text" name="asset_type_other" id="asset_type_other"
+                        value="{% if asset.asset_type not in asset_type_values and asset.asset_type %}{{ asset.asset_type }}{% endif %}"
+                        class="w-full rounded-lg border py-2 px-3 text-sm focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary"
+                        placeholder="Enter custom asset type...">
+                    <p class="text-xs text-text-secondary mt-1">Custom type will be saved to the database.</p>
+                </div>
             </div>
             
             <!-- Serial -->
@@ -67,46 +79,72 @@
             <!-- Location -->
             <div>
                 <label class="block text-sm font-medium mb-1 text-text-primary">Location</label>
-                <input type="text" name="location" value="{{ asset.location|default:'' }}"
-                       class="w-full rounded-lg border py-2 px-3 text-sm focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary">
+                <select name="location" id="location_select"
+                        class="w-full rounded-lg border py-2 px-3 text-sm focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary"
+                        onchange="toggleOtherField('location')">
+                    <option value="">-- Select Location --</option>
+                    {% for value, label in location_choices %}
+                    <option value="{{ value }}" {% if asset.location == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+                <div id="location_other_container" 
+                        class="mt-2 {% if asset.location in location_values or not asset.location %}hidden{% endif %}">
+                    <input type="text" name="location_other" id="location_other"
+                            value="{% if asset.location not in location_values and asset.location %}{{ asset.location }}{% endif %}"
+                            class="w-full rounded-lg border py-2 px-3 text-sm focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary"
+                            placeholder="Enter custom location...">
+                    <p class="text-xs text-text-secondary mt-1">Custom location will be saved to the database.</p>
+                </div>
             </div>
             
             <!-- Purchase Date -->
             <div>
                 <label class="block text-sm font-medium mb-1 text-text-primary">Purchase Date</label>
                 <input type="date" name="purchase_date" id="purchaseDate" 
-                       value="{{ asset.purchase_date|date:'Y-m-d'|default:'' }}"
-                       class="w-full rounded-lg border py-2 px-3 text-sm focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary"
-                       hx-get="{% url 'tickets:asset_calculate_warranty' %}"
-                       hx-trigger="change"
-                       hx-target="#warrantyExpiryContainer"
-                       hx-swap="innerHTML"
-                       hx-include="#warrantyDuration">
+                    value="{{ asset.purchase_date|date:'Y-m-d'|default:'' }}"
+                    class="w-full rounded-lg border py-2 px-3 text-sm focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary"
+                    hx-get="{% url 'tickets:asset_calculate_warranty' %}"
+                    hx-trigger="change"
+                    hx-target="#warrantyExpiry"
+                    hx-swap="outerHTML"
+                    hx-include="#warrantyDuration"
+                    hx-indicator="#warrantyLoader">
             </div>
 
-            <!-- Warranty Duration Dropdown -->
+            <!-- Warranty Duration -->
             <div>
                 <label class="block text-sm font-medium mb-1 text-text-primary">Warranty Duration</label>
                 <select name="warranty_duration" id="warrantyDuration"
                         class="w-full rounded-lg border py-2 px-3 text-sm focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary"
                         hx-get="{% url 'tickets:asset_calculate_warranty' %}"
                         hx-trigger="change"
-                        hx-target="#warrantyExpiryContainer"
-                        hx-swap="innerHTML"
-                        hx-include="#purchaseDate">
+                        hx-target="#warrantyExpiry"
+                        hx-swap="outerHTML"
+                        hx-include="#purchaseDate"
+                        hx-indicator="#warrantyLoader">
                     <option value="0" {% if asset.warranty_duration_years == 0 %}selected{% endif %}>None</option>
                     <option value="1" {% if asset.warranty_duration_years == 1 %}selected{% endif %}>1 Year</option>
                     <option value="2" {% if asset.warranty_duration_years == 2 %}selected{% endif %}>2 Years</option>
                     <option value="3" {% if asset.warranty_duration_years == 3 %}selected{% endif %}>3 Years</option>
+                    <option value="4" {% if asset.warranty_duration_years == 4 %}selected{% endif %}>4 Years</option>
                     <option value="5" {% if asset.warranty_duration_years == 5 %}selected{% endif %}>5 Years</option>
                 </select>
             </div>
 
-            <!-- Warranty Expiry (auto-calculated, read-only) -->
+            <!-- Warranty Expiry -->
             <div>
                 <label class="block text-sm font-medium mb-1 text-text-primary">Warranty Expiry</label>
-                <div id="warrantyExpiryContainer">
-                    {% include "partials/warranty_expiry_input.html" with value=asset.warranty_expiry|date:'Y-m-d'|default:'' %}
+                <div class="relative">
+                    <input type="date" name="warranty_expiry" id="warrantyExpiry"
+                        value="{{ asset.warranty_expiry|date:'Y-m-d'|default:'' }}"
+                        readonly
+                        class="w-full rounded-lg border py-2 px-3 text-sm bg-gray-100 text-gray-600 cursor-not-allowed focus:outline-none">
+                    <div id="warrantyLoader" class="absolute right-2 top-1/2 -translate-y-1/2 hidden">
+                        <svg class="animate-spin h-4 w-4 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </div>
                 </div>
                 <p class="text-xs text-text-secondary mt-1">Auto-calculated from purchase date and duration.</p>
             </div>
@@ -124,13 +162,24 @@
         </div>
 
         <!-- Status – FULL WIDTH (outside the grid) -->
-        <div class="mt-4">
+        <div class="mt-3">
             <label class="block text-sm font-medium mb-1 text-text-primary">Status</label>
-            <select name="status" class="w-full rounded-lg border py-2 px-3 text-sm focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary">
+            <select name="status" id="status_select"
+                    class="w-full rounded-lg border py-2 px-3 text-sm focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary"
+                    onchange="toggleOtherField('status')">
+                <option value="">-- Select Status --</option>
                 {% for value, label in status_choices %}
                 <option value="{{ value }}" {% if asset.status == value %}selected{% endif %}>{{ label }}</option>
                 {% endfor %}
             </select>
+            <div id="status_other_container" 
+                class="mt-2 {% if asset.status in status_values or not asset.status %}hidden{% endif %}">
+                <input type="text" name="status_other" id="status_other"
+                    value="{% if asset.status not in status_values and asset.status %}{{ asset.status }}{% endif %}"
+                    class="w-full rounded-lg border py-2 px-3 text-sm focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary"
+                    placeholder="Enter custom status...">
+                <p class="text-xs text-text-secondary mt-1">Custom status will be saved to the database.</p>
+            </div>
         </div>
 
         <!-- Notes – FULL WIDTH -->
@@ -149,11 +198,118 @@
     </form>
 </div>
 
+<!-- In asset_form_modal.html, add hidden filter fields -->
+<input type="hidden" name="filter_q" value="{{ request.GET.q|default:'' }}">
+<input type="hidden" name="filter_type" value="{{ request.GET.type|default:'' }}">
+<input type="hidden" name="filter_status" value="{{ request.GET.status|default:'' }}">
+<input type="hidden" name="filter_location" value="{{ request.GET.location|default:'' }}">
+
 <script>
     // Ensure the warranty calculation works with the HTMX response
     document.addEventListener('htmx:afterSwap', function(evt) {
         if (evt.detail.target.id === 'warrantyExpiryContainer') {
             // The warranty expiry container is updated
+        }
+    });
+
+    function handleFormResponse(event) {
+        console.log('🔵 handleFormResponse called');
+        console.log('  - successful:', event.detail.successful);
+        console.log('  - status:', event.detail.xhr.status);
+        
+        if (event.detail.successful) {
+            const response = event.detail.xhr.responseText;
+            console.log('  - response preview:', response.substring(0, 200));
+            
+            // Check if the response contains the asset table (success from create/edit)
+            if (response.includes('Tracking ID') || response.includes('assetTableContainer')) {
+                console.log('✅ Success - closing modal');
+                // Close the modal
+                const overlay = document.getElementById('modalOverlay');
+                if (overlay) overlay.classList.add('hidden');
+                const container = document.getElementById('modalContainer');
+                if (container) container.innerHTML = '';
+                // Update the table
+                htmx.ajax('GET', window.location.href, {
+                    target: '#assetTableContainer',
+                    swap: 'innerHTML'
+                });
+            } 
+            // Check if the response contains the form (validation error)
+            else if (response.includes('Add New Asset') || response.includes('Edit Asset') || response.includes('form')) {
+                console.log('⚠️ Form has errors - keeping modal open');
+                // The modal content is already updated with the form showing errors
+            } 
+            // For warranty calculation responses, do nothing (keep modal open)
+            else if (response.includes('warrantyExpiryContainer')) {
+                console.log('ℹ️ Warranty calculation - keeping modal open');
+            }
+            else {
+                console.log('⚠️ Unknown response - keeping modal open');
+            }
+        } else {
+            console.log('❌ Request failed');
+        }
+    }
+
+    function toggleOtherField(fieldType) {
+        const selectMap = {
+            'asset_type': {
+                select: 'asset_type_select',
+                container: 'asset_type_other_container',
+                input: 'asset_type_other'
+            },
+            'status': {
+                select: 'status_select',
+                container: 'status_other_container',
+                input: 'status_other'
+            },
+            'location': {
+                select: 'location_select',
+                container: 'location_other_container',
+                input: 'location_other'
+            }
+        };
+        
+        const config = selectMap[fieldType];
+        if (!config) return;
+        
+        const select = document.getElementById(config.select);
+        const container = document.getElementById(config.container);
+        const input = document.getElementById(config.input);
+        
+        if (!select || !container || !input) return;
+        
+        if (select.value === 'OTHER') {
+            container.classList.remove('hidden');
+            input.required = true;
+            input.focus();
+        } else {
+            container.classList.add('hidden');
+            input.required = false;
+            input.value = '';
+        }
+    }
+    
+    // Initialize on page load - use HTMX event to ensure modal content is ready
+    function initOtherFields() {
+        ['asset_type', 'status', 'location'].forEach(function(field) {
+            toggleOtherField(field);
+        });
+    }
+    
+    // Run when DOM is ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initOtherFields);
+    } else {
+        initOtherFields();
+    }
+    
+    // Also run after HTMX swaps the modal in
+    document.addEventListener('htmx:afterSwap', function(evt) {
+        // Check if the modal container was updated
+        if (evt.detail.target.id === 'modalContainer' || evt.detail.target.closest('#modalContainer')) {
+            setTimeout(initOtherFields, 50);
         }
     });
 </script>

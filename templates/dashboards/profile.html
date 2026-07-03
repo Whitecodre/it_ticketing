@@ -169,12 +169,20 @@
                 <p class="text-sm font-medium" style="color: var(--color-text-primary);">Enable Push Notifications</p>
                 <p class="text-xs text-text-secondary">Get alerts for new tickets, replies, and remote session requests.</p>
             </div>
-            <label class="relative inline-flex items-center cursor-pointer" id="pushToggleLabel">
-                <input type="checkbox" id="pushToggle" class="sr-only peer">
-                <div id="pushToggleTrack" class="w-11 h-6 rounded-full transition-all duration-200 ease-in-out" style="background-color: #d1d5db;">
-                    <div id="pushToggleThumb" class="h-5 w-5 rounded-full bg-white transition-all duration-200 ease-in-out transform translate-x-0.5 shadow-sm" style="margin-top: 2px;"></div>
-                </div>
-            </label>
+            <div class="flex items-center gap-3">
+                <span id="pushStatusText" class="text-xs font-medium" style="color: var(--color-text-secondary);">Off</span>
+                <button id="pushToggleBtn" 
+                        class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+                        style="background-color: #d1d5db;"
+                        onclick="handlePushToggle()"
+                        role="switch"
+                        aria-checked="false">
+                    <span id="pushToggleThumb" 
+                        class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ease-in-out"
+                        style="transform: translateX(2px);">
+                    </span>
+                </button>
+            </div>
         </div>
     </div>
 
@@ -244,10 +252,15 @@
 </div>
 {% endblock %}
 
+
 {% block scripts %}
 {{ block.super }}
 <script>
+    console.log('🔵 profile.html scripts loaded - DEBUG MODE');
+
     document.addEventListener('DOMContentLoaded', function() {
+        console.log('🔵 DOM loaded - setting up profile page');
+
         // --- Fix: Prevent auto-scroll to password field ---
         if ('scrollRestoration' in history) {
             history.scrollRestoration = 'manual';
@@ -258,7 +271,7 @@
             window.scrollTo(0, 0);
         }
 
-        // --- Avatar preview (existing) ---
+        // --- Avatar preview ---
         const avatarInput = document.getElementById('id_avatar');
         const avatarPreview = document.getElementById('avatarPreview');
         const avatarFileName = document.getElementById('avatarFileName');
@@ -285,7 +298,7 @@
             });
         }
 
-        // --- Password Toggle (existing) ---
+        // --- Password Toggle ---
         document.querySelectorAll('.password-toggle').forEach(function(btn) {
             var input = document.getElementById(btn.getAttribute('data-target'));
             var eye = btn.querySelector('.eye-icon');
@@ -304,32 +317,7 @@
             });
         });
 
-        // --- Toast messages (existing) ---
-        function showToast(message, type) {
-            const container = document.getElementById('toastContainer');
-            if (!container) return;
-            const toast = document.createElement('div');
-            toast.className = 'toast-item show';
-            toast.textContent = message;
-            if (type === 'success') {
-                toast.classList.add('toast-success');
-            } else if (type === 'error') {
-                toast.classList.add('toast-error');
-            }
-            container.appendChild(toast);
-            setTimeout(() => {
-                toast.classList.remove('show');
-                setTimeout(() => toast.remove(), 300);
-            }, 4000);
-        }
-
-        {% if messages %}
-            {% for message in messages %}
-                showToast('{{ message|escapejs }}', '{{ message.tags }}');
-            {% endfor %}
-        {% endif %}
-
-        // --- Spinner for all forms (existing) ---
+        // --- Spinner for all forms ---
         document.querySelectorAll('form').forEach(function(form) {
             form.addEventListener('submit', function() {
                 const submitBtn = form.querySelector('button[type="submit"]');
@@ -349,144 +337,421 @@
             });
         });
 
-        // --- Push Notifications Toggle ---
-        const pushToggle = document.getElementById('pushToggle');
-        const pushToggleTrack = document.getElementById('pushToggleTrack');
+        // ================================================================
+        // ========== PUSH NOTIFICATIONS - DEBUG VERSION ==========
+        // ================================================================
+        
+        console.log('🔵 Setting up push notifications...');
+        
+        const pushToggleBtn = document.getElementById('pushToggleBtn');
         const pushToggleThumb = document.getElementById('pushToggleThumb');
+        const pushStatusText = document.getElementById('pushStatusText');
 
-        function updatePushToggleUI(checked) {
-            if (checked) {
-                pushToggleTrack.style.backgroundColor = 'var(--color-primary)';
-                pushToggleThumb.style.transform = 'translateX(1.25rem)';
-            } else {
-                pushToggleTrack.style.backgroundColor = '#d1d5db';
-                pushToggleThumb.style.transform = 'translateX(0)';
+        console.log('🔵 Push toggle button found:', pushToggleBtn);
+
+        // ================================================================
+        // STEP 1: Check browser support
+        // ================================================================
+        function checkBrowserSupport() {
+            console.log('🔵 [1] Checking browser support...');
+            
+            const hasServiceWorker = 'serviceWorker' in navigator;
+            const hasPushManager = 'PushManager' in window;
+            const hasNotification = 'Notification' in window;
+            
+            console.log('  - ServiceWorker:', hasServiceWorker);
+            console.log('  - PushManager:', hasPushManager);
+            console.log('  - Notification:', hasNotification);
+            
+            if (!hasServiceWorker) {
+                console.error('❌ ServiceWorker not supported');
+                return false;
+            }
+            if (!hasPushManager) {
+                console.error('❌ PushManager not supported');
+                return false;
+            }
+            if (!hasNotification) {
+                console.error('❌ Notification not supported');
+                return false;
+            }
+            
+            console.log('✅ Browser support: OK');
+            return true;
+        }
+
+        // ================================================================
+        // STEP 2: Check VAPID key
+        // ================================================================
+        function checkVapidKey() {
+            console.log('🔵 [2] Checking VAPID key...');
+            
+            const key = window.vapidPublicKey;
+            console.log('  - VAPID key exists:', !!key);
+            console.log('  - VAPID key length:', key ? key.length : 'N/A');
+            
+            if (!key) {
+                console.error('❌ VAPID key missing!');
+                return false;
+            }
+            
+            // Try to decode it
+            try {
+                const decoded = urlBase64ToUint8Array(key);
+                console.log('  - Decoded length:', decoded.length);
+                console.log('  - Expected length: 65');
+                if (decoded.length === 65) {
+                    console.log('✅ VAPID key: OK');
+                    return true;
+                } else {
+                    console.error('❌ VAPID key decoded to wrong length:', decoded.length);
+                    return false;
+                }
+            } catch (e) {
+                console.error('❌ Failed to decode VAPID key:', e);
+                return false;
             }
         }
 
-        if (pushToggle) {
-            // Check initial subscription state
-            if ('serviceWorker' in navigator && 'PushManager' in window) {
-                navigator.serviceWorker.ready.then(function(registration) {
-                    registration.pushManager.getSubscription().then(function(subscription) {
-                        if (subscription) {
-                            pushToggle.checked = true;
-                            updatePushToggleUI(true);
-                        } else {
-                            pushToggle.checked = false;
-                            updatePushToggleUI(false);
-                        }
+        // ================================================================
+        // STEP 3: Check service worker registration
+        // ================================================================
+        function checkServiceWorker() {
+            console.log('🔵 [3] Checking service worker...');
+            
+            return navigator.serviceWorker.getRegistrations()
+                .then(function(registrations) {
+                    console.log('  - Registrations found:', registrations.length);
+                    registrations.forEach(function(reg, i) {
+                        console.log('    [' + i + '] Scope:', reg.scope);
+                        console.log('        Active:', reg.active ? '✅' : '❌');
+                        console.log('        Waiting:', reg.waiting ? '✅' : '❌');
                     });
-                }).catch(function() {
-                    pushToggle.checked = false;
-                    updatePushToggleUI(false);
+                    
+                    if (registrations.length === 0) {
+                        console.warn('⚠️ No service worker registrations found');
+                        return false;
+                    }
+                    
+                    // Check if the root scope is registered
+                    const rootReg = registrations.find(function(reg) {
+                        return reg.scope === window.location.origin + '/';
+                    });
+                    
+                    if (rootReg) {
+                        console.log('✅ Root-scoped service worker found');
+                        return true;
+                    } else {
+                        console.warn('⚠️ Root-scoped service worker NOT found');
+                        return false;
+                    }
+                })
+                .catch(function(error) {
+                    console.error('❌ Failed to get registrations:', error);
+                    return false;
                 });
-            }
+        }
 
-            pushToggle.addEventListener('change', function() {
-                if (this.checked) {
-                    updatePushToggleUI(true);
-                    enablePushNotifications();
+        // ================================================================
+        // STEP 4: Check permission
+        // ================================================================
+        function checkNotificationPermission() {
+            console.log('🔵 [4] Checking notification permission...');
+            console.log('  - Current permission:', Notification.permission);
+            
+            if (Notification.permission === 'granted') {
+                console.log('✅ Permission: granted');
+                return true;
+            } else if (Notification.permission === 'denied') {
+                console.error('❌ Permission: denied - user blocked notifications');
+                return false;
+            } else {
+                console.log('⚠️ Permission: default - need to request');
+                return null; // null means "need to request"
+            }
+        }
+
+        // ================================================================
+        // STEP 5: Try to subscribe
+        // ================================================================
+        function trySubscribe(registration) {
+            console.log('🔵 [5] Attempting to subscribe...');
+            console.log('  - Registration scope:', registration.scope);
+            
+            const key = window.vapidPublicKey;
+            console.log('  - Using VAPID key:', key.substring(0, 20) + '...');
+            
+            try {
+                const applicationServerKey = urlBase64ToUint8Array(key);
+                console.log('  - Key decoded, length:', applicationServerKey.length);
+                
+                console.log('  - Calling pushManager.subscribe()...');
+                return registration.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: applicationServerKey
+                })
+                .then(function(subscription) {
+                    console.log('✅ SUBSCRIPTION SUCCESS!');
+                    console.log('  - Endpoint:', subscription.endpoint);
+                    console.log('  - Keys:', subscription.toJSON().keys);
+                    return subscription;
+                })
+                .catch(function(error) {
+                    console.error('❌ Subscription failed:', error);
+                    console.error('  - Error name:', error.name);
+                    console.error('  - Error message:', error.message);
+                    console.error('  - Error stack:', error.stack);
+                    throw error;
+                });
+            } catch (e) {
+                console.error('❌ Error preparing subscription:', e);
+                throw e;
+            }
+        }
+
+        // ================================================================
+        // STEP 6: Save subscription to server
+        // ================================================================
+        function saveSubscription(subscription) {
+            console.log('🔵 [6] Saving subscription to server...');
+            
+            return fetch('/notifications/push/save/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                },
+                body: JSON.stringify(subscription)
+            })
+            .then(function(response) {
+                console.log('  - Response status:', response.status);
+                if (response.ok) {
+                    return response.json();
                 } else {
-                    updatePushToggleUI(false);
-                    disablePushNotifications();
+                    throw new Error('Server returned ' + response.status);
                 }
+            })
+            .then(function(data) {
+                console.log('  - Response data:', data);
+                if (data.status === 'ok') {
+                    console.log('✅ Subscription saved to server!');
+                    return true;
+                } else {
+                    throw new Error(data.error || 'Unknown server error');
+                }
+            })
+            .catch(function(error) {
+                console.error('❌ Failed to save subscription:', error);
+                throw error;
             });
         }
-    });
 
-    // --- Push Notification Functions ---
-    // These are also defined in global.js. This provides a fallback in case global.js hasn't loaded yet.
-    // If global.js already defines them, this will override – but they should be the same.
-    // We'll call the functions defined in global.js if they exist.
-    if (typeof enablePushNotifications === 'undefined') {
-        function enablePushNotifications() {
+        // ================================================================
+        // MAIN DEBUG FUNCTION
+        // ================================================================
+        function debugPushFlow() {
+            console.log('========================================');
+            console.log('🔵 Starting push notification debug flow');
+            console.log('========================================');
+            
+            // Step 1: Browser support
+            if (!checkBrowserSupport()) {
+                updatePushToggleUI(false);
+                return Promise.reject('Browser support failed');
+            }
+            
+            // Step 2: VAPID key
+            if (!checkVapidKey()) {
+                updatePushToggleUI(false);
+                return Promise.reject('VAPID key failed');
+            }
+            
+            // Step 3: Service worker
+            return checkServiceWorker()
+                .then(function(swOk) {
+                    if (!swOk) {
+                        console.warn('⚠️ Service worker check failed, attempting to register...');
+                        return navigator.serviceWorker.register('/sw.js', { scope: '/' })
+                            .then(function(reg) {
+                                console.log('✅ Service worker registered:', reg);
+                                return true;
+                            })
+                            .catch(function(err) {
+                                console.error('❌ Failed to register service worker:', err);
+                                updatePushToggleUI(false);
+                                return Promise.reject('Service worker registration failed');
+                            });
+                    }
+                    return true;
+                })
+                .then(function() {
+                    // Step 4: Permission
+                    const permResult = checkNotificationPermission();
+                    if (permResult === false) {
+                        updatePushToggleUI(false);
+                        return Promise.reject('Permission denied');
+                    }
+                    
+                    if (permResult === null) {
+                        // Need to request permission
+                        console.log('🔵 Requesting notification permission...');
+                        return Notification.requestPermission()
+                            .then(function(permission) {
+                                console.log('  - Permission result:', permission);
+                                if (permission !== 'granted') {
+                                    updatePushToggleUI(false);
+                                    return Promise.reject('Permission not granted');
+                                }
+                                console.log('✅ Permission granted');
+                                return true;
+                            });
+                    }
+                    return true;
+                })
+                .then(function() {
+                    // Step 5: Get registration and subscribe
+                    console.log('🔵 Getting service worker registration...');
+                    return navigator.serviceWorker.ready;
+                })
+                .then(function(registration) {
+                    console.log('✅ Service worker ready:', registration);
+                    return trySubscribe(registration);
+                })
+                .then(function(subscription) {
+                    // Step 6: Save to server
+                    return saveSubscription(subscription);
+                })
+                .then(function() {
+                    console.log('========================================');
+                    console.log('✅ PUSH NOTIFICATIONS ENABLED SUCCESSFULLY!');
+                    console.log('========================================');
+                    updatePushToggleUI(true);
+                    if (typeof showToast === 'function') {
+                        showToast('Push notifications enabled successfully!', 'success');
+                    }
+                })
+                .catch(function(error) {
+                    console.log('========================================');
+                    console.error('❌ PUSH NOTIFICATIONS FAILED');
+                    console.error('❌ Error:', error);
+                    console.log('========================================');
+                    updatePushToggleUI(false);
+                });
+        }
+
+        // ================================================================
+        // UI UPDATE FUNCTIONS
+        // ================================================================
+        function updatePushToggleUI(checked) {
+            console.log('🔵 Updating toggle UI to:', checked);
+            if (checked) {
+                pushToggleBtn.style.backgroundColor = 'var(--color-primary)';
+                pushToggleThumb.style.transform = 'translateX(1.25rem)';
+                pushToggleBtn.setAttribute('aria-checked', 'true');
+                pushStatusText.textContent = 'On';
+                pushStatusText.style.color = 'var(--color-success)';
+            } else {
+                pushToggleBtn.style.backgroundColor = '#d1d5db';
+                pushToggleThumb.style.transform = 'translateX(2px)';
+                pushToggleBtn.setAttribute('aria-checked', 'false');
+                pushStatusText.textContent = 'Off';
+                pushStatusText.style.color = 'var(--color-text-secondary)';
+            }
+        }
+
+        // ================================================================
+        // TOGGLE FUNCTION
+        // ================================================================
+        window.handlePushToggle = function() {
+            console.log('🔄 handlePushToggle called');
+            const isCurrentlyOn = pushToggleBtn.getAttribute('aria-checked') === 'true';
+            console.log('  - Currently on:', isCurrentlyOn);
+            
+            if (isCurrentlyOn) {
+                console.log('🔵 Turning OFF push notifications...');
+                updatePushToggleUI(false);
+                // We don't need to disable here, the debug flow will handle it
+                // Just turn off the UI and the user can re-enable later
+            } else {
+                console.log('🔵 Turning ON push notifications...');
+                updatePushToggleUI(true);
+                // Start the debug flow
+                debugPushFlow();
+            }
+        };
+
+        // ================================================================
+        // CHECK EXISTING SUBSCRIPTION ON LOAD
+        // ================================================================
+        function checkExistingSubscription() {
+            console.log('🔍 Checking existing push subscription...');
+            
             if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-                alert('Push notifications are not supported in this browser.');
-                pushToggle.checked = false;
+                console.log('❌ Push not supported');
                 updatePushToggleUI(false);
                 return;
             }
 
-            navigator.serviceWorker.ready.then(function(registration) {
-                Notification.requestPermission().then(function(permission) {
-                    if (permission !== 'granted') {
-                        alert('Please allow notifications in your browser settings.');
-                        pushToggle.checked = false;
-                        updatePushToggleUI(false);
-                        return;
-                    }
-
-                    const vapidPublicKey = window.vapidPublicKey || '{{ VAPID_PUBLIC_KEY }}';
-                    const applicationServerKey = urlBase64ToUint8Array(vapidPublicKey);
-
-                    registration.pushManager.subscribe({
-                        userVisibleOnly: true,
-                        applicationServerKey: applicationServerKey
-                    }).then(function(subscription) {
-                        return fetch('/notifications/push/save/', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
-                            },
-                            body: JSON.stringify(subscription)
-                        });
-                    }).then(function(response) {
-                        if (response.ok) {
-                            console.log('Push subscription saved.');
-                            // Keep toggle ON
-                            pushToggle.checked = true;
-                            updatePushToggleUI(true);
-                        } else {
-                            console.error('Failed to save push subscription.');
-                            pushToggle.checked = false;
-                            updatePushToggleUI(false);
-                        }
-                    }).catch(function(error) {
-                        console.error('Push subscription failed:', error);
-                        pushToggle.checked = false;
-                        updatePushToggleUI(false);
-                    });
-                });
-            });
-        }
-
-        function disablePushNotifications() {
-            if (!('serviceWorker' in navigator)) return;
-
-            navigator.serviceWorker.ready.then(function(registration) {
-                registration.pushManager.getSubscription().then(function(subscription) {
+            navigator.serviceWorker.ready
+                .then(function(registration) {
+                    console.log('✅ Service worker ready');
+                    return registration.pushManager.getSubscription();
+                })
+                .then(function(subscription) {
+                    console.log('Subscription check result:', subscription);
                     if (subscription) {
-                        fetch('/notifications/push/delete/', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
-                            },
-                            body: JSON.stringify({ endpoint: subscription.endpoint })
-                        }).then(function() {
-                            subscription.unsubscribe().then(function() {
-                                console.log('Push subscription removed.');
-                                pushToggle.checked = false;
-                                updatePushToggleUI(false);
-                            });
-                        });
+                        console.log('✅ Existing push subscription found!');
+                        updatePushToggleUI(true);
+                    } else {
+                        console.log('❌ No push subscription found');
+                        updatePushToggleUI(false);
                     }
+                })
+                .catch(function(error) {
+                    console.error('❌ Subscription check failed:', error);
+                    updatePushToggleUI(false);
                 });
-            });
         }
 
+        // ================================================================
+        // URL BASE64 TO UINT8ARRAY
+        // ================================================================
         function urlBase64ToUint8Array(base64String) {
-            const padding = '='.repeat((4 - base64String.length % 4) % 4);
-            const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
-            const rawData = window.atob(base64);
-            const outputArray = new Uint8Array(rawData.length);
-            for (let i = 0; i < rawData.length; ++i) {
-                outputArray[i] = rawData.charCodeAt(i);
+            // Remove any whitespace
+            base64String = base64String.trim();
+            // Add padding if needed
+            while (base64String.length % 4 !== 0) {
+                base64String += '=';
             }
-            return outputArray;
+            const base64 = base64String.replace(/\-/g, '+').replace(/_/g, '/');
+            try {
+                const rawData = window.atob(base64);
+                const outputArray = new Uint8Array(rawData.length);
+                for (let i = 0; i < rawData.length; ++i) {
+                    outputArray[i] = rawData.charCodeAt(i);
+                }
+                return outputArray;
+            } catch (e) {
+                console.error('Failed to decode VAPID key:', e);
+                return null;
+            }
         }
-    }
+
+        // ================================================================
+        // INITIAL SETUP
+        // ================================================================
+        if (pushToggleBtn) {
+            // Wait for page to fully load, then check subscription
+            setTimeout(function() {
+                console.log('🔵 Running initial subscription check...');
+                checkExistingSubscription();
+            }, 1500);
+            console.log('✅ Push toggle setup complete');
+        } else {
+            console.error('❌ Push toggle button not found!');
+        }
+    });
+
+    console.log('🔵 profile.html script loaded - waiting for DOM');
 </script>
 {% endblock %}

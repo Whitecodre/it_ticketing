@@ -1,0 +1,59 @@
+{% extends "base_dashboard.html" %}
+{% load static %}
+{% load lucide %}
+{% load form_builder_tags %}
+
+{% block dashboard_title %}{{ form_def.name }}{% endblock %}
+{% block page_title_area %}{% endblock %}
+{% block role_label %}{{ user.get_role_display }}{% endblock %}
+{% block role_badge %}{{ user.get_role_display|upper }}{% endblock %}
+
+{% block sidebar_nav %}
+    {% include "partials/sidebar_end_user.html" %}
+{% endblock %}
+
+{% block topbar_search %}{% endblock %}
+
+{% block dashboard_content %}
+<div class="max-w-3xl mx-auto">
+    <div class="dashboard-card shadow-sm">
+        <div class="flex items-center gap-3 mb-1">
+            <div class="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+                {% lucide "file-text" size=20 %}
+            </div>
+            <div>
+                <h2 class="text-base font-semibold" style="color: var(--color-text-primary);">{{ form_def.name }}</h2>
+                <p class="text-xs text-text-secondary">{{ form_def.description }}</p>
+            </div>
+        </div>
+
+        <form method="post" enctype="multipart/form-data" class="space-y-5 mt-4">
+            {% csrf_token %}
+            <input type="hidden" name="type" value="{{ ticket_type }}">
+
+            {% if form.errors %}
+            <div class="rounded-lg bg-error/10 p-4 border border-error/30 text-error text-sm">
+                <ul class="list-disc list-inside space-y-0.5">
+                    {% for field, errors in form.errors.items %}
+                        {% for error in errors %}
+                            <li><strong>{{ field|title }}:</strong> {{ error }}</li>
+                        {% endfor %}
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+
+            {# Render dynamic form fields #}
+            {{ form.as_p }}
+
+            {# Actions #}
+            <div class="flex flex-wrap items-center justify-end gap-3 pt-4 border-t" style="border-color: var(--color-border);">
+                <a href="{% url 'dashboard' %}" class="btn-ghost text-sm px-5 py-2">Cancel</a>
+                <button type="submit" class="btn-primary inline-flex items-center gap-2 text-sm px-6 py-2.5">
+                    {% lucide "send" size=16 %} Submit
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -39,6 +39,11 @@ INSTALLED_APPS = [
     'apps.common',
 ]
 
+# VAPID for Web Push Notifications
+VAPID_PUBLIC_KEY = env('VAPID_PUBLIC_KEY', default='')
+VAPID_PRIVATE_KEY = env('VAPID_PRIVATE_KEY', default='')
+VAPID_CLAIM_EMAIL = env('VAPID_CLAIM_EMAIL', default='noreply@example.com')
+
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -62,6 +67,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'apps.common.context_processors.vapid_keys',
             ],
             'builtins':[
                 "lucide.templatetags.lucide",
@@ -79,13 +85,6 @@ AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
-
-# config/settings/base.py - add these near the other environment variables
-
-# VAPID for Web Push Notifications
-VAPID_PUBLIC_KEY = env('VAPID_PUBLIC_KEY', default='')
-VAPID_PRIVATE_KEY = env('VAPID_PRIVATE_KEY', default='')
-VAPID_CLAIM_EMAIL = env('VAPID_CLAIM_EMAIL', default='noreply@example.com')
 
 # Authentication backends
 AUTHENTICATION_BACKENDS = [
