@@ -44,15 +44,12 @@
                 {% lucide "download" size=16 %} Import
             </button>
             
-            <!-- Add Asset (existing) -->
+            <!-- Add Asset - Changed to regular link -->
             {% if user.role == 'ADMIN' or user.role == 'SUPERADMIN' %}
-            <button class="btn-primary text-sm px-4 py-2 rounded-lg flex items-center gap-2"
-                    hx-get="{% url 'tickets:asset_create' %}"
-                    hx-target="#modalContainer"
-                    hx-swap="innerHTML"
-                    onclick="document.getElementById('modalOverlay').classList.remove('hidden')">
+            <a href="{% url 'tickets:asset_create_page' %}" 
+            class="btn-primary text-sm px-4 py-2 rounded-lg flex items-center gap-2">
                 {% lucide "plus" size=16 %} Add Asset
-            </button>
+            </a>
             {% endif %}
         </div>
     </div>
@@ -156,7 +153,7 @@
     const scrapApproveUrl = "{% url 'tickets:asset_scrap_approve' 0 %}";
     const reassignUrl = "{% url 'tickets:asset_reassign' 0 %}";
     const scrapRequestUrl = "{% url 'tickets:asset_scrap_request' 0 %}";
-    const editUrl = "{% url 'tickets:asset_edit' 0 %}";
+    const editUrl = "{% url 'tickets:asset_edit_page' 0 %}";
 
     let isWarrantyCalculation = false;
 

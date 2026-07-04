@@ -207,7 +207,8 @@
 .kpi-trend.up { color: var(--color-success); }
 .kpi-trend.down { color: var(--color-error); }
 
-/* Status Chips */
+/* ========== STATUS CHIPS ========== */
+
 .status-chip {
     display: inline-flex;
     align-items: center;
@@ -219,63 +220,169 @@
     line-height: 1.4;
     white-space: nowrap;
 }
-.status-chip.open {
-    background-color: rgba(59, 130, 246, 0.1);
-    color: var(--color-info);
+
+/* ========== ADDITIONAL STATUS CHIPS ========== */
+
+/* Pending Fulfillment - New status for asset requests */
+.status-chip.pending-fulfillment {
+    background-color: rgba(245, 158, 11, 0.15);
+    color: #F59E0B;
+    border: 1px solid rgba(245, 158, 11, 0.3);
 }
-.status-chip.in-progress {
-    background-color: rgba(245, 158, 11, 0.1);
-    color: var(--color-warning);
+
+.status-chip.pending_fulfillment {
+    background-color: rgba(245, 158, 11, 0.15);
+    color: #F59E0B;
+    border: 1px solid rgba(245, 158, 11, 0.3);
 }
-.status-chip.resolved {
-    background-color: rgba(16, 185, 129, 0.1);
-    color: var(--color-success);
-}
-.status-chip.escalated {
-    background-color: rgba(139, 92, 246, 0.1);
-    color: var(--color-accent);
-}
-.status-chip.breached {
-    background-color: rgba(239, 68, 68, 0.1);
-    color: var(--color-error);
-}
-.status-chip.pending_approval {
-    background-color: rgba(59, 130, 246, 0.1);
-    color: var(--color-info);
-}
-.status-chip.approved {
-    background-color: rgba(16, 185, 129, 0.1);
-    color: var(--color-success);
-}
-/* --- Additional status chips --- */
-.status-chip.new {
-    background-color: rgba(59, 130, 246, 0.1);
-    color: #3B82F6;
-}
-.status-chip.triaged {
-    background-color: rgba(139, 92, 246, 0.1);
+
+/* Pending Manager Review */
+.status-chip.pending_manager_review {
+    background-color: rgba(139, 92, 246, 0.15);
     color: #8B5CF6;
+    border: 1px solid rgba(139, 92, 246, 0.3);
 }
-.status-chip.assigned {
-    background-color: rgba(59, 130, 246, 0.1);
-    color: #3B82F6;
+
+.status-chip.pending-manager-review {
+    background-color: rgba(139, 92, 246, 0.15);
+    color: #8B5CF6;
+    border: 1px solid rgba(139, 92, 246, 0.3);
 }
-.status-chip.pending_user {
-    background-color: rgba(245, 158, 11, 0.1);
+
+/* Approved */
+.status-chip.approved {
+    background-color: rgba(16, 185, 129, 0.15);
+    color: #10B981;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+/* In Progress - already exists, but ensure it's consistent */
+.status-chip.in-progress,
+.status-chip.in_progress {
+    background-color: rgba(245, 158, 11, 0.15);
     color: #F59E0B;
+    border: 1px solid rgba(245, 158, 11, 0.3);
 }
-.status-chip.pending_vendor {
-    background-color: rgba(245, 158, 11, 0.1);
-    color: #F59E0B;
+
+/* Resolved - already exists, but ensure it's consistent */
+.status-chip.resolved {
+    background-color: rgba(16, 185, 129, 0.15);
+    color: #10B981;
+    border: 1px solid rgba(16, 185, 129, 0.3);
 }
+
+/* Closed - already exists, but ensure it's consistent */
 .status-chip.closed {
-    background-color: rgba(100, 116, 139, 0.1);
+    background-color: rgba(100, 116, 139, 0.15);
     color: #64748B;
+    border: 1px solid rgba(100, 116, 139, 0.2);
 }
+
+/* New - already exists, but ensure it's consistent */
+.status-chip.new {
+    background-color: rgba(59, 130, 246, 0.15);
+    color: #3B82F6;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+/* Triaged */
+.status-chip.triaged {
+    background-color: rgba(139, 92, 246, 0.15);
+    color: #8B5CF6;
+    border: 1px solid rgba(139, 92, 246, 0.3);
+}
+
+/* Assigned - already exists, but ensure it's consistent */
+.status-chip.assigned {
+    background-color: rgba(59, 130, 246, 0.15);
+    color: #3B82F6;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+/* Pending User - already exists, but ensure it's consistent */
+.status-chip.pending_user {
+    background-color: rgba(245, 158, 11, 0.15);
+    color: #F59E0B;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+/* Pending Vendor - already exists, but ensure it's consistent */
+.status-chip.pending_vendor {
+    background-color: rgba(245, 158, 11, 0.15);
+    color: #F59E0B;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+/* Pending Approval - already exists, but ensure it's consistent */
+.status-chip.pending_approval {
+    background-color: rgba(59, 130, 246, 0.15);
+    color: #3B82F6;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+/* Escalated - already exists, but ensure it's consistent */
 .status-chip.escalated {
     background-color: rgba(239, 68, 68, 0.15);
     color: #EF4444;
     border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+/* Breached - for SLA */
+.status-chip.breached {
+    background-color: rgba(239, 68, 68, 0.15);
+    color: #EF4444;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+/* Open - for generic open state */
+.status-chip.open {
+    background-color: rgba(59, 130, 246, 0.1);
+    color: #3B82F6;
+}
+
+/* ========== STATUS CHIP VARIATIONS (color-coded) ========== */
+/* You can also use these utility classes directly */
+
+/* Success states (green) */
+.status-chip-success {
+    background-color: rgba(16, 185, 129, 0.15);
+    color: #10B981;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+/* Warning states (yellow/amber) */
+.status-chip-warning {
+    background-color: rgba(245, 158, 11, 0.15);
+    color: #F59E0B;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+/* Info states (blue) */
+.status-chip-info {
+    background-color: rgba(59, 130, 246, 0.15);
+    color: #3B82F6;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+/* Danger states (red) */
+.status-chip-danger {
+    background-color: rgba(239, 68, 68, 0.15);
+    color: #EF4444;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+/* Purple states (accent) */
+.status-chip-accent {
+    background-color: rgba(139, 92, 246, 0.15);
+    color: #8B5CF6;
+    border: 1px solid rgba(139, 92, 246, 0.3);
+}
+
+/* Gray states (neutral) */
+.status-chip-neutral {
+    background-color: rgba(100, 116, 139, 0.1);
+    color: #64748B;
+    border: 1px solid rgba(100, 116, 139, 0.15);
 }
 
 /* Priority Chips */
@@ -913,4 +1020,145 @@ table.data-table {
     border-right: 8px solid #374151;      /* bg-gray-700 */
     border-top: 8px solid transparent;
     border-bottom: 8px solid transparent;
+}
+
+/* ========== REASSIGN TRAIL TOOLTIP ========== */
+.reassign-trigger-wrapper {
+    display: inline-flex;
+}
+
+.reassign-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.125rem 0.375rem;
+    border-radius: 0.375rem;
+    font-size: 0.65rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
+    user-select: none;
+}
+
+.reassign-indicator:hover {
+    background-color: rgba(245, 158, 11, 0.12);
+    border-color: var(--color-warning);
+    transform: scale(1.05);
+}
+
+.reassign-indicator .indicator-count {
+    background-color: var(--color-warning);
+    color: white;
+    font-size: 0.5rem;
+    font-weight: 700;
+    min-width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 4px;
+}
+
+.floating-tooltip-reassign {
+    position: fixed;
+    z-index: 10000;
+    background: var(--color-surface);
+    color: var(--color-text-primary);
+    border: 1px solid var(--color-border);
+    border-radius: 0.75rem;
+    padding: 0;
+    pointer-events: none;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18), 0 2px 8px rgba(0, 0, 0, 0.06);
+    opacity: 0;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    transform: scale(0.95);
+    max-width: 400px;
+    min-width: 220px;
+    overflow: hidden;
+}
+
+.floating-tooltip-reassign.visible {
+    opacity: 1;
+    pointer-events: auto;
+    transform: scale(1);
+}
+
+.floating-tooltip-reassign::before {
+    content: '';
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 0 8px 8px 8px;
+    border-style: solid;
+    border-color: transparent transparent var(--color-border) transparent;
+}
+
+.floating-tooltip-reassign::after {
+    content: '';
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 0 7px 7px 7px;
+    border-style: solid;
+    border-color: transparent transparent var(--color-surface) transparent;
+    margin-bottom: 1px;
+}
+
+/* Tooltip appears above element */
+.floating-tooltip-reassign.above::before {
+    bottom: auto;
+    top: 100%;
+    border-width: 8px 8px 0 8px;
+    border-color: var(--color-border) transparent transparent transparent;
+}
+
+.floating-tooltip-reassign.above::after {
+    bottom: auto;
+    top: 100%;
+    border-width: 7px 7px 0 7px;
+    border-color: var(--color-surface) transparent transparent transparent;
+    margin-top: 1px;
+}
+
+.reassign-tooltip-content {
+    padding: 0.75rem 1rem;
+    max-height: 260px;
+    overflow-y: auto;
+}
+
+.reassign-tooltip-content::-webkit-scrollbar {
+    width: 4px;
+}
+
+.reassign-tooltip-content::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.reassign-tooltip-content::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    border-radius: 2px;
+}
+
+.reassign-tooltip-content .space-y-1\.5 > * + * {
+    margin-top: 0.375rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+    .reassign-indicator {
+        padding: 0.125rem 0.25rem;
+        font-size: 0.55rem;
+    }
+    .floating-tooltip-reassign {
+        max-width: 300px;
+        min-width: 180px;
+        font-size: 0.75rem;
+    }
+    .reassign-tooltip-content {
+        padding: 0.5rem 0.75rem;
+        max-height: 200px;
+    }
 }

@@ -17,11 +17,11 @@ from django.http import HttpResponse
 from django.utils import timezone
 from django.utils.html import strip_tags
 from django.db.models import F, DurationField, ExpressionWrapper, Count, Q
-from datetime import timedelta
+from datetime import timedelta, date
 from ..forms import ProfileForm, EmailAuthenticationForm, RegistrationStep1Form, RegistrationStep2Form, ChangePasswordForm, UserSettingsForm
 from ..models import User, UserProfile
 from ..utils import validate_password_strength
-from apps.tickets.models import Ticket, TicketActivityLog, SLA, BusinessCalendar, EscalationRule
+from apps.tickets.models import Ticket, TicketActivityLog, SLA, BusinessCalendar, EscalationRule, Asset, RemoteConnector 
 from apps.tickets.views import get_sidebar_template
 
 User = get_user_model()
@@ -87,62 +87,55 @@ def dashboard(request):
         'END_USER': 'dashboards/end_user_dashboard.html',
         'AGENT': 'dashboards/agent_dashboard.html',
         'TEAM_LEAD': 'dashboards/team_lead_dashboard.html',
-        'APPROVER': 'dashboards/approver_dashboard.html',
+        # 'APPROVER': 'dashboards/approver_dashboard.html',  # <-- REMOVED
         'ADMIN': 'dashboards/admin_dashboard.html',
-        'SUPERADMIN': 'dashboards/super_admin_dashboard.html',   # same for now
+        'SUPERADMIN': 'dashboards/super_admin_dashboard.html',
     }
     template = template_map.get(role, 'dashboard/generic_dashboard.html')
     context = {}
+    
     if role == 'END_USER':
         context['open_tickets_count'] = Ticket.objects.filter(
             requester=request.user,
             status__in=['NEW', 'TRIAGED', 'ASSIGNED', 'IN_PROGRESS', 'PENDING_USER', 'PENDING_VENDOR']
         ).count()
         context['recent_tickets'] = Ticket.objects.filter(requester=request.user).order_by('-created_at')[:5]
-        # Status counts for the mini stats bar
         context['all_count'] = Ticket.objects.filter(requester=request.user).count()
         context['open_count'] = Ticket.objects.filter(requester=request.user, status='NEW').count()
         context['in_progress_count'] = Ticket.objects.filter(requester=request.user, status='IN_PROGRESS').count()
         context['resolved_count'] = Ticket.objects.filter(requester=request.user, status='RESOLVED').count()
         context['closed_count'] = Ticket.objects.filter(requester=request.user, status='CLOSED').count()
+        
     elif role == 'AGENT':
         open_statuses = ['NEW', 'TRIAGED', 'ASSIGNED', 'IN_PROGRESS', 'PENDING_USER', 'PENDING_VENDOR']
         
-        # Total open tickets (system wide)
         context['total_open_tickets'] = Ticket.objects.filter(status__in=open_statuses).count()
-        
-        # My open tickets
         context['my_open_tickets'] = Ticket.objects.filter(
             assigned_to=request.user,
             status__in=open_statuses
         ).count()
-        
-        # Unassigned queue count
         context['unassigned_count'] = Ticket.objects.filter(
             assigned_to__isnull=True
         ).exclude(status__in=[
             Ticket.Status.RESOLVED,
             Ticket.Status.CLOSED,
             Ticket.Status.PENDING_APPROVAL,
-            Ticket.Status.PENDING_MANAGER_REVIEW
+            Ticket.Status.PENDING_MANAGER_REVIEW,
+            Ticket.Status.PENDING_FULFILLMENT,
         ]).count()
-        
-        # Recent unassigned (5)
         context['recent_unassigned'] = Ticket.objects.filter(
             assigned_to__isnull=True
         ).exclude(status__in=[
             Ticket.Status.RESOLVED,
             Ticket.Status.CLOSED,
             Ticket.Status.PENDING_APPROVAL,
-            Ticket.Status.PENDING_MANAGER_REVIEW
+            Ticket.Status.PENDING_MANAGER_REVIEW,
+            Ticket.Status.PENDING_FULFILLMENT,
         ]).order_by('-created_at')[:5]
-        
-        # Recent assigned to me (5)
         context['assigned_to_me_tickets'] = Ticket.objects.filter(
             assigned_to=request.user
         ).exclude(status__in=['RESOLVED', 'CLOSED']).order_by('-created_at')[:5]
         
-        # ---- KPI: Total Solved, Good, Bad ----
         resolved = Ticket.objects.filter(assigned_to=request.user, status__in=['RESOLVED', 'CLOSED'])
         total_solved = resolved.count()
         context['total_solved'] = total_solved
@@ -157,15 +150,15 @@ def dashboard(request):
                 else:
                     bad += 1
             except SLA.DoesNotExist:
-                # If no SLA defined, treat as good (or ignore)
                 good += 1
         context['good_tickets'] = good
         context['bad_tickets'] = bad
         
-        # Placeholders
         context['sla_breaches'] = 0
-        context['avg_response_time'] = None   # you can compute later
+        context['avg_response_time'] = None
+        
     elif role in ['ADMIN', 'SUPERADMIN']:
+        
         # KPI: Total tickets this month
         context['total_tickets_month'] = Ticket.objects.filter(created_at__month=timezone.now().month).count()
 
@@ -180,13 +173,13 @@ def dashboard(request):
                 if resolution_time.total_seconds() / 60 <= sla.resolution_minutes:
                     compliant += 1
             except SLA.DoesNotExist:
-                # If no SLA defined, consider as compliant? We'll skip.
                 pass
             total += 1
         context['sla_compliance'] = round((compliant / total * 100), 1) if total > 0 else 100.0
 
-        # Active connectors placeholder
-        context['active_connectors'] = 5   # static for now
+        # Remote Connectors
+        context['connectors'] = RemoteConnector.objects.all().order_by('name')
+        context['active_connectors'] = RemoteConnector.objects.filter(is_active=True).count()
 
         # SLA policies summary
         context['slas'] = SLA.objects.all().order_by('priority')
@@ -198,6 +191,67 @@ def dashboard(request):
 
         # RBAC matrix (dynamic from user roles)
         context['role_choices'] = User.Role.choices
+
+        # ========== ASSET FULFILLMENT & MANAGEMENT KPIs ==========
+        # Fulfillment Metrics
+        pending_fulfillment_count = Ticket.objects.filter(
+            status=Ticket.Status.PENDING_FULFILLMENT
+        ).count()
+        
+        pending_fulfillment_requests = Ticket.objects.filter(
+            status=Ticket.Status.PENDING_FULFILLMENT
+        ).select_related('requester', 'category').order_by('-created_at')[:10]
+        
+        # Asset Inventory Metrics
+        total_assets = Asset.objects.count()
+        active_assets = Asset.objects.filter(status='ACTIVE').count()
+        in_store_assets = Asset.objects.filter(status='IN_STORE').count()
+        maintenance_assets = Asset.objects.filter(status='MAINTENANCE').count()
+        damaged_assets = Asset.objects.filter(status='DAMAGED').count()
+        scrapped_assets = Asset.objects.filter(status='SCRAPPED').count()
+        
+        thirty_days_ago = timezone.now() - timedelta(days=30)
+        recently_added = Asset.objects.filter(created_at__gte=thirty_days_ago).count()
+        
+        assigned_assets = Asset.objects.filter(assigned_to__isnull=False).count()
+        unassigned_assets = total_assets - assigned_assets
+        
+        today = date.today()
+        ninety_days_later = today + timedelta(days=90)
+        expiring_warranty = Asset.objects.filter(
+            warranty_expiry__gte=today,
+            warranty_expiry__lte=ninety_days_later,
+            status='ACTIVE'
+        ).count()
+        
+        approved_requests = Ticket.objects.filter(
+            type=Ticket.Type.SERVICE_REQUEST,
+            status=Ticket.Status.APPROVED
+        ).count()
+        
+        fulfilled_this_month = Ticket.objects.filter(
+            type=Ticket.Type.SERVICE_REQUEST,
+            is_asset_request=True,
+            fulfilled_at__month=timezone.now().month
+        ).count()
+        
+        context.update({
+            'pending_fulfillment_count': pending_fulfillment_count,
+            'pending_fulfillment_requests': pending_fulfillment_requests,
+            'total_assets': total_assets,
+            'active_assets': active_assets,
+            'in_store_assets': in_store_assets,
+            'maintenance_assets': maintenance_assets,
+            'damaged_assets': damaged_assets,
+            'scrapped_assets': scrapped_assets,
+            'recently_added': recently_added,
+            'assigned_assets': assigned_assets,
+            'unassigned_assets': unassigned_assets,
+            'expiring_warranty': expiring_warranty,
+            'approved_requests': approved_requests,
+            'fulfilled_this_month': fulfilled_this_month,
+        })
+        
     elif role == 'TEAM_LEAD':
         open_statuses = ['NEW', 'TRIAGED', 'ASSIGNED', 'IN_PROGRESS', 'PENDING_USER', 'PENDING_VENDOR']
         team_members = User.objects.filter(department=request.user.department, role='AGENT')
@@ -212,48 +266,14 @@ def dashboard(request):
         context['unassigned_count'] = Ticket.objects.filter(
             assigned_to__isnull=True
         ).exclude(status__in=['RESOLVED', 'CLOSED']).count()
-        context['sla_breaches'] = 0          # placeholder
+        context['sla_breaches'] = 0
         context['team_members'] = team_members
         context['recent_team_tickets'] = Ticket.objects.filter(
             assigned_to__in=team_members
         ).exclude(status__in=['RESOLVED', 'CLOSED']).order_by('-created_at')[:5]
-    elif role == 'APPROVER':
-        pending_count = Ticket.objects.filter(status='PENDING_APPROVAL').count()
-        overdue_count = Ticket.objects.filter(
-            status='PENDING_APPROVAL', created_at__lt=timezone.now() - timedelta(days=2)
-        ).count()
-        pending_tickets = Ticket.objects.filter(status='PENDING_APPROVAL').order_by('-created_at')[:10]
-        recent_logs = TicketActivityLog.objects.filter(
-            actor=request.user, action__in=['approved', 'rejected']
-        ).select_related('ticket').order_by('-created_at')[:5]
-
-        # --- New KPIs ---
-        # Total approved this month
-        this_month = timezone.now().month
-        approved_this_month = TicketActivityLog.objects.filter(
-            actor=request.user,
-            action='approved',
-            created_at__month=this_month
-        ).count()
-
-        # Approval rate (this month: approved / (approved + rejected))
-        total_decisions = TicketActivityLog.objects.filter(
-            actor=request.user,
-            action__in=['approved', 'rejected'],
-            created_at__month=this_month
-        ).count()
-        approval_rate = round((approved_this_month / total_decisions * 100), 1) if total_decisions > 0 else 0
-
-        context = {
-            'pending_count': pending_count,
-            'overdue_count': overdue_count,
-            'pending_tickets': pending_tickets,
-            'recent_logs': recent_logs,
-            'approved_this_month': approved_this_month,
-            'approval_rate': approval_rate,
-            'sidebar_template': get_sidebar_template(request.user),
-        }
         
+    # Removed APPROVER case
+    
     return render(request, template, context)
 
 def register(request):

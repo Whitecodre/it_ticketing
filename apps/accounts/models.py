@@ -45,7 +45,7 @@ class User(AbstractUser):
         SUPERADMIN = 'SUPERADMIN', _('Super Admin')
         ADMIN = 'ADMIN', _('Admin')
         TEAM_LEAD = 'TEAM_LEAD', _('Team Lead')
-        APPROVER = 'APPROVER', _('Approver')
+        # APPROVER = 'APPROVER', _('Approver')  # <-- REMOVED
         AGENT = 'AGENT', _('Support Team')
         END_USER = 'END_USER', _('User')
 
@@ -109,7 +109,7 @@ class User(AbstractUser):
 
         # Auto-set staff / superuser based on role
         if self.role in [self.Role.SUPERADMIN, self.Role.ADMIN, self.Role.TEAM_LEAD,
-                         self.Role.APPROVER, self.Role.AGENT]:
+                         self.Role.AGENT]:  # Removed APPROVER
             self.is_staff = True
         else:
             self.is_staff = False
@@ -121,24 +121,15 @@ class User(AbstractUser):
         return f"{self.get_full_name()} ({self.role})"
 
 
-# class UserProfile(models.Model):
-#     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
-#     timezone = models.CharField(max_length=50, default='UTC')
-
-#     def __str__(self):
-#         return self.user.email
-
 class UserProfile(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='profile')
     timezone = models.CharField(max_length=50, default='UTC')
 
-    # New preference fields
     LANGUAGE_CHOICES = [
         ('en', _('English')),
         ('fr', _('French')),
         ('es', _('Spanish')),
         ('de', _('German')),
-        # add more as needed
     ]
     language = models.CharField(max_length=10, choices=LANGUAGE_CHOICES, default='en')
     

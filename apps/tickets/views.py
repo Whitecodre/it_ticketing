@@ -74,7 +74,7 @@ def get_sidebar_template(user):
         'TEAM_LEAD': 'partials/sidebar_team_lead.html',
         'ADMIN': 'partials/sidebar_admin.html',
         'SUPERADMIN': 'partials/sidebar_superadmin.html',
-        'APPROVER': 'partials/sidebar_approver.html',
+        # 'APPROVER': 'partials/sidebar_approver.html',
     }
     return mapping.get(user.role, 'partials/sidebar_end_user.html')
 
@@ -195,7 +195,16 @@ def create_ticket(request):
             # If it's a service request, set status to PENDING_MANAGER_REVIEW
             if ticket.type == Ticket.Type.SERVICE_REQUEST:
                 ticket.status = Ticket.Status.PENDING_MANAGER_REVIEW
-                ticket.save(update_fields=['status'])
+
+                # Check if this is an asset-related request
+                asset_categories = ['Hardware', 'Item acquisition', 'Software', 'Purchase/Protocol']
+                if ticket.category and ticket.category.name in asset_categories:
+                    ticket.is_asset_request = True
+                    print(f"🔵 is_asset_request set to True for category: {ticket.category.name}")
+
+                # FIX: Save BOTH status and is_asset_request
+                ticket.save(update_fields=['status', 'is_asset_request'])
+
                 # Notify Team Leads in the requester's department
                 team_leads = User.objects.filter(
                     department=ticket.requester.department,
@@ -392,21 +401,35 @@ def ticket_detail(request, pk):
 @login_required
 def unassigned_queue(request):
     """
-    Displays all tickets that are not assigned to anyone,
-    excluding resolved, closed, and pending approval tickets.
-    Agents can claim tickets directly from this view.
+    Displays all unassigned tickets that are ready for agents to claim.
     """
-     # Debug – count tickets by status
-    from django.db.models import Count
-    status_counts = Ticket.objects.filter(assigned_to__isnull=True).values('status').annotate(count=Count('id'))
-    print("Unassigned tickets by status:", list(status_counts))
+    # Get all unassigned tickets
     tickets = Ticket.objects.filter(
         assigned_to__isnull=True
-    ).exclude(
-        status__in=[Ticket.Status.RESOLVED, Ticket.Status.CLOSED, Ticket.Status.PENDING_APPROVAL, Ticket.Status.PENDING_MANAGER_REVIEW]
     ).order_by('-created_at')
+    
+    # ================================================================
+    # 🔥 Filter: Show INCIDENTS + APPROVED SERVICE REQUESTS
+    # ================================================================
+    tickets = tickets.filter(
+        Q(type=Ticket.Type.INCIDENT) |
+        (Q(type=Ticket.Type.SERVICE_REQUEST) & Q(status=Ticket.Status.APPROVED))
+    )
+    
+    # Exclude tickets that shouldn't be in the queue
+    tickets = tickets.exclude(
+        status__in=[
+            Ticket.Status.PENDING_MANAGER_REVIEW,
+            Ticket.Status.PENDING_FULFILLMENT,
+            Ticket.Status.PENDING_APPROVAL,
+            Ticket.Status.RESOLVED,
+            Ticket.Status.CLOSED,
+        ]
+    )
 
-    assignable_agents = User.objects.filter(role__in=['AGENT', 'TEAM_LEAD', 'ADMIN', 'SUPERADMIN']).only('pk', 'first_name', 'last_name', 'email')
+    assignable_agents = User.objects.filter(
+        role__in=['AGENT', 'TEAM_LEAD', 'ADMIN', 'SUPERADMIN']
+    ).only('pk', 'first_name', 'last_name', 'email')
 
     context = {
         'tickets': tickets,
@@ -908,18 +931,18 @@ def audit_log(request):
 
 @login_required
 def reports_dashboard(request):
-    """
-    Renders the reports page with SLA compliance, ticket volume, and priority charts.
-    Data is filtered by role (Admin/Superadmin see all, Team Lead sees only their team).
-    """
+    """Renders the reports page with SLA compliance, ticket volume, and priority charts."""
     user = request.user
     if user.role not in ['ADMIN', 'SUPERADMIN', 'TEAM_LEAD']:
         return HttpResponse(status=403)
+    
     if user.role == 'TEAM_LEAD':
         team_members = User.objects.filter(department=user.department, role='AGENT')
         ticket_filter = Q(assigned_to__in=team_members) | Q(requester__in=team_members)
     else:
         ticket_filter = Q()
+    
+    # ========== SLA COMPLIANCE ==========
     slas = SLA.objects.all().order_by('priority')
     sla_data = []
     for sla in slas:
@@ -938,11 +961,14 @@ def reports_dashboard(request):
             compliance = round((compliant / total) * 100, 1)
         sla_data.append({'priority': sla.get_priority_display(), 'compliance': compliance})
 
+    # ========== TICKET VOLUME (30 days) ==========
     end = timezone.now().date()
-    start = end - timedelta(days=29)
+    start = end - timedelta(days=29)  # <-- Use timedelta from datetime module
+    
     created_qs = Ticket.objects.filter(
         ticket_filter, created_at__date__gte=start
     ).annotate(date=TruncDate('created_at')).values('date').annotate(count=Count('id')).order_by('date')
+    
     resolved_qs = Ticket.objects.filter(
         ticket_filter, resolved_at__isnull=False, resolved_at__date__gte=start
     ).annotate(date=TruncDate('resolved_at')).values('date').annotate(count=Count('id')).order_by('date')
@@ -954,18 +980,21 @@ def reports_dashboard(request):
         created_counts.append(next((x['count'] for x in created_qs if x['date'] == d), 0))
         resolved_counts.append(next((x['count'] for x in resolved_qs if x['date'] == d), 0))
 
+    # ========== MTTR ==========
     resolved = Ticket.objects.filter(
         ticket_filter, status__in=['RESOLVED', 'CLOSED'], resolved_at__isnull=False
     )
     mttr = resolved.aggregate(avg_mttr=Avg(F('resolved_at') - F('created_at')))['avg_mttr']
     mttr_minutes = round(mttr.total_seconds() / 60) if mttr else 0
 
+    # ========== BACKLOG ==========
     backlog = Ticket.objects.filter(
         ticket_filter,
         status__in=['NEW', 'TRIAGED', 'ASSIGNED', 'IN_PROGRESS', 'PENDING_USER', 'PENDING_VENDOR'],
         created_at__lt=timezone.now() - timedelta(days=7)
     ).count()
 
+    # ========== OPEN BY PRIORITY ==========
     open_by_priority = Ticket.objects.filter(
         ticket_filter,
         status__in=['NEW', 'TRIAGED', 'ASSIGNED', 'IN_PROGRESS', 'PENDING_USER', 'PENDING_VENDOR']
@@ -975,6 +1004,54 @@ def reports_dashboard(request):
     for p in open_by_priority:
         open_labels.append(dict(Ticket.Priority.choices)[p['priority']])
         open_data.append(p['count'])
+
+    # ========== ASSET METRICS ==========
+    from apps.tickets.models import Asset
+    from datetime import date
+    
+    # Total assets
+    total_assets = Asset.objects.count()
+    
+    # Asset status distribution
+    asset_status_labels = ['Active', 'In Store', 'Maintenance', 'Damaged', 'Scrapped']
+    asset_status_counts = [
+        Asset.objects.filter(status='ACTIVE').count(),
+        Asset.objects.filter(status='IN_STORE').count(),
+        Asset.objects.filter(status='MAINTENANCE').count(),
+        Asset.objects.filter(status='DAMAGED').count(),
+        Asset.objects.filter(status='SCRAPPED').count(),
+    ]
+    
+    # Asset fulfillment metrics
+    total_asset_requests = Ticket.objects.filter(
+        type=Ticket.Type.SERVICE_REQUEST,
+        is_asset_request=True
+    ).count()
+    
+    fulfilled_asset_requests = Ticket.objects.filter(
+        type=Ticket.Type.SERVICE_REQUEST,
+        is_asset_request=True,
+        fulfilled_at__isnull=False
+    ).count()
+    
+    fulfillment_rate = round((fulfilled_asset_requests / total_asset_requests * 100), 1) if total_asset_requests > 0 else 0
+    
+    # Average fulfillment time (in hours)
+    fulfilled_tickets = Ticket.objects.filter(
+        type=Ticket.Type.SERVICE_REQUEST,
+        is_asset_request=True,
+        fulfilled_at__isnull=False,
+        created_at__isnull=False
+    )
+    
+    total_hours = 0
+    count = 0
+    for ticket in fulfilled_tickets:
+        delta = ticket.fulfilled_at - ticket.created_at
+        total_hours += delta.total_seconds() / 3600
+        count += 1
+    
+    avg_fulfillment_hours = round(total_hours / count, 1) if count > 0 else 0
 
     context = {
         'sla_data': sla_data,
@@ -987,6 +1064,14 @@ def reports_dashboard(request):
         'open_priority_data': open_data,
         'open_total': sum(open_data),
         'sidebar_template': get_sidebar_template(request.user),
+        # Asset metrics
+        'total_assets': total_assets,
+        'asset_status_labels': asset_status_labels,
+        'asset_status_counts': asset_status_counts,
+        'total_asset_requests': total_asset_requests,
+        'fulfilled_asset_requests': fulfilled_asset_requests,
+        'fulfillment_rate': fulfillment_rate,
+        'avg_fulfillment_hours': avg_fulfillment_hours,
     }
     return render(request, 'dashboards/reports.html', context)
 
@@ -1149,12 +1234,12 @@ def assets(request):
 
 
 # ==========================================================================
-# ASSET CREATE - Updated with proper error handling
+# ASSET CREATE PAGE (Dedicated Page)
 # ==========================================================================
 
 @login_required
 @require_http_methods(['GET', 'POST'])
-def asset_create(request):
+def asset_create_page(request):
     if request.user.role not in ['ADMIN', 'SUPERADMIN']:
         return HttpResponse(status=403)
 
@@ -1165,193 +1250,152 @@ def asset_create(request):
             asset.tracking_id = None
             asset.save()
             
+            # Create CREATED log
             AssetLog.objects.create(
                 asset=asset,
                 action=AssetLog.Action.CREATED,
                 actor=request.user,
                 details={'name': asset.name, 'type': asset.asset_type}
             )
-
-            # --- SUCCESS: Return the table ---
-            filter_q = request.POST.get('filter_q', '')
-            filter_type = request.POST.get('filter_type', '')
-            filter_status = request.POST.get('filter_status', '')
-            filter_location = request.POST.get('filter_location', '')
-
-            assets_list = Asset.objects.all().order_by('-created_at')
-            if filter_q:
-                assets_list = assets_list.filter(
-                    Q(name__icontains=filter_q) |
-                    Q(tracking_id__icontains=filter_q) |
-                    Q(serial_number__icontains=filter_q) |
-                    Q(model__icontains=filter_q) |
-                    Q(manufacturer__icontains=filter_q)
+            
+            # Create ASSIGNED log if assigned to someone
+            if asset.assigned_to:
+                AssetLog.objects.create(
+                    asset=asset,
+                    action=AssetLog.Action.ASSIGNED,
+                    actor=request.user,
+                    details={
+                        'from': None,
+                        'to': asset.assigned_to.get_full_name() if asset.assigned_to else None,
+                        'comment': 'Initial assignment'
+                    }
                 )
-            if filter_type:
-                assets_list = assets_list.filter(asset_type=filter_type)
-            if filter_status:
-                assets_list = assets_list.filter(status=filter_status)
-            if filter_location:
-                assets_list = assets_list.filter(location__icontains=filter_location)
-
-            paginator = Paginator(assets_list, 10)
-            page_number = request.POST.get('page', 1)
-            page_obj = paginator.get_page(page_number)
-
-            context = {
-                'assets': page_obj,
-                'users': User.objects.filter(is_active=True),
-                'asset_types': Asset.AssetType.choices,
-                'asset_type_values': [v for v, _ in Asset.AssetType.choices],
-                'status_choices': Asset.Status.choices,
-                'status_values': [v for v, _ in Asset.Status.choices],
-                'location_choices': Asset.Location.choices,
-                'location_values': [v for v, _ in Asset.Location.choices],
-                'query': filter_q,
-                'selected_type': filter_type,
-                'selected_status': filter_status,
-                'selected_location': filter_location,
-                'sidebar_template': get_sidebar_template(request.user),
-            }
-            response = render(request, 'partials/asset_table.html', context)
-            response['HX-Trigger'] = 'closeModal'
-            return response
-
+            
+            messages.success(request, f'Asset "{asset.name}" created successfully!')
+            return redirect('tickets:assets')
         else:
-            # --- ERROR: Return the modal with errors ---
-            # This is the critical fix - return the modal HTML, not the table
-            return render(request, 'tickets/asset_form_modal.html', {
-                'form': form,
-                'users': User.objects.filter(is_active=True),
-                'asset': None,
-                'action': 'create',
-                'asset_types': Asset.AssetType.choices,
-                'asset_type_values': [v for v, _ in Asset.AssetType.choices],
-                'status_choices': Asset.Status.choices,
-                'status_values': [v for v, _ in Asset.Status.choices],
-                'location_choices': Asset.Location.choices,
-                'location_values': [v for v, _ in Asset.Location.choices],
-            })
+            messages.error(request, 'Please correct the errors below.')
+    else:
+        form = AssetForm()
 
-    # GET: return modal
-    return render(request, 'tickets/asset_form_modal.html', {
-        'users': User.objects.filter(is_active=True),
+    context = {
+        'form': form,
         'asset': None,
         'action': 'create',
+        'users': User.objects.filter(is_active=True).order_by('first_name', 'last_name'),
         'asset_types': Asset.AssetType.choices,
         'asset_type_values': [v for v, _ in Asset.AssetType.choices],
         'status_choices': Asset.Status.choices,
         'status_values': [v for v, _ in Asset.Status.choices],
         'location_choices': Asset.Location.choices,
         'location_values': [v for v, _ in Asset.Location.choices],
-    })
+        'sidebar_template': get_sidebar_template(request.user),
+    }
+    return render(request, 'tickets/asset_form_page.html', context)
 
 
 # ==========================================================================
-# ASSET EDIT - Updated with proper error handling
+# ASSET EDIT PAGE (Dedicated Page)
 # ==========================================================================
 
 @login_required
 @require_http_methods(['GET', 'POST'])
-def asset_edit(request, pk):
+def asset_edit_page(request, pk):
     if request.user.role not in ['ADMIN', 'SUPERADMIN']:
         return HttpResponse(status=403)
 
     asset = get_object_or_404(Asset, pk=pk)
-    source = request.GET.get('source', request.POST.get('source', 'list'))
 
     if request.method == 'POST':
+        # Store the old assigned_to value before saving
+        old_assigned_to = asset.assigned_to
+        
         form = AssetForm(request.POST, instance=asset)
         if form.is_valid():
             asset = form.save()
             
-            AssetLog.objects.create(
-                asset=asset,
-                action=AssetLog.Action.UPDATED,
-                actor=request.user,
-                details={'source': 'form_edit'}
-            )
-
-            # Save from detail page
-            if source == 'detail':
-                response = HttpResponse(status=200)
-                response['HX-Redirect'] = reverse('tickets:asset_detail', args=[asset.pk])
-                return response
-
-            # --- SUCCESS: Return the table ---
-            filter_q = request.POST.get('filter_q', '')
-            filter_type = request.POST.get('filter_type', '')
-            filter_status = request.POST.get('filter_status', '')
-            filter_location = request.POST.get('filter_location', '')
-
-            assets_list = Asset.objects.all().order_by('-created_at')
-            if filter_q:
-                assets_list = assets_list.filter(
-                    Q(name__icontains=filter_q) |
-                    Q(tracking_id__icontains=filter_q) |
-                    Q(serial_number__icontains=filter_q) |
-                    Q(model__icontains=filter_q) |
-                    Q(manufacturer__icontains=filter_q)
+            # Check if assigned_to changed
+            new_assigned_to = asset.assigned_to
+            
+            # Create appropriate logs based on what changed
+            if old_assigned_to != new_assigned_to:
+                # This is a reassignment or unassignment
+                if new_assigned_to:
+                    # Reassigned to someone
+                    AssetLog.objects.create(
+                        asset=asset,
+                        action=AssetLog.Action.ASSIGNED,
+                        actor=request.user,
+                        details={
+                            'from': old_assigned_to.get_full_name() if old_assigned_to else None,
+                            'to': new_assigned_to.get_full_name() if new_assigned_to else None,
+                            'comment': 'Reassigned via edit form'
+                        }
+                    )
+                else:
+                    # Unassigned
+                    AssetLog.objects.create(
+                        asset=asset,
+                        action=AssetLog.Action.UNASSIGNED,
+                        actor=request.user,
+                        details={
+                            'from': old_assigned_to.get_full_name() if old_assigned_to else None,
+                            'to': None,
+                            'comment': 'Unassigned via edit form'
+                        }
+                    )
+            else:
+                # General update (no assignment change)
+                AssetLog.objects.create(
+                    asset=asset,
+                    action=AssetLog.Action.UPDATED,
+                    actor=request.user,
+                    details={'source': 'edit_page'}
                 )
-            if filter_type:
-                assets_list = assets_list.filter(asset_type=filter_type)
-            if filter_status:
-                assets_list = assets_list.filter(status=filter_status)
-            if filter_location:
-                assets_list = assets_list.filter(location__icontains=filter_location)
-
-            paginator = Paginator(assets_list, 10)
-            page_number = request.POST.get('page', 1)
-            page_obj = paginator.get_page(page_number)
-
-            context = {
-                'assets': page_obj,
-                'users': User.objects.filter(is_active=True),
-                'asset_types': Asset.AssetType.choices,
-                'asset_type_values': [v for v, _ in Asset.AssetType.choices],
-                'status_choices': Asset.Status.choices,
-                'status_values': [v for v, _ in Asset.Status.choices],
-                'location_choices': Asset.Location.choices,
-                'location_values': [v for v, _ in Asset.Location.choices],
-                'query': filter_q,
-                'selected_type': filter_type,
-                'selected_status': filter_status,
-                'selected_location': filter_location,
-                'sidebar_template': get_sidebar_template(request.user),
-            }
-            response = render(request, 'partials/asset_table.html', context)
-            response['HX-Trigger'] = 'closeModal'
-            return response
-
+            
+            messages.success(request, f'Asset "{asset.name}" updated successfully!')
+            
+            # Preserve filters when redirecting back
+            source = request.GET.get('source', 'list')
+            query = request.GET.get('q', '')
+            asset_type = request.GET.get('type', '')
+            status = request.GET.get('status', '')
+            location = request.GET.get('location', '')
+            
+            redirect_url = reverse('tickets:assets')
+            if source == 'list':
+                params = []
+                if query:
+                    params.append(f'q={query}')
+                if asset_type:
+                    params.append(f'type={asset_type}')
+                if status:
+                    params.append(f'status={status}')
+                if location:
+                    params.append(f'location={location}')
+                if params:
+                    redirect_url += '?' + '&'.join(params)
+            
+            return redirect(redirect_url)
         else:
-            # --- ERROR: Return the modal with errors ---
-            return render(request, 'tickets/asset_form_modal.html', {
-                'form': form,
-                'asset': asset,
-                'users': User.objects.filter(is_active=True),
-                'action': 'edit',
-                'asset_types': Asset.AssetType.choices,
-                'asset_type_values': [v for v, _ in Asset.AssetType.choices],
-                'status_choices': Asset.Status.choices,
-                'status_values': [v for v, _ in Asset.Status.choices],
-                'location_choices': Asset.Location.choices,
-                'location_values': [v for v, _ in Asset.Location.choices],
-                'source': source,
-            })
+            messages.error(request, 'Please correct the errors below.')
+    else:
+        form = AssetForm(instance=asset)
 
-    # GET: return modal
-    return render(request, 'tickets/asset_form_modal.html', {
+    context = {
+        'form': form,
         'asset': asset,
-        'users': User.objects.filter(is_active=True),
         'action': 'edit',
+        'users': User.objects.filter(is_active=True).order_by('first_name', 'last_name'),
         'asset_types': Asset.AssetType.choices,
         'asset_type_values': [v for v, _ in Asset.AssetType.choices],
         'status_choices': Asset.Status.choices,
         'status_values': [v for v, _ in Asset.Status.choices],
         'location_choices': Asset.Location.choices,
         'location_values': [v for v, _ in Asset.Location.choices],
-        'source': source,
-    })
+        'sidebar_template': get_sidebar_template(request.user),
+    }
+    return render(request, 'tickets/asset_form_page.html', context)
 
 # ==========================================================================
 # ASSET REASSIGN
@@ -1473,38 +1517,39 @@ def asset_scrap_approve(request, pk):
     return redirect('tickets:assets')
 
 # ==========================================================================
-# ASSET CALCULATE WARRANTY - DEBUG VERSION
+# ASSET CALCULATE WARRANTY
 # ==========================================================================
 
 @login_required
 def asset_calculate_warranty(request):
     """Calculate warranty expiry date based on purchase date and duration."""
+    purchase_date_str = request.GET.get('purchase_date')
+    duration_years = request.GET.get('warranty_duration', 0)
+    expiry_date_str = ''
+    
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"Warranty calculation: purchase_date={purchase_date_str}, duration={duration_years}")
+    
     try:
-        purchase_date_str = request.GET.get('purchase_date')
-        duration_years = request.GET.get('warranty_duration', 0)
-        expiry_date_str = ''
-        
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.info(f"Warranty calculation: purchase_date={purchase_date_str}, duration={duration_years}")
-        
-        try:
-            duration_years = int(duration_years)
-        except (ValueError, TypeError):
-            duration_years = 0
-        
+        duration_years = int(duration_years)
         if duration_years > 0 and purchase_date_str:
             from datetime import datetime
             purchase_date = datetime.strptime(purchase_date_str, '%Y-%m-%d').date()
-            expiry_date = purchase_date.replace(year=purchase_date.year + duration_years)
-            expiry_date_str = expiry_date.strftime('%Y-%m-%d')
-            logger.info(f"Warranty calculation result: {expiry_date_str}")
-            
-    except Exception as e:
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.error(f"Warranty calculation error: {e}", exc_info=True)
-        # Return empty on error
+            # Calculate expiry by adding years
+            try:
+                expiry_date = purchase_date.replace(year=purchase_date.year + duration_years)
+                expiry_date_str = expiry_date.strftime('%Y-%m-%d')
+                logger.info(f"Warranty calculation result: {expiry_date_str}")
+            except ValueError:
+                # Handle Feb 29 edge case - approximate by adding days
+                from datetime import timedelta
+                days = 365 * duration_years
+                expiry_date = purchase_date + timedelta(days=days)
+                expiry_date_str = expiry_date.strftime('%Y-%m-%d')
+                logger.info(f"Warranty calculation (approx): {expiry_date_str}")
+    except (ValueError, TypeError) as e:
+        logger.error(f"Warranty calculation error: {e}")
         pass
     
     return render(request, 'partials/warranty_expiry_input.html', {'value': expiry_date_str})
@@ -1846,73 +1891,6 @@ def kb_suggestions(request):
     return render(request, 'partials/kb_suggestions.html', {'articles': []})
 
 # ==========================================================================
-# APPROVER VIEWS (for service requests)
-# ==========================================================================
-
-@login_required
-def approver_dashboard(request):
-    if request.user.role != User.Role.APPROVER: return HttpResponse(status=403)
-    pending = Ticket.objects.filter(status=Ticket.Status.PENDING_APPROVAL)
-    overdue = pending.filter(created_at__lt=timezone.now() - timedelta(days=2))
-    recent_logs = TicketActivityLog.objects.filter(
-        actor=request.user, action__in=['approved', 'rejected']
-    ).select_related('ticket').order_by('-created_at')[:5]
-    context = {
-        'pending_count': pending.count(),
-        'overdue_count': overdue.count(),
-        'pending_tickets': pending.order_by('-created_at')[:10],
-        'recent_logs': recent_logs,
-        'sidebar_template': get_sidebar_template(request.user),
-    }
-    return render(request, 'dashboards/approver_dashboard.html', context)
-
-@login_required
-def approver_pending(request):
-    if request.user.role != User.Role.APPROVER: return HttpResponse(status=403)
-    tickets = Ticket.objects.filter(status=Ticket.Status.PENDING_APPROVAL).order_by('-created_at')
-    return render(request, 'partials/approver_pending.html', {'tickets': tickets, 'sidebar_template': get_sidebar_template(request.user)})
-
-@login_required
-def approver_history(request):
-    if request.user.role != User.Role.APPROVER: return HttpResponse(status=403)
-    logs = TicketActivityLog.objects.filter(
-        actor=request.user, action__in=['approved', 'rejected']
-    ).select_related('ticket').order_by('-created_at')[:50]
-    return render(request, 'partials/approver_history.html', {'logs': logs, 'sidebar_template': get_sidebar_template(request.user)})
-
-@login_required
-@require_POST
-def approve_ticket(request, pk):
-    ticket = get_object_or_404(Ticket, pk=pk, status=Ticket.Status.PENDING_APPROVAL)
-    if request.user.role != User.Role.APPROVER: return HttpResponse(status=403)
-    comment = request.POST.get('comment', '')
-    ticket.status = Ticket.Status.APPROVED
-    ticket.save()
-    TicketActivityLog.objects.create(ticket=ticket, action='approved', actor=request.user, details={'comment': comment})
-    Notification.objects.create(
-        recipient=ticket.requester,
-        message=f'Your service request {ticket.number} has been approved.',
-        url=reverse('tickets:detail', args=[ticket.pk])
-    )
-    return redirect('tickets:approver_pending')
-
-@login_required
-@require_POST
-def reject_ticket(request, pk):
-    ticket = get_object_or_404(Ticket, pk=pk, status=Ticket.Status.PENDING_APPROVAL)
-    if request.user.role != User.Role.APPROVER: return HttpResponse(status=403)
-    comment = request.POST.get('comment', '')
-    ticket.status = Ticket.Status.CLOSED
-    ticket.save()
-    TicketActivityLog.objects.create(ticket=ticket, action='rejected', actor=request.user, details={'comment': comment})
-    Notification.objects.create(
-        recipient=ticket.requester,
-        message=f'Your service request {ticket.number} was rejected. Reason: {comment}',
-        url=reverse('tickets:detail', args=[ticket.pk])
-    )
-    return redirect('tickets:approver_pending')
-
-# ==========================================================================
 # ATTACHMENT PREVIEW AND DOWNLOAD
 # ==========================================================================
 
@@ -2106,6 +2084,7 @@ def manager_review_queue(request):
 
 
 @login_required
+@login_required
 def manager_review_ticket(request, pk):
     """Team Lead review page for a single service request."""
     if request.user.role != User.Role.TEAM_LEAD:
@@ -2126,38 +2105,79 @@ def manager_review_ticket(request, pk):
         action = request.POST.get('action', '').strip()
         comment = request.POST.get('comment', '').strip()
 
-        # Log for debugging
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.info(f"Manager review action received: '{action}'")
-
         if not comment:
             messages.error(request, 'Please provide a comment.')
             return redirect('tickets:manager_review_ticket', pk=pk)
 
         if action == 'approve':
-            ticket.status = Ticket.Status.PENDING_APPROVAL
-            ticket.save()
-            TicketActivityLog.objects.create(
-                ticket=ticket,
-                action='manager_approved',
-                actor=request.user,
-                details={'comment': comment}
-            )
-            # Notify Approvers
-            approvers = User.objects.filter(role=User.Role.APPROVER, is_active=True)
-            for approver in approvers:
+            # ================================================================
+            # ASSET REQUEST ROUTING
+            # ================================================================
+            if ticket.is_asset_request:
+                # Asset requests go to PENDING_FULFILLMENT for Admin to fulfill
+                ticket.status = Ticket.Status.PENDING_FULFILLMENT
+                ticket.save()
+                
+                TicketActivityLog.objects.create(
+                    ticket=ticket,
+                    action='manager_approved',
+                    actor=request.user,
+                    details={'comment': comment, 'routed_to': 'PENDING_FULFILLMENT'}
+                )
+                
+                # Notify Admins about pending fulfillment
+                admins = User.objects.filter(role=User.Role.ADMIN, is_active=True)
+                for admin in admins:
+                    Notification.objects.create(
+                        recipient=admin,
+                        message=f'Asset request {ticket.number} from {ticket.requester.get_full_name()} needs fulfillment.',
+                        url=reverse('tickets:conversation', args=[ticket.pk])
+                    )
+                
+                # Notify requester
                 Notification.objects.create(
-                    recipient=approver,
-                    message=f'Service request {ticket.number} approved by {request.user.get_full_name()} and pending your approval.',
+                    recipient=ticket.requester,
+                    message=f'Your asset request {ticket.number} has been approved by your manager and is pending fulfillment.',
                     url=reverse('tickets:detail', args=[ticket.pk])
                 )
-            Notification.objects.create(
-                recipient=ticket.requester,
-                message=f'Your service request {ticket.number} has been approved by your manager and is now pending final approval.',
-                url=reverse('tickets:detail', args=[ticket.pk])
-            )
-            messages.success(request, f'Ticket {ticket.number} approved and sent to Approver.')
+                
+                messages.success(request, f'Asset request {ticket.number} approved. An admin will fulfill it shortly.')
+            
+            else:
+                # ================================================================
+                # NON-ASSET REQUESTS: Go directly to APPROVED
+                # Skip the Approver role entirely
+                # ================================================================
+                ticket.status = Ticket.Status.APPROVED
+                ticket.save()
+                
+                TicketActivityLog.objects.create(
+                    ticket=ticket,
+                    action='manager_approved',
+                    actor=request.user,
+                    details={'comment': comment, 'routed_to': 'APPROVED'}
+                )
+                
+                # Notify requester
+                Notification.objects.create(
+                    recipient=ticket.requester,
+                    message=f'Your service request {ticket.number} has been approved.',
+                    url=reverse('tickets:detail', args=[ticket.pk])
+                )
+                
+                # ================================================================
+                # Ticket is now APPROVED - send to Agent Pool
+                # ================================================================
+                # Notify agents about new approved ticket
+                agents = User.objects.filter(role__in=[User.Role.AGENT, User.Role.TEAM_LEAD])
+                for agent in agents:
+                    Notification.objects.create(
+                        recipient=agent,
+                        message=f'New approved ticket {ticket.number}: {ticket.title}',
+                        url=reverse('tickets:detail', args=[ticket.pk])
+                    )
+                
+                messages.success(request, f'Ticket {ticket.number} approved and sent to agent queue.')
 
         elif action == 'reject':
             ticket.status = Ticket.Status.CLOSED
@@ -2459,3 +2479,159 @@ def asset_import(request):
         messages.warning(request, 'No assets were imported. Please check your file format.')
     
     return redirect('tickets:assets')
+
+
+# ==========================================================================
+# ASSET FULFILLMENT (Admin only)
+# ==========================================================================
+
+@login_required
+def fulfill_asset_modal(request, pk):
+    """Returns the fulfillment modal for an asset request."""
+    if request.user.role not in ['ADMIN', 'SUPERADMIN']:
+        return HttpResponse(status=403)
+    
+    ticket = get_object_or_404(Ticket, pk=pk, status=Ticket.Status.PENDING_FULFILLMENT)
+    
+    # Get available assets (IN_STORE or unassigned ACTIVE)
+    available_assets = Asset.objects.filter(
+        status__in=['IN_STORE', 'ACTIVE'],
+        assigned_to__isnull=True
+    ).order_by('name')
+    
+    return render(request, 'admin/fulfill_asset_modal.html', {
+        'ticket': ticket,
+        'available_assets': available_assets,
+    })
+
+
+@login_required
+@require_POST
+def fulfill_asset_request(request, pk):
+    """Admin action to fulfill an asset request by assigning an asset."""
+    if request.user.role not in ['ADMIN', 'SUPERADMIN']:
+        return HttpResponse(status=403)
+    
+    ticket = get_object_or_404(Ticket, pk=pk, status=Ticket.Status.PENDING_FULFILLMENT)
+    asset_id = request.POST.get('asset_id')
+    comment = request.POST.get('comment', '').strip()
+    
+    if not asset_id:
+        messages.error(request, 'Please select an asset to assign.')
+        return redirect('tickets:conversation', pk=ticket.pk)
+    
+    try:
+        asset = Asset.objects.get(pk=asset_id)
+    except Asset.DoesNotExist:
+        messages.error(request, 'Asset not found.')
+        return redirect('tickets:conversation', pk=ticket.pk)
+    
+    # Check if asset is already assigned
+    if asset.assigned_to:
+        messages.error(request, f'Asset {asset.name} is already assigned to {asset.assigned_to.get_full_name()}.')
+        return redirect('tickets:conversation', pk=ticket.pk)
+    
+    # Assign asset to requester
+    old_user = asset.assigned_to
+    asset.assigned_to = ticket.requester
+    asset.save()
+    
+    # Link asset to ticket
+    ticket.assigned_asset = asset
+    ticket.status = Ticket.Status.APPROVED
+    ticket.fulfilled_at = timezone.now()
+    ticket.fulfilled_by = request.user
+    ticket.save()
+    
+    # Create asset log
+    AssetLog.objects.create(
+        asset=asset,
+        action=AssetLog.Action.ASSIGNED,
+        actor=request.user,
+        details={
+            'from': old_user.get_full_name() if old_user else None,
+            'to': ticket.requester.get_full_name(),
+            'comment': f'Fulfilled request {ticket.number}: {comment}'
+        }
+    )
+    
+    # Create ticket comment
+    TicketComment.objects.create(
+        ticket=ticket,
+        author=request.user,
+        body=f"✅ **Asset fulfilled**: {asset.name} ({asset.tracking_id}) assigned to {ticket.requester.get_full_name()}. {comment}",
+        visibility='PUBLIC'
+    )
+    
+    # Create activity log
+    TicketActivityLog.objects.create(
+        ticket=ticket,
+        action='asset_fulfilled',
+        actor=request.user,
+        details={
+            'asset_id': asset.pk,
+            'asset_name': asset.name,
+            'asset_tracking_id': asset.tracking_id,
+            'assigned_to': ticket.requester.get_full_name()
+        }
+    )
+    
+    # Notify requester
+    Notification.objects.create(
+        recipient=ticket.requester,
+        message=f'✅ Your asset request {ticket.number} has been fulfilled. {asset.name} assigned to you.',
+        url=reverse('tickets:detail', args=[ticket.pk])
+    )
+    
+    messages.success(request, f'✅ Asset {asset.name} assigned to {ticket.requester.get_full_name()}.')
+    return redirect('tickets:conversation', pk=ticket.pk)
+
+
+@login_required
+def available_assets_for_fulfillment(request):
+    """HTMX endpoint to get available assets for a specific request."""
+    if request.user.role not in ['ADMIN', 'SUPERADMIN']:
+        return HttpResponse(status=403)
+    
+    search = request.GET.get('search', '').strip()
+    category = request.GET.get('category', '').strip()
+    
+    # Debug logging
+    print(f"🔍 Search: '{search}', Category: '{category}'")
+    
+    # Filter available assets (unassigned and active/in-store)
+    assets = Asset.objects.filter(
+        assigned_to__isnull=True,
+        status__in=['ACTIVE', 'IN_STORE']
+    ).order_by('name')
+    
+    # Filter by search term
+    if search:
+        assets = assets.filter(
+            Q(name__icontains=search) |
+            Q(tracking_id__icontains=search) |
+            Q(serial_number__icontains=search) |
+            Q(model__icontains=search) |
+            Q(manufacturer__icontains=search)
+        )
+        print(f"🔍 Found {assets.count()} assets matching search")
+    
+    # Optional: Filter by type based on request category
+    type_mapping = {
+        'Hardware': ['COMPUTER', 'LAPTOP', 'PRINTER', 'SERVER', 'NETWORK'],
+        'Software': ['SOFTWARE'],
+        'Network': ['NETWORK', 'SERVER'],
+        'Printer': ['PRINTER'],
+        'Computer': ['COMPUTER', 'LAPTOP'],
+    }
+    
+    if category and category in type_mapping:
+        assets = assets.filter(asset_type__in=type_mapping[category])
+        print(f"🔍 Filtered by category '{category}': {assets.count()} assets")
+    
+    # Limit results
+    assets = assets[:20]
+    
+    return render(request, 'partials/available_assets_list.html', {
+        'assets': assets,
+    })

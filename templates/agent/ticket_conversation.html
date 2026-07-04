@@ -94,6 +94,12 @@
                         hx-on::after-request="location.reload()">
                     {% lucide "check-circle" size=14 %} Resolve
                 </button>
+                {% if is_agent and ticket.status == 'PENDING_FULFILLMENT' and user.role == 'ADMIN' or user.role == 'SUPERADMIN' %}
+                <button class="btn-success text-xs flex items-center gap-1 px-3 py-1.5 rounded min-h-[32px]"
+                        onclick="openFulfillModal({{ ticket.pk }})">
+                    {% lucide "check-circle" size=14 %} Fulfill Request
+                </button>
+                {% endif %}
                 <button class="btn-ghost text-[0.65rem] sm:text-xs flex items-center gap-1 px-2 py-1 sm:px-3 sm:py-1.5 rounded min-h-[32px] sm:min-h-[36px]" onclick="toggleDetailsPanel()">
                     {% lucide "panel-right" size=14 %} Toggle Details
                 </button>
@@ -220,175 +226,11 @@
 
 {% block scripts %}
 {{ block.super }}
+<script src="{% static 'js/conversation.js' %}"></script>
 <script>
-    // Only define agent-specific functions if is_agent
-    {% if is_agent %}
-    function toggleDetailsPanel() {
-        const panel = document.getElementById('detailsPanel');
-        if (!panel) return;
-        if (window.innerWidth < 640) {
-            // On small screens, toggle full width overlay
-            panel.classList.toggle('w-0');
-            panel.classList.toggle('w-full');
-        } else {
-            panel.classList.toggle('w-0');
-            panel.classList.toggle('w-80');
-            panel.classList.toggle('w-96');
-        }
-    }
-    function toggleStatusDropdown() {
-        const menu = document.getElementById('statusMenu');
-        const chevron = document.getElementById('statusChevron');
-        menu.classList.toggle('hidden');
-        chevron.classList.toggle('rotate-180');
-    }
-    document.addEventListener('click', function(event) {
-        const dropdown = document.getElementById('statusDropdown');
-        const menu = document.getElementById('statusMenu');
-        const chevron = document.getElementById('statusChevron');
-        if (dropdown && menu && !dropdown.contains(event.target)) {
-            menu.classList.add('hidden');
-            chevron.classList.remove('rotate-180');
-        }
-    });
-    {% endif %}
-
-    function scrollTimelineToBottom() {
-        const el = document.getElementById('commentTimeline');
-        if (el) el.scrollTop = el.scrollHeight;
-    }
-    document.addEventListener('DOMContentLoaded', scrollTimelineToBottom);
-    document.body.addEventListener('htmx:afterSwap', function(evt) {
-        if (evt.detail.target.id === 'commentTimeline') {
-            scrollTimelineToBottom();
-        }
-    });
-
-    {% if is_agent %}
-    function setActiveTab(mode) {
-        const publicSpan = document.getElementById('tabPublic');
-        const internalSpan = document.getElementById('tabInternal');
-        if (mode === 'public') {
-            publicSpan.className = 'px-3 py-1 rounded-full inline-block bg-primary text-white border border-primary';
-            internalSpan.className = 'px-3 py-1 rounded-full inline-block bg-background text-text-secondary border border-border';
-            document.querySelector('input[value="PUBLIC"]').checked = true;
-        } else {
-            internalSpan.className = 'px-3 py-1 rounded-full inline-block bg-primary text-white border border-primary';
-            publicSpan.className = 'px-3 py-1 rounded-full inline-block bg-background text-text-secondary border border-border';
-            document.querySelector('input[value="INTERNAL"]').checked = true;
-        }
-    }
-
-    window.insertMacro = function(body, visibility) {
-        const editor = document.getElementById('commentEditor');
-        if (editor) {
-            editor.innerHTML = body;
-            setActiveTab(visibility.toLowerCase());
-            const radios = document.getElementsByName('visibility');
-            for (let radio of radios) {
-                if (radio.value === visibility) radio.checked = true;
-            }
-            document.getElementById('macroDropdown').classList.add('hidden');
-        }
-    };
-
-    document.addEventListener('click', function(event) {
-        const dropdown = document.getElementById('macroDropdown');
-        const button = document.querySelector('[data-tooltip="Macros"]');
-        if (dropdown && !dropdown.classList.contains('hidden') && !dropdown.contains(event.target) && button && !button.contains(event.target)) {
-            dropdown.classList.add('hidden');
-        }
-    });
-    {% endif %}
-
-    const draftKey = `draft_{{ ticket.pk }}`;
-    const editor = document.getElementById('commentEditor');
-    if (editor) {
-        const saved = localStorage.getItem(draftKey);
-        if (saved) editor.innerHTML = saved;
-        editor.addEventListener('input', function() {
-            localStorage.setItem(draftKey, editor.innerHTML);
-        });
-        document.getElementById('commentForm').addEventListener('htmx:afterRequest', function() {
-            localStorage.removeItem(draftKey);
-            editor.innerHTML = '';
-        });
-    }
-
-    (function() {
-        const fileInput = document.getElementById('attachmentsInput');
-        if (!fileInput) return;
-        const previewContainer = document.getElementById('filePreviewContainer');
-        if (!previewContainer) return;
-
-        let fileList = [];
-
-        function syncInput() {
-            const dt = new DataTransfer();
-            fileList.forEach(f => dt.items.add(f));
-            fileInput.files = dt.files;
-        }
-
-        function renderPreview() {
-            previewContainer.innerHTML = '';
-            fileList.forEach((file, index) => {
-                const chip = document.createElement('span');
-                chip.className = 'inline-flex items-center gap-1 text-xs bg-gray-700 text-white rounded-full pl-2 pr-1 py-1';
-                const sizeKB = (file.size / 1024).toFixed(1);
-                chip.innerHTML = `📎 ${file.name} (${sizeKB} KB)`;
-                const removeBtn = document.createElement('button');
-                removeBtn.type = 'button';
-                removeBtn.className = 'text-white/60 hover:text-white transition ml-1';
-                removeBtn.innerHTML = '&#x2715;';
-                removeBtn.addEventListener('click', () => {
-                    fileList.splice(index, 1);
-                    syncInput();
-                    renderPreview();
-                });
-                chip.appendChild(removeBtn);
-                previewContainer.appendChild(chip);
-            });
-        }
-
-        fileInput.addEventListener('change', function() {
-            const newFiles = Array.from(fileInput.files);
-            newFiles.forEach(f => fileList.push(f));
-            syncInput();
-            renderPreview();
-        });
-
-        const commentForm = document.getElementById('commentForm');
-        commentForm.addEventListener('submit', () => syncInput());
-        commentForm.addEventListener('htmx:afterRequest', () => {
-            fileList = [];
-            syncInput();
-            previewContainer.innerHTML = '';
-        });
-    })();
-
+    // Only page-specific initialization
     document.addEventListener('DOMContentLoaded', function() {
-        initRichTextEditor('commentEditor', 'commentBodyHidden');
-
-        const form = document.getElementById('commentForm');
-        form.addEventListener('htmx:configRequest', function(event) {
-            const editorDiv = document.getElementById('commentEditor');
-            const hiddenInput = document.getElementById('commentBodyHidden');
-            if (editorDiv && hiddenInput) {
-                hiddenInput.value = editorDiv.innerHTML;
-            }
-        });
-
-        form.addEventListener('htmx:afterRequest', function() {
-            const editorDiv = document.getElementById('commentEditor');
-            if (editorDiv) editorDiv.innerHTML = '';
-        });
+        // Any page-specific setup here
     });
-    // Close attachment preview modal
-    function closeAttachmentModal() {
-        const overlay = document.getElementById('modalOverlay');
-        const container = document.getElementById('modalContainer');
-        if (overlay) overlay.classList.add('hidden');
-        if (container) container.innerHTML = '';
-    }
 </script>
-{% endblock %}  
+{% endblock %}

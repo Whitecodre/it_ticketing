@@ -60,7 +60,7 @@
                 <th class="w-8 py-3 px-2">
                     <input type="checkbox" id="selectAll" class="rounded" onchange="toggleSelectAll(this)">
                 </th>
-                <th class="text-left py-3 px-2 font-semibold text-text-secondary uppercase tracking-wider text-xs">ID   </th>
+                <th class="text-left py-3 px-2 font-semibold text-text-secondary uppercase tracking-wider text-xs">ID</th>
                 <th class="text-left py-3 px-2 font-semibold text-text-secondary uppercase tracking-wider text-xs">Subject</th>
                 <th class="text-left py-3 px-2 font-semibold text-text-secondary uppercase tracking-wider text-xs">Requester</th>
                 <th class="text-left py-3 px-2 font-semibold text-text-secondary uppercase tracking-wider text-xs">Status</th>
@@ -85,33 +85,38 @@
                     </div>
                 </td>
                 <td class="py-3 px-2 max-w-xs truncate text-text-primary">{{ ticket.title }}</td>
-                <td class="py-3  text-text-secondary">{{ ticket.requester.get_full_name_with_role|default:ticket.requester.email }}</td>
+                <td class="py-3 text-text-secondary">{{ ticket.requester.get_full_name_with_role|default:ticket.requester.email }}</td>
                 <td class="py-3 text-text-secondary">
                     <span class="status-chip {{ ticket.status|lower }} text-xs">{{ ticket.get_status_display }}</span>
                 </td>
                 
-                {# SLA Column #}
+                {# SLA Column - with individual polling #}
                 <td class="py-3">
-                    {% with sla_info=ticket.sla_status %}
-                    <div class="flex flex-col">
-                        <div class="sla-bar w-24 mb-1">
-                            <div class="sla-bar-fill 
+                    <div id="sla-container-{{ ticket.pk }}"
+                        hx-get="{% url 'tickets:sla_badge' ticket.pk %}"
+                        hx-trigger="every 5s"
+                        hx-swap="innerHTML">
+                        {% with sla_info=ticket.sla_status %}
+                        <div class="flex flex-col">
+                            <div class="sla-bar w-24 mb-1">
+                                <div class="sla-bar-fill 
+                                    {% if sla_info.overall == 'ok' %}safe
+                                    {% elif sla_info.overall == 'warning' %}warning
+                                    {% else %}danger{% endif %}" 
+                                    style="width: {% if sla_info.overall == 'breached' %}100{% else %}{{ sla_info.resolution_pct|default:0 }}{% endif %}%;">
+                                </div>
+                            </div>
+                            <span class="sla-timer 
                                 {% if sla_info.overall == 'ok' %}safe
                                 {% elif sla_info.overall == 'warning' %}warning
-                                {% else %}danger{% endif %}" 
-                                style="width: {% if sla_info.overall == 'breached' %}100{% else %}{{ sla_info.resolution_pct|default:0 }}{% endif %}%;">
-                            </div>
+                                {% else %}danger{% endif %} text-xs">
+                                {% if sla_info.overall == 'breached' %}Breached
+                                {% else %}{{ sla_info.resolution_pct|default:0 }}%
+                                {% endif %}
+                            </span>
                         </div>
-                        <span class="sla-timer 
-                            {% if sla_info.overall == 'ok' %}safe
-                            {% elif sla_info.overall == 'warning' %}warning
-                            {% else %}danger{% endif %} text-xs">
-                            {% if sla_info.overall == 'breached' %}Breached
-                            {% else %}{{ sla_info.resolution_pct|default:0 }}%
-                            {% endif %}
-                        </span>
+                        {% endwith %}
                     </div>
-                    {% endwith %}
                 </td>
 
                 <td class="py-3">
@@ -126,7 +131,6 @@
                 <td class="py-3 text-text-secondary text-xs">{{ ticket.updated_at|timesince }} ago</td>
                 <td class="py-3 px-3 text-right">
                     <button class="ticket-action-btn btn-ghost p-1.5 rounded-full hover:bg-black/5 transition"
-                            onclick="window.ticketActionBtnClick(this)"
                             data-ticket-id="{{ ticket.pk }}"
                             data-ticket-number="{{ ticket.number }}"
                             data-is-assigned="{{ ticket.assigned_to|yesno:'true,false' }}"
@@ -142,7 +146,6 @@
             <tr>
                 <td colspan="8" class="text-center py-4">
                     <div class="flex flex-col items-center gap-0.5">
-                        {% comment %} <span class="text-2xl">📭</span> {% endcomment %}
                         <p class="text-text-secondary text-sm">No tickets here.</p>
                         <p class="text-text-secondary text-xs">Great job! 🎉</p>
                     </div>
@@ -157,7 +160,8 @@
 <div id="globalTicketDropdown" class="fixed rounded-lg shadow-lg border bg-surface z-[9999] py-1 min-w-44
             opacity-0 scale-95 pointer-events-none transition-all duration-150 ease-out"
      style="border-color: var(--color-border); background-color: var(--color-surface); transform-origin: top center;">
-    <button class="dropdown-view w-full text-left px-4 py-2 text-sm hover:bg-black/5 transition flex items-center gap-2 text-text-primary">
+    <button class="dropdown-view w-full text-left px-4 py-2 text-sm hover:bg-black/5 transition flex items-center gap-2 text-text-primary"
+            onclick="event.stopPropagation(); window.loadTicketSlideoverFromDropdown(this.getAttribute('data-slideover-url'))">
         {% lucide "eye" size=14 %} View Details
     </button>
     <button class="dropdown-claim w-full text-left px-4 py-2 text-sm hover:bg-black/5 transition flex items-center gap-2 text-text-primary">
@@ -169,19 +173,33 @@
 </div>
 
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
+    (function() {
+        // ================================================================
+        // GLOBAL TICKET ACTION DROPDOWN
+        // ================================================================
         const dropdown = document.getElementById('globalTicketDropdown');
-        let activeTicketId = null;
-        let activeData = {};
-        let activeButton = null;   // <-- store last clicked button
-
-        if (!dropdown) return;
+        if (!dropdown) {
+            console.warn('⚠️ globalTicketDropdown not found');
+            return;
+        }
 
         const viewBtn = dropdown.querySelector('.dropdown-view');
         const claimBtn = dropdown.querySelector('.dropdown-claim');
         const conversationBtn = dropdown.querySelector('.dropdown-conversation');
 
-        // Function to position dropdown relative to a button
+        let activeButton = null;
+        let activeData = {};
+
+        function openPanel() {
+            if (typeof openSlideover === 'function') {
+                openSlideover();
+            } else if (typeof window.openSlideover === 'function') {
+                window.openSlideover();
+            } else {
+                console.error('❌ openSlideover function not found!');
+            }
+        }
+
         function positionDropdown(btn) {
             const rect = btn.getBoundingClientRect();
             let top = rect.bottom + 6;
@@ -201,63 +219,109 @@
             dropdown.style.left = left + 'px';
         }
 
-        // Global handler
+        function closeDropdown() {
+            dropdown.classList.remove('opacity-100', 'scale-100');
+            dropdown.classList.add('pointer-events-none', 'opacity-0', 'scale-95');
+            activeButton = null;
+        }
+
+        window.loadTicketSlideoverFromDropdown = function(url) {
+            if (!url) {
+                console.error('❌ slideoverUrl is missing');
+                return;
+            }
+
+            closeDropdown();
+            console.log('🔵 Loading slideover from:', url);
+            htmx.ajax('GET', url, {
+                target: '#slideoverContent',
+                swap: 'innerHTML',
+            });
+
+            setTimeout(function() {
+                if (typeof window.openSlideover === 'function') {
+                    window.openSlideover();
+                } else if (typeof openSlideover === 'function') {
+                    openSlideover();
+                }
+            }, 120);
+        };
+
+        // ================================================================
+        // TICKET ACTION BUTTON CLICK - FIXED
+        // ================================================================
         window.ticketActionBtnClick = function(btn) {
+            console.log('🔵 ticketActionBtnClick called');
             closeDropdown();
 
-            activeButton = btn;   // store for repositioning
-            activeTicketId = btn.dataset.ticketId;
+            const dataset = btn.dataset;
+            console.log('🔵 Dataset:', dataset);
+            
+            activeButton = btn;
             activeData = {
-                slideoverUrl: btn.dataset.slideoverUrl,
-                claimUrl: btn.dataset.claimUrl,
-                conversationUrl: btn.dataset.conversationUrl,
-                isAssigned: btn.dataset.isAssigned === 'true'
+                slideoverUrl: dataset.slideoverUrl || null,
+                claimUrl: dataset.claimUrl || null,
+                conversationUrl: dataset.conversationUrl || null,
+                isAssigned: dataset.isAssigned === 'true'
             };
+
+            console.log('🔵 activeData:', activeData);
+
+            // Fallback: try to get from attribute if dataset failed
+            if (!activeData.slideoverUrl) {
+                const attr = btn.getAttribute('data-slideover-url');
+                console.log('🔵 Fallback - data-slideover-url attribute:', attr);
+                if (attr) activeData.slideoverUrl = attr;
+            }
 
             // Show/hide claim button
             claimBtn.style.display = activeData.isAssigned ? 'none' : 'flex';
+            viewBtn.setAttribute('data-slideover-url', activeData.slideoverUrl || '');
 
-            // Position and show
             positionDropdown(btn);
             dropdown.classList.remove('pointer-events-none', 'opacity-0', 'scale-95');
             dropdown.classList.add('opacity-100', 'scale-100');
         };
 
-        function closeDropdown() {
-            dropdown.classList.remove('opacity-100', 'scale-100');
-            dropdown.classList.add('pointer-events-none', 'opacity-0', 'scale-95');
-            activeButton = null;   // clear reference
-        }
-
-        // Reposition on window resize (if dropdown is open)
-        window.addEventListener('resize', function() {
-            if (activeButton && !dropdown.classList.contains('pointer-events-none')) {
-                positionDropdown(activeButton);
-            }
-        });
-
-        // Click outside to close
+        // ================================================================
+        // EVENT DELEGATION - Click on any ticket action button
+        // ================================================================
         document.addEventListener('click', function(e) {
-            if (!dropdown.contains(e.target) && !e.target.closest('.ticket-action-btn')) {
-                closeDropdown();
+            const btn = e.target.closest('.ticket-action-btn');
+            if (btn) {
+                e.preventDefault();
+                e.stopPropagation();
+                window.ticketActionBtnClick(btn);
             }
         });
 
-        // View Details
-        viewBtn.addEventListener('click', function() {
-            if (activeData.slideoverUrl) {
-                htmx.ajax('GET', activeData.slideoverUrl, {
-                    target: '#slideoverContent',
-                    swap: 'innerHTML',
-                    after: function() { openSlideover(); }
-                });
+        // ================================================================
+        // VIEW DETAILS BUTTON
+        // ================================================================
+        viewBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('🔵 View Details clicked, activeData:', activeData);
+
+            if (!activeData.slideoverUrl) {
+                console.error('❌ slideoverUrl is null or undefined!');
+                console.log('🔵 Check if button has data-slideover-url attribute');
+                closeDropdown();
+                return;
             }
+
+            window.loadTicketSlideoverFromDropdown(activeData.slideoverUrl);
             closeDropdown();
         });
 
-        // Claim Ticket
-        claimBtn.addEventListener('click', function() {
+        // ================================================================
+        // CLAIM TICKET BUTTON
+        // ================================================================
+        claimBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
             if (activeData.claimUrl) {
+                console.log('🔵 Claiming ticket:', activeData.claimUrl);
                 htmx.ajax('POST', activeData.claimUrl, {
                     target: '#ticketTable',
                     swap: 'innerHTML',
@@ -266,36 +330,46 @@
             closeDropdown();
         });
 
-        // Open Conversation
-        conversationBtn.addEventListener('click', function() {
+        // ================================================================
+        // OPEN CONVERSATION BUTTON
+        // ================================================================
+        conversationBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
             if (activeData.conversationUrl) {
+                console.log('🔵 Opening conversation:', activeData.conversationUrl);
                 window.location.href = activeData.conversationUrl;
             }
             closeDropdown();
         });
-    });
 
-    {# Polling script – auto‑refresh every 5 seconds #}
-    (function() {
-        // Find the container with data-poll="true"
-        const container = document.querySelector('[data-poll="true"]');
-        if (!container) return;
-
-        // Avoid multiple polling loops
-        if (container.dataset.pollingEnabled === 'true') return;
-        container.dataset.pollingEnabled = 'true';
-
-        // Poll every 5 seconds
-        const intervalId = setInterval(function() {
-            htmx.ajax('GET', window.location.href, {
-                target: container.id,
-                swap: 'innerHTML',
-            });
-        }, 5000);
-
-        // Clean up on page unload (optional)
-        window.addEventListener('beforeunload', function() {
-            clearInterval(intervalId);
+        // ================================================================
+        // CLOSE DROPDOWN ON OUTSIDE CLICK
+        // ================================================================
+        document.addEventListener('click', function(e) {
+            if (!dropdown.contains(e.target) && !e.target.closest('.ticket-action-btn')) {
+                closeDropdown();
+            }
         });
+
+        // ================================================================
+        // REPOSITION ON RESIZE
+        // ================================================================
+        window.addEventListener('resize', function() {
+            if (activeButton && !dropdown.classList.contains('pointer-events-none')) {
+                positionDropdown(activeButton);
+            }
+        });
+
+        // ================================================================
+        // CLOSE ON ESCAPE
+        // ================================================================
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeDropdown();
+            }
+        });
+
+        console.log('✅ Agent ticket table JS initialized');
     })();
 </script>

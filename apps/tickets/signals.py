@@ -47,3 +47,24 @@ def create_comment_notification(sender, instance, created, **kwargs):
                 message=f"{instance.ticket.requester.get_full_name()} replied to ticket {instance.ticket.number}.",
                 url=reverse('tickets:detail', args=[instance.ticket.pk])
             )
+
+@receiver(post_save, sender=Ticket)
+def handle_ticket_fulfillment_notification(sender, instance, created, **kwargs):
+    """Send notifications when a ticket is fulfilled."""
+    if created:
+        return
+    
+    # Check if this ticket was just fulfilled
+    if instance.status == Ticket.Status.APPROVED and instance.fulfilled_at:
+        # Check if it was newly fulfilled (using a flag or tracking)
+        try:
+            old_instance = Ticket.objects.get(pk=instance.pk)
+            if old_instance.status != Ticket.Status.APPROVED and old_instance.fulfilled_at is None:
+                # This is a new fulfillment
+                Notification.objects.create(
+                    recipient=instance.requester,
+                    message=f'✅ Your asset request {instance.number} has been fulfilled. Asset assigned to you.',
+                    url=reverse('tickets:detail', args=[instance.pk])
+                )
+        except Ticket.DoesNotExist:
+            pass

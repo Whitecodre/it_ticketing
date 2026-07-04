@@ -42,8 +42,8 @@ urlpatterns = [
     path('connectors/', views.connectors, name='connectors'),
     path('connectors/edit/<int:pk>/', views.connector_edit, name='connector_edit'),
     path('assets/', views.assets, name='assets'),
-    path('assets/create/', views.asset_create, name='asset_create'),
-    path('assets/<int:pk>/edit/', views.asset_edit, name='asset_edit'),
+    path('assets/create-page/', views.asset_create_page, name='asset_create_page'),
+    path('assets/<int:pk>/edit-page/', views.asset_edit_page, name='asset_edit_page'),
     path('assets/<int:pk>/reassign/', views.asset_reassign, name='asset_reassign'),
     path('assets/<int:pk>/detail/', views.asset_detail, name='asset_detail'),
     path('assets/<int:pk>/scrap-request/', views.asset_scrap_request, name='asset_scrap_request'),
@@ -58,13 +58,6 @@ urlpatterns = [
     path('escalated/<int:pk>/return-to-pool/', views.return_escalated_to_pool, name='return_escalated_to_pool'),
     path('kb-suggestions/', views.kb_suggestions, name='kb_suggestions'),
     # future: detail, list
-
-    # APPROVER URLS
-    path('approver/', views.approver_dashboard, name='approver_dashboard'),
-    path('approver/pending/', views.approver_pending, name='approver_pending'),
-    path('approver/history/', views.approver_history, name='approver_history'),
-    path('approve/<int:pk>/', views.approve_ticket, name='approve_ticket'),
-    path('reject/<int:pk>/', views.reject_ticket, name='reject_ticket'),
 
     # SLA URLS
     path('sla/', views.sla_list, name='sla_management'),
@@ -84,4 +77,9 @@ urlpatterns = [
     # ASSET EXPORT AND IMPORT
     path('assets/export/', views.asset_export, name='asset_export'),
     path('assets/import/', views.asset_import, name='asset_import'),
-    ]
+    
+    # ASSET FULFILLMENT
+    path('assets/fulfill/<int:pk>/', views.fulfill_asset_request, name='fulfill_asset_request'),
+    path('assets/available/', views.available_assets_for_fulfillment, name='available_assets_for_fulfillment'),
+    path('assets/fulfill-modal/<int:pk>/', views.fulfill_asset_modal, name='fulfill_asset_modal'),
+]

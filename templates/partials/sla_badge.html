@@ -1,10 +1,22 @@
+{% load lucide %}
+
 {% with sla_info=ticket.sla_status %}
-<span class="text-[0.6rem] px-2 py-0.5 rounded-full 
-    {% if sla_info.overall == 'breached' %}bg-error/10 text-error
-    {% elif sla_info.overall == 'warning' %}bg-warning/10 text-warning
-    {% else %}bg-success/10 text-success{% endif %}">
-    {% if sla_info.overall == 'breached' %}SLA Breach
-    {% elif sla_info.overall == 'warning' %}SLA Warning
-    {% else %}On Track{% endif %}
-</span>
+<div class="flex flex-col">
+    <div class="sla-bar w-24 mb-1">
+        <div class="sla-bar-fill 
+            {% if sla_info.overall == 'ok' %}safe
+            {% elif sla_info.overall == 'warning' %}warning
+            {% else %}danger{% endif %}" 
+            style="width: {% if sla_info.overall == 'breached' %}100{% else %}{{ sla_info.resolution_pct|default:0 }}{% endif %}%;">
+        </div>
+    </div>
+    <span class="sla-timer 
+        {% if sla_info.overall == 'ok' %}safe
+        {% elif sla_info.overall == 'warning' %}warning
+        {% else %}danger{% endif %} text-xs">
+        {% if sla_info.overall == 'breached' %}Breached
+        {% else %}{{ sla_info.resolution_pct|default:0 }}%
+        {% endif %}
+    </span>
+</div>
 {% endwith %}

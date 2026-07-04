@@ -2,6 +2,7 @@ from django import forms
 from .models import Ticket, TicketComment, Asset
 from apps.common.models import Category
 
+
 class TicketForm(forms.ModelForm):
     # Explicit field override to remove the blank option
     category = forms.ModelChoiceField(
@@ -53,7 +54,33 @@ class CommentForm(forms.ModelForm):
             }),
         }
 
+
 class AssetForm(forms.ModelForm):
+    # Override the fields completely to bypass model choices validation
+    asset_type = forms.CharField(
+        max_length=20,
+        required=False,
+        widget=forms.Select(attrs={
+            'class': 'w-full rounded-lg border py-2 px-3 text-sm focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary'
+        })
+    )
+    
+    location = forms.CharField(
+        max_length=200,
+        required=False,
+        widget=forms.Select(attrs={
+            'class': 'w-full rounded-lg border py-2 px-3 text-sm focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary'
+        })
+    )
+    
+    status = forms.CharField(
+        max_length=20,
+        required=False,
+        widget=forms.Select(attrs={
+            'class': 'w-full rounded-lg border py-2 px-3 text-sm focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary'
+        })
+    )
+    
     # Custom field for "Other" location
     location_other = forms.CharField(
         max_length=200,
@@ -90,26 +117,52 @@ class AssetForm(forms.ModelForm):
         label='Custom Status'
     )
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        # Populate the select choices
+        self.fields['asset_type'].widget.choices = [('', '-- Select Type --')] + list(Asset.AssetType.choices)
+        self.fields['location'].widget.choices = [('', '-- Select Location --')] + list(Asset.Location.choices)
+        self.fields['status'].widget.choices = [('', '-- Select Status --')] + list(Asset.Status.choices)
+
     def clean(self):
         cleaned_data = super().clean()
         
-        # Handle "Other" for asset_type
+        # --- Handle "OTHER" for asset_type ---
         asset_type = cleaned_data.get('asset_type')
-        asset_type_other = cleaned_data.get('asset_type_other')
-        if asset_type == 'OTHER' and asset_type_other:
-            cleaned_data['asset_type'] = asset_type_other
+        asset_type_other = cleaned_data.get('asset_type_other', '').strip()
         
-        # Handle "Other" for status
-        status = cleaned_data.get('status')
-        status_other = cleaned_data.get('status_other')
-        if status == 'OTHER' and status_other:
-            cleaned_data['status'] = status_other
+        if asset_type == 'OTHER':
+            if asset_type_other:
+                cleaned_data['asset_type'] = asset_type_other
+            else:
+                self.add_error('asset_type_other', 'Please enter a custom asset type.')
+        elif not asset_type:
+            self.add_error('asset_type', 'Asset type is required.')
         
-        # Handle "Other" for location
+        # --- Handle "OTHER" for location ---
         location = cleaned_data.get('location')
-        location_other = cleaned_data.get('location_other')
-        if location == 'OTHER' and location_other:
-            cleaned_data['location'] = location_other
+        location_other = cleaned_data.get('location_other', '').strip()
+        
+        if location == 'OTHER':
+            if location_other:
+                cleaned_data['location'] = location_other
+            else:
+                self.add_error('location_other', 'Please enter a custom location.')
+        elif not location:
+            cleaned_data['location'] = ''
+        
+        # --- Handle "OTHER" for status ---
+        status = cleaned_data.get('status')
+        status_other = cleaned_data.get('status_other', '').strip()
+        
+        if status == 'OTHER':
+            if status_other:
+                cleaned_data['status'] = status_other
+            else:
+                self.add_error('status_other', 'Please enter a custom status.')
+        elif not status:
+            cleaned_data['status'] = 'ACTIVE'
         
         return cleaned_data
 
@@ -135,6 +188,9 @@ class AssetForm(forms.ModelForm):
             }),
             'purchase_date': forms.DateInput(attrs={
                 'type': 'date',
+                'class': 'w-full rounded-lg border py-2 px-3 text-sm focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary'
+            }),
+            'warranty_duration_years': forms.Select(attrs={
                 'class': 'w-full rounded-lg border py-2 px-3 text-sm focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary'
             }),
             'warranty_expiry': forms.DateInput(attrs={

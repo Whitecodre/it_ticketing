@@ -8,6 +8,7 @@ class Ticket(models.Model):
     class Type(models.TextChoices):
         INCIDENT = 'INCIDENT', 'Incident'
         SERVICE_REQUEST = 'SERVICE_REQUEST', 'Service Request'
+    
     def sla_status(self):
         now = timezone.now()
         result = {'response': 'ok', 'resolution': 'ok', 'response_pct': 0, 'resolution_pct': 0}
@@ -63,6 +64,7 @@ class Ticket(models.Model):
         PENDING_VENDOR = 'PENDING_VENDOR', 'Pending Vendor'
         PENDING_APPROVAL = 'PENDING_APPROVAL', 'Pending Approval'
         PENDING_MANAGER_REVIEW = 'PENDING_MANAGER_REVIEW', 'Pending Manager Review'
+        PENDING_FULFILLMENT = 'PENDING_FULFILLMENT', 'Pending Fulfillment'  # NEW
         APPROVED = 'APPROVED', 'Approved'
         RESOLVED = 'RESOLVED', 'Resolved'
         CLOSED = 'CLOSED', 'Closed'
@@ -119,6 +121,30 @@ class Ticket(models.Model):
 
     # Related asset (CMDB-lite, optional)
     asset_id = models.CharField(max_length=100, blank=True)  # link to an asset record later
+    
+    # ========== NEW FIELDS FOR ASSET FULFILLMENT ==========
+    
+    # Track if this is an asset request (set during creation)
+    is_asset_request = models.BooleanField(default=False)
+    
+    # Link to the assigned asset (set during fulfillment)
+    assigned_asset = models.ForeignKey(
+        'Asset',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='tickets'
+    )
+    
+    # Fulfillment tracking (set during fulfillment)
+    fulfilled_at = models.DateTimeField(null=True, blank=True)
+    fulfilled_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='fulfilled_tickets'
+    )
 
     class Meta:
         ordering = ['-created_at']
@@ -127,6 +153,8 @@ class Ticket(models.Model):
             models.Index(fields=['assigned_to', 'status']),
             models.Index(fields=['requester', 'created_at']),
             models.Index(fields=['number']),
+            # NEW: Index for asset fulfillment queries
+            models.Index(fields=['status', 'is_asset_request']),
         ]
 
     def __str__(self):
@@ -330,21 +358,21 @@ class Asset(models.Model):
 
     # Basic info
     name = models.CharField(max_length=200)
-    asset_type = models.CharField(max_length=20, choices=AssetType.choices, default=AssetType.COMPUTER)
+    asset_type = models.CharField(max_length=20, default=AssetType.COMPUTER)
     serial_number = models.CharField(max_length=100, blank=True)
 
     # NEW FIELDS
     tracking_id = models.CharField(max_length=50, unique=True, editable=False)  # auto-generated
     model = models.CharField(max_length=100, blank=True)
     manufacturer = models.CharField(max_length=100, blank=True)
-    location = models.CharField(max_length=200, blank=True, choices=Location.choices, default=Location.HQ)
+    location = models.CharField(max_length=200, blank=True, default=Location.HQ)
     warranty_expiry = models.DateField(null=True, blank=True)
     warranty_duration_years = models.PositiveSmallIntegerField(default=0, help_text="Warranty duration in years")
     assigned_to_department = models.CharField(max_length=50, blank=True)
 
     # Assignment & status
     assigned_to = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_assets')
-    status = models.CharField(max_length=20, choices=Status.choices, default=Status.ACTIVE)
+    status = models.CharField(max_length=20, default=Status.ACTIVE)
 
     # Scrap approval workflow
     scrap_approved = models.BooleanField(default=False)
@@ -356,6 +384,62 @@ class Asset(models.Model):
     notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+
+    def get_reassignment_count(self):
+        """Returns the number of times this asset has been reassigned (excluding initial assignment)."""
+        # If we have a cached value, use it
+        if hasattr(self, '_reassignment_count'):
+            return self._reassignment_count
+        
+        # Get all ASSIGNED logs in order
+        assigned_logs = self.logs.filter(
+            action=AssetLog.Action.ASSIGNED
+        ).order_by('created_at')
+        
+        # Count all assignments after the first one (these are reassignments)
+        count = max(0, assigned_logs.count() - 1)
+        self._reassignment_count = count
+        return count
+
+    def has_been_reassigned(self):
+        """Returns True if this asset has been reassigned at least once."""
+        return self.get_reassignment_count() > 0
+
+    def get_first_assignment(self):
+        """Returns the first person this asset was assigned to."""
+        first_log = self.logs.filter(
+            action=AssetLog.Action.ASSIGNED
+        ).order_by('created_at').first()
+        
+        if first_log and first_log.details:
+            return first_log.details.get('to')
+        return None
+
+    def get_assignment_history(self):
+        """
+        Returns a list of assignment history entries including the initial assignment.
+        Each entry contains: {'from': user or None, 'to': user or None, 'timestamp': datetime, 'actor': user}
+        """
+        history = []
+        
+        # Get all ASSIGNED and UNASSIGNED logs for this asset
+        logs = self.logs.filter(
+            action__in=[AssetLog.Action.ASSIGNED, AssetLog.Action.UNASSIGNED]
+        ).order_by('created_at')
+        
+        for log in logs:
+            details = log.details or {}
+            history.append({
+                'from_user': details.get('from'),
+                'to_user': details.get('to'),
+                'timestamp': log.created_at,
+                'actor': log.actor.get_full_name() if log.actor else 'System',
+                'action': log.action
+            })
+        
+        return history
+
 
     def save(self, *args, **kwargs):
         if not self.tracking_id:

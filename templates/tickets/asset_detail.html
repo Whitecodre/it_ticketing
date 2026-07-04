@@ -29,20 +29,17 @@
                         {% elif asset.status == 'DAMAGED' %}escalated
                         {% elif asset.status == 'SCRAPPED' %}closed
                         {% else %}open{% endif %} text-xs">
-                        {{ asset.get_status_display }}
+                        {{ asset.status|default:"—" }}
                     </span>
                 </div>
                 <p class="text-sm text-text-secondary">{{ asset.tracking_id }}</p>
             </div>
             <div class="flex gap-2">
                 {% if user.role == 'ADMIN' or user.role == 'SUPERADMIN' %}
-                <button class="btn-primary text-sm px-4 py-2 rounded-lg flex items-center gap-1"
-                        hx-get="{% url 'tickets:asset_edit' asset.pk %}?source=detail"
-                        hx-target="#modalContainer"
-                        hx-swap="innerHTML"
-                        onclick="document.getElementById('modalOverlay').classList.remove('hidden')">
+                <a href="{% url 'tickets:asset_edit_page' asset.pk %}" 
+                class="btn-primary text-sm px-4 py-2 rounded-lg flex items-center gap-2">
                     {% lucide "pencil" size=14 %} Edit
-                </button>
+                </a>
                 {% endif %}
                 {% if asset.status != 'SCRAPPED' and asset.status != 'DAMAGED' %}
                 <button class="btn-danger text-sm px-4 py-2 rounded-lg flex items-center gap-1"
@@ -70,7 +67,7 @@
                     </div>
                     <div class="flex justify-between">
                         <dt class="text-text-secondary">Type</dt>
-                        <dd>{{ asset.get_asset_type_display }}</dd>
+                        <dd>{{ asset.asset_type|default:"—" }}</dd>
                     </div>
                     <div class="flex justify-between">
                         <dt class="text-text-secondary">Serial Number</dt>

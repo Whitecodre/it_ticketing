@@ -116,18 +116,47 @@ document.addEventListener('click', function(event) {
     }
 });
 
-// ----- Slide‑over -----
+// ================================================================
+// SLIDEOVER FUNCTIONS
+// ================================================================
+
 function openSlideover() {
-    document.getElementById('ticketSlideover').classList.remove('translate-x-full');
-    document.getElementById('slideoverBackdrop').classList.remove('hidden');
+    const panel = document.getElementById('ticketSlideover');
+    const backdrop = document.getElementById('slideoverBackdrop');
+    if (panel) {
+        panel.classList.remove('translate-x-full');
+        panel.classList.add('translate-x-0');
+        panel.style.transform = 'translateX(0)';
+    }
+    if (backdrop) {
+        backdrop.classList.remove('hidden');
+        backdrop.style.display = 'block';
+    }
+    document.body.style.overflow = 'hidden';
 }
+
 function closeSlideover() {
-    document.getElementById('ticketSlideover').classList.add('translate-x-full');
-    document.getElementById('slideoverBackdrop').classList.add('hidden');
+    const panel = document.getElementById('ticketSlideover');
+    const backdrop = document.getElementById('slideoverBackdrop');
+    if (panel) {
+        panel.classList.add('translate-x-full');
+        panel.classList.remove('translate-x-0');
+        panel.style.transform = 'translateX(100%)';
+    }
+    if (backdrop) {
+        backdrop.classList.add('hidden');
+        backdrop.style.display = 'none';
+    }
+    document.body.style.overflow = '';
     setTimeout(() => {
-        document.getElementById('slideoverContent').innerHTML = '';
+        const content = document.getElementById('slideoverContent');
+        if (content) content.innerHTML = '';
     }, 300);
 }
+
+// Make functions globally available
+window.openSlideover = openSlideover;
+window.closeSlideover = closeSlideover;
 
 // ----- Floating Tooltips (desktop only) -----
 (function() {
@@ -404,3 +433,276 @@ function showToast(message, type = 'info') {
         window.__pendingNotificationUrl = null;
     }, 1000);
 }
+
+// ========== REASSIGN TRAIL TOOLTIPS (Improved) ==========
+(function() {
+    // Skip on touch devices - they use click instead
+    if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+        // On touch devices, show on click instead
+        document.addEventListener('click', function(e) {
+            const indicator = e.target.closest('.reassign-indicator');
+            if (indicator) {
+                e.preventDefault();
+                e.stopPropagation();
+                toggleReassignTooltip(indicator);
+            }
+        });
+        return;
+    }
+
+    const tooltip = document.createElement('div');
+    tooltip.className = 'floating-tooltip-reassign';
+    document.body.appendChild(tooltip);
+
+    let currentTarget = null;
+    let hideTimeout = null;
+    let isHoveringTooltip = false;
+    let isHoveringTarget = false;
+
+    // Global function to reinitialize tooltips after HTMX swaps
+    window.initReassignTooltips = function() {
+        // Remove old tooltip if it exists
+        if (tooltip) {
+            tooltip.classList.remove('visible');
+            tooltip.innerHTML = '';
+        }
+        currentTarget = null;
+        isHoveringTooltip = false;
+        isHoveringTarget = false;
+        if (hideTimeout) {
+            clearTimeout(hideTimeout);
+            hideTimeout = null;
+        }
+
+        // Reattach event listeners to all indicators
+        document.querySelectorAll('.reassign-indicator').forEach(function(el) {
+            // Remove old listeners by cloning (clean approach)
+            const wrapper = el.closest('.reassign-trigger-wrapper');
+            if (wrapper) {
+                const newWrapper = wrapper.cloneNode(true);
+                wrapper.parentNode.replaceChild(newWrapper, wrapper);
+                const newEl = newWrapper.querySelector('.reassign-indicator');
+                if (newEl) {
+                    attachEvents(newEl);
+                }
+            }
+        });
+    };
+
+    function attachEvents(el) {
+        el.addEventListener('mouseenter', function(e) {
+            isHoveringTarget = true;
+            if (hideTimeout) {
+                clearTimeout(hideTimeout);
+                hideTimeout = null;
+            }
+            showTooltip(this, e);
+        });
+
+        el.addEventListener('mouseleave', function(e) {
+            isHoveringTarget = false;
+            hideTimeout = setTimeout(function() {
+                if (!isHoveringTooltip && !isHoveringTarget) {
+                    hideTooltip();
+                }
+            }, 300);
+        });
+
+        // Click also shows tooltip (for accessibility)
+        el.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (tooltip.classList.contains('visible') && currentTarget === this) {
+                hideTooltip();
+            } else {
+                showTooltip(this, e);
+            }
+        });
+    }
+
+    function showTooltip(target, event) {
+        const html = target.getAttribute('data-tooltip-html');
+        if (!html) return;
+
+        currentTarget = target;
+        tooltip.innerHTML = html;
+        tooltip.classList.add('visible');
+
+        // Tooltip hover events
+        tooltip.onmouseenter = function() {
+            isHoveringTooltip = true;
+            if (hideTimeout) {
+                clearTimeout(hideTimeout);
+                hideTimeout = null;
+            }
+        };
+
+        tooltip.onmouseleave = function() {
+            isHoveringTooltip = false;
+            hideTimeout = setTimeout(function() {
+                if (!isHoveringTooltip && !isHoveringTarget) {
+                    hideTooltip();
+                }
+            }, 300);
+        };
+
+        // Position after content is rendered
+        requestAnimationFrame(function() {
+            positionTooltip(currentTarget);
+        });
+    }
+
+    function hideTooltip() {
+        tooltip.classList.remove('visible');
+        tooltip.innerHTML = '';
+        currentTarget = null;
+        isHoveringTooltip = false;
+        isHoveringTarget = false;
+        if (hideTimeout) {
+            clearTimeout(hideTimeout);
+            hideTimeout = null;
+        }
+    }
+
+    function positionTooltip(target) {
+        const rect = target.getBoundingClientRect();
+        const tooltipWidth = Math.min(tooltip.offsetWidth || 320, 400);
+        const tooltipHeight = tooltip.offsetHeight || 200;
+
+        // Position centered above or below
+        let left = rect.left + rect.width / 2 - tooltipWidth / 2;
+        let top = rect.bottom + 8;
+
+        // Keep in viewport horizontally
+        if (left < 10) left = 10;
+        if (left + tooltipWidth > window.innerWidth - 10) {
+            left = window.innerWidth - tooltipWidth - 10;
+        }
+
+        // If tooltip goes off bottom, show above
+        if (top + tooltipHeight > window.innerHeight - 10) {
+            top = rect.top - tooltipHeight - 8;
+        }
+
+        tooltip.style.left = left + 'px';
+        tooltip.style.top = top + 'px';
+        tooltip.style.maxWidth = '400px';
+    }
+
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        initReassignTooltips();
+    });
+
+    // Reinitialize after HTMX swaps
+    document.addEventListener('htmx:afterSwap', function(evt) {
+        // If the swap target contains assets table, reinitialize
+        if (evt.detail.target && evt.detail.target.id === 'assetTableContainer') {
+            setTimeout(function() {
+                initReassignTooltips();
+            }, 100);
+        }
+        // Also reinitialize if the target contains .reassign-indicator
+        if (evt.detail.target && evt.detail.target.querySelector('.reassign-indicator')) {
+            setTimeout(function() {
+                initReassignTooltips();
+            }, 100);
+        }
+    });
+
+    // Also listen for htmx:afterSettle
+    document.addEventListener('htmx:afterSettle', function(evt) {
+        if (evt.detail.target && evt.detail.target.querySelector('.reassign-indicator')) {
+            setTimeout(function() {
+                initReassignTooltips();
+            }, 50);
+        }
+    });
+
+    // Hide tooltip on scroll or click outside
+    window.addEventListener('scroll', function() {
+        hideTooltip();
+    }, { passive: true });
+
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.reassign-indicator') && !e.target.closest('.floating-tooltip-reassign')) {
+            hideTooltip();
+        }
+    });
+
+    // Handle escape key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            hideTooltip();
+        }
+    });
+})();
+
+// ================================================================
+// FULFILLMENT MODAL - Global Functions
+// ================================================================
+
+function openFulfillModal(ticketId) {
+    // Remove any existing modal
+    const existing = document.getElementById('fulfillModal');
+    if (existing) existing.remove();
+    
+    // Disable body scroll
+    document.body.style.overflow = 'hidden';
+    
+    // Fetch the modal content
+    fetch(`/tickets/assets/fulfill-modal/${ticketId}/`)
+        .then(response => response.text())
+        .then(html => {
+            const wrapper = document.createElement('div');
+            wrapper.innerHTML = html;
+            document.body.appendChild(wrapper.firstElementChild);
+            
+            // Re-initialize HTMX for dynamically loaded content
+            const modal = document.getElementById('fulfillModal');
+            if (modal && typeof htmx !== 'undefined') {
+                htmx.process(modal);
+                console.log('✅ HTMX processed for modal');
+            }
+            
+            // Click on backdrop closes modal
+            if (modal) {
+                modal.addEventListener('click', function(e) {
+                    if (e.target === this) {
+                        closeFulfillModal();
+                    }
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Error loading fulfill modal:', error);
+            document.body.style.overflow = '';
+            if (typeof showToast === 'function') {
+                showToast('Error loading fulfillment form.', 'error');
+            }
+        });
+}
+
+function closeFulfillModal() {
+    const modal = document.getElementById('fulfillModal');
+    if (modal) {
+        modal.remove();
+    }
+    document.body.style.overflow = '';
+}
+
+// Close on Escape key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeFulfillModal();
+    }
+});
+
+// Handle data-close-modal buttons using event delegation
+document.addEventListener('click', function(e) {
+    const closeBtn = e.target.closest('[data-close-modal]');
+    if (closeBtn) {
+        e.preventDefault();
+        closeFulfillModal();
+    }
+});
