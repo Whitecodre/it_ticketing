@@ -133,3 +133,13 @@ def service_worker(request):
         # Fallback to static directory
         file_path = os.path.join(settings.BASE_DIR, 'static', 'sw.js')
     return FileResponse(open(file_path, 'rb'), content_type='application/javascript')
+
+
+def ratelimit_handler(request, exception):
+    """Custom handler for rate limit exceeded."""
+    if request.headers.get('HX-Request'):
+        return HttpResponse(
+            'Too many login attempts. Please try again later.',
+            status=429
+        )
+    return render(request, 'registration/rate_limited.html', status=429)

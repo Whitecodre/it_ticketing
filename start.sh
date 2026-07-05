@@ -23,5 +23,6 @@ if [ -n "$SUPERUSER_EMAIL" ] && [ -n "$SUPERUSER_PASSWORD" ]; then
   python manage.py ensure_superuser
 fi
 
-echo "=== Starting Gunicorn ==="
-exec gunicorn config.wsgi:application --log-file -
+echo "=== Starting Daphne ASGI Server ==="
+# Use Daphne for ASGI/WebSocket support
+exec daphne -b 0.0.0.0 -p 8000 config.asgi:application

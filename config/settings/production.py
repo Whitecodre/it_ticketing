@@ -1,3 +1,5 @@
+# config/settings/production.py
+
 import os
 import dj_database_url
 from .base import *
@@ -5,41 +7,67 @@ from .base import *
 # Allow DEBUG to be controlled via environment variable
 DEBUG = env.bool('DEBUG', default=False)
 
-# Use * for now to ensure host is accepted; we'll lock it down later
-ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['*'])
+# ALLOWED_HOSTS must be set in environment
+ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=[])
 
-# Security – redirect HTTP to HTTPS
-SECURE_SSL_REDIRECT = True
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SECURE = True
-SECURE_HSTS_SECONDS = 31536000
-SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-SECURE_HSTS_PRELOAD = True
+# ================================================================
+# PRODUCTION - Enable rate limiting
+# ================================================================
+RATELIMIT_ENABLED = True
 
-# Required for correct protocol detection behind Render’s proxy
+# ================================================================
+# SECURITY HEADERS
+# ================================================================
+SECURE_HSTS_SECONDS = env.int('SECURE_HSTS_SECONDS', default=31536000)
+SECURE_HSTS_INCLUDE_SUBDOMAINS = env.bool('SECURE_HSTS_INCLUDE_SUBDOMAINS', default=True)
+SECURE_HSTS_PRELOAD = env.bool('SECURE_HSTS_PRELOAD', default=True)
+
+X_FRAME_OPTIONS = 'DENY'
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_BROWSER_XSS_FILTER = True
+
+SECURE_SSL_REDIRECT = env.bool('SECURE_SSL_REDIRECT', default=True)
+SESSION_COOKIE_SECURE = env.bool('SESSION_COOKIE_SECURE', default=True)
+CSRF_COOKIE_SECURE = env.bool('CSRF_COOKIE_SECURE', default=True)
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
-# Database – fallback to SQLite for build, Render will override with DATABASE_URL
+# Cookie security
+CSRF_COOKIE_HTTPONLY = True
+SESSION_COOKIE_HTTPONLY = True
+CSRF_COOKIE_SAMESITE = 'Lax'
+SESSION_COOKIE_SAMESITE = 'Lax'
+
+# Session security
+SESSION_COOKIE_AGE = env.int('SESSION_COOKIE_AGE', default=86400)
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False
+
+# Database – must be set via DATABASE_URL env var
 DATABASES = {
     'default': dj_database_url.config(
-        default=env('DATABASE_URL', default='sqlite:///db.sqlite3')
+        default=env('DATABASE_URL', default=None)
     )
 }
+
+if DATABASES['default'] is None:
+    raise ValueError("DATABASE_URL environment variable is required for production.")
 
 # Static files
 MIDDLEWARE.insert(1, 'whitenoise.middleware.WhiteNoiseMiddleware')
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-# Brevo SMTP Configuration
+# Email
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = os.environ.get('EMAIL_HOST')
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = os.environ.get('GMAIL_SMTP_USER', 'noreply.gemzticketingsoftware@gmail.com')      # e.g., 'your-gmail-address-name@gmail.com'
-EMAIL_HOST_PASSWORD = os.environ.get('GMAIL_SMTP_PASSWORD', 'wwkpewrinwrcgbes')  # Your Gmail APP Password
-DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply.gemzticketingsoftware@gmail.com')
-EMAIL_TIMEOUT = 10  # seconds
+EMAIL_HOST = env('EMAIL_HOST')
+EMAIL_PORT = env.int('EMAIL_PORT', default=587)
+EMAIL_USE_TLS = env.bool('EMAIL_USE_TLS', default=True)
+EMAIL_HOST_USER = env('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD')
+DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL')
+EMAIL_TIMEOUT = 10
+
+if not EMAIL_HOST_USER or not EMAIL_HOST_PASSWORD:
+    raise ValueError("EMAIL_HOST_USER and EMAIL_HOST_PASSWORD are required for production.")
 
 CHANNEL_LAYERS = {
     "default": {
@@ -50,16 +78,25 @@ CHANNEL_LAYERS = {
     },
 }
 
-# Cloudinary file storage
+# ================================================================
+# PRODUCTION - Redis cache for rate limiting
+# ================================================================
+CACHES = {
+    'default': {
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': env('REDIS_URL', default='redis://localhost:6379'),
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+        }
+    }
+}
+
 DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 
 CLOUDINARY_STORAGE = {
-    'CLOUD_NAME': env('CLOUDINARY_CLOUD_NAME', default=''),
-    'API_KEY': env('CLOUDINARY_API_KEY', default=''),
-    'API_SECRET': env('CLOUDINARY_API_SECRET', default=''),
+    'CLOUD_NAME': env('CLOUDINARY_CLOUD_NAME'),
+    'API_KEY': env('CLOUDINARY_API_KEY'),
+    'API_SECRET': env('CLOUDINARY_API_SECRET'),
 }
 
-NPM_BIN_PATH = r"C:\Program Files\nodejs\npm.cmd"
-
-# CSRF trusted origins
-CSRF_TRUSTED_ORIGINS = env.list('CSRF_TRUSTED_ORIGINS', default=['https://*.onrender.com'])
+CSRF_TRUSTED_ORIGINS = env.list('CSRF_TRUSTED_ORIGINS', default=[])

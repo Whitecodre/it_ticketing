@@ -1,20 +1,31 @@
 from django import forms
 from .models import Ticket, TicketComment, Asset
 from apps.common.models import Category
+from django.utils.text import slugify
 
 
 class TicketForm(forms.ModelForm):
-    # Explicit field override to remove the blank option
-    category = forms.ModelChoiceField(
-        queryset=Category.objects.all(),
-        empty_label=None, 
+    # Override category field to handle "OTHER"
+    category = forms.CharField(
         required=True,
         widget=forms.Select(attrs={
             'class': 'block w-full rounded-lg border py-2.5 px-4 text-sm transition focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary',
             'hx-get': '',
             'hx-target': '#kb-suggestions',
             'hx-trigger': 'change',
+        })
+    )
+
+    # Custom field for "Other" category
+    category_other = forms.CharField(
+        max_length=100,
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'block w-full rounded-lg border py-2.5 px-4 text-sm transition focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary',
+            'placeholder': 'Enter custom category...',
+            'id': 'category_other'
         }),
+        label='Custom Category'
     )
 
     class Meta:
@@ -40,6 +51,49 @@ class TicketForm(forms.ModelForm):
                 'class': 'block w-full rounded-lg border py-2.5 px-4 text-sm transition focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary'
             }),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        # Populate the select choices
+        categories = Category.objects.all().values_list('id', 'name')
+        self.fields['category'].widget.choices = [('', '-- Select Category --')] + list(categories) + [('OTHER', '+ Add Custom Category')]
+        
+        # If editing and category is custom (not in choices), set to OTHER and pre-fill category_other
+        instance = kwargs.get('instance')
+        if instance and instance.category_id:
+            category_ids = [c[0] for c in categories]
+            if instance.category_id not in category_ids:
+                self.fields['category'].initial = 'OTHER'
+                self.initial['category_other'] = instance.category.name
+
+    def clean(self):
+        cleaned_data = super().clean()
+        
+        # Handle "OTHER" for category
+        category = cleaned_data.get('category')
+        category_other = cleaned_data.get('category_other', '').strip()
+        
+        if category == 'OTHER':
+            if category_other:
+                # Try to find existing category or create new one
+                category_obj, created = Category.objects.get_or_create(
+                    name=category_other,
+                    defaults={'slug': slugify(category_other)}
+                )
+                cleaned_data['category'] = category_obj
+            else:
+                self.add_error('category_other', 'Please enter a custom category.')
+        elif category and category != '':
+            try:
+                # Ensure category is a Category object
+                if isinstance(category, str):
+                    category_obj = Category.objects.get(pk=category)
+                    cleaned_data['category'] = category_obj
+            except (Category.DoesNotExist, ValueError):
+                self.add_error('category', 'Please select a valid category.')
+        
+        return cleaned_data
 
 
 class CommentForm(forms.ModelForm):

@@ -50,14 +50,24 @@
                     </label>
                     <select name="category" id="id_category"
                             class="block w-full rounded-lg border py-2.5 px-4 text-sm transition focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary"
+                            onchange="toggleOtherField('category')"
                             hx-get="{% url 'tickets:kb_suggestions' %}"
                             hx-target="#kb-suggestions"
                             hx-trigger="change">
-                        <option value="" disabled selected>Select a category</option>
-                        {% for value, label in form.category.field.choices %}
+                        <option value="" disabled {% if not form.category.value %}selected{% endif %}>Select a category</option>
+                        {% for value, label in form.category.field.widget.choices %}
+                            {% if value != '' %}
                             <option value="{{ value }}" {% if form.category.value == value %}selected{% endif %}>{{ label }}</option>
+                            {% endif %}
                         {% endfor %}
                     </select>
+                    <div id="category_other_container" class="mt-2 hidden">
+                        <input type="text" name="category_other" id="category_other"
+                            value="{{ form.category_other.value|default:'' }}"
+                            class="block w-full rounded-lg border py-2.5 px-4 text-sm transition focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary"
+                            placeholder="Enter custom category...">
+                        <p class="text-xs text-text-secondary mt-1">Custom category will be created and saved.</p>
+                    </div>
                     <div id="kb-suggestions" class="mt-2"></div>
                 </div>
                 <div>
@@ -108,4 +118,51 @@
         </form>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+{{ block.super }}
+<script>
+    // ================================================================
+    // OTHER FIELD TOGGLE
+    // ================================================================
+    
+    function toggleOtherField(fieldType) {
+        const selectMap = {
+            'category': {
+                select: 'id_category',
+                container: 'category_other_container',
+                input: 'category_other'
+            }
+        };
+        
+        const config = selectMap[fieldType];
+        if (!config) return;
+        
+        const select = document.getElementById(config.select);
+        const container = document.getElementById(config.container);
+        const input = document.getElementById(config.input);
+        
+        if (!select || !container || !input) return;
+        
+        if (select.value === 'OTHER') {
+            container.classList.remove('hidden');
+            input.required = true;
+            input.focus();
+        } else {
+            container.classList.add('hidden');
+            input.required = false;
+        }
+    }
+    
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        // Check if category is already 'OTHER' (for form errors after submission)
+        const categorySelect = document.getElementById('id_category');
+        if (categorySelect && categorySelect.value === 'OTHER') {
+            const container = document.getElementById('category_other_container');
+            if (container) container.classList.remove('hidden');
+        }
+    });
+</script>
 {% endblock %}

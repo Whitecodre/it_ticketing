@@ -19,12 +19,6 @@ class EmailAuthenticationForm(AuthenticationForm):
         'inactive_by_admin': 'Your account has been deactivated by an administrator. Please contact support to reactivate it.',
     }
 
-    # def clean_username(self):
-    #     username = self.cleaned_data.get('username')
-    #     if username:
-    #         username = username.lower()
-    #     return username
-
     def clean(self):
         cleaned_data = super().clean()
         # Optional debug:
@@ -42,6 +36,20 @@ class EmailAuthenticationForm(AuthenticationForm):
                     self.error_messages['inactive_by_admin'],
                     code='inactive_by_admin'
                 )
+            
+# Custom password validation with minimum 10 characters
+class CustomPasswordValidator:
+    def __init__(self, min_length=8):
+        self.min_length = min_length
+    
+    def validate(self, password, user=None):
+        if len(password) < self.min_length:
+            raise ValidationError(
+                f"Password must be at least {self.min_length} characters long."
+            )
+    
+    def get_help_text(self):
+        return f"Your password must be at least {self.min_length} characters long."
 
 class RegistrationForm(UserCreationForm):
     first_name = forms.CharField(max_length=30, required=True)

@@ -35,8 +35,6 @@ urlpatterns = [
     path('reports/', views.reports_dashboard, name='reports'),
     path('attachment/<int:pk>/preview/', views.attachment_preview, name='attachment_preview'),
     path('attachment/<int:pk>/', views.attachment_download, name='attachment_download'),
-    path('sla/trigger/', views.trigger_sla_processing, name='trigger_sla'),
-    path('sla/cleanup/', views.trigger_cleanup, name='trigger_cleanup'),
 
     path('catalogue/', views.catalogue, name='catalogue'),
     path('connectors/', views.connectors, name='connectors'),
@@ -64,6 +62,10 @@ urlpatterns = [
     path('sla/create/', views.sla_create, name='sla_create'),
     path('<int:pk>/sla-badge/', views.sla_badge, name='sla_badge'),
     path('sla/<int:pk>/delete/', views.sla_delete, name='sla_delete'),
+    path('sla/trigger/', views.trigger_sla_processing, name='trigger_sla'),
+    path('sla/cleanup/', views.trigger_cleanup, name='trigger_cleanup'),
+    # External trigger (optional - for cron jobs)
+    # path('sla/trigger-external/', views.trigger_sla_processing_external, name='trigger_sla_external'),
     path('calendar/create/', views.calendar_create, name='calendar_create'),
     path('rule/create/', views.rule_create, name='rule_create'),
     path('rule/<int:pk>/delete/', views.rule_delete, name='rule_delete'),

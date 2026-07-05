@@ -23,11 +23,40 @@ from ..models import User, UserProfile
 from ..utils import validate_password_strength
 from apps.tickets.models import Ticket, TicketActivityLog, SLA, BusinessCalendar, EscalationRule, Asset, RemoteConnector 
 from apps.tickets.views import get_sidebar_template
+from django_ratelimit.decorators import ratelimit
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
 
 
+class CustomLoginView(LoginView):
+    template_name = 'registration/login.html'
+    authentication_form = EmailAuthenticationForm
+    redirect_authenticated_user = True
+
+    def form_valid(self, form):
+        remember_me = self.request.POST.get('remember_me')
+        if remember_me:
+            self.request.session.set_expiry(30 * 24 * 60 * 60)
+        else:
+            self.request.session.set_expiry(0)
+        return super().form_valid(form)
+
+    def form_invalid(self, form):
+        # Pass the submitted username back to the template
+        return self.render_to_response(
+            self.get_context_data(
+                form=form,
+                username=form.data.get('username', '')
+            )
+        )
+
+# Also add ratelimit to the login view
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_protect
+
+@method_decorator(ratelimit(key='ip', rate='5/15m', method='POST', block=True), name='dispatch')
+@method_decorator(csrf_protect, name='dispatch')
 class CustomLoginView(LoginView):
     template_name = 'registration/login.html'
     authentication_form = EmailAuthenticationForm
@@ -253,24 +282,129 @@ def dashboard(request):
         })
         
     elif role == 'TEAM_LEAD':
+        
         open_statuses = ['NEW', 'TRIAGED', 'ASSIGNED', 'IN_PROGRESS', 'PENDING_USER', 'PENDING_VENDOR']
-        team_members = User.objects.filter(department=request.user.department, role='AGENT')
+        team_members = User.objects.filter(department=request.user.department, role='AGENT', is_active=True)
+        
+        # ========== KPI CARDS ==========
         context['team_open_tickets'] = Ticket.objects.filter(
             status__in=open_statuses,
             assigned_to__in=team_members
         ).count()
+        
         context['pending_reviews'] = Ticket.objects.filter(
             status=Ticket.Status.PENDING_MANAGER_REVIEW,
             requester__department=request.user.department
         ).count()
+        
         context['unassigned_count'] = Ticket.objects.filter(
             assigned_to__isnull=True
-        ).exclude(status__in=['RESOLVED', 'CLOSED']).count()
-        context['sla_breaches'] = 0
+        ).exclude(status__in=[
+            Ticket.Status.RESOLVED,
+            Ticket.Status.CLOSED,
+            Ticket.Status.PENDING_APPROVAL,
+            Ticket.Status.PENDING_MANAGER_REVIEW,
+            Ticket.Status.PENDING_FULFILLMENT,
+        ]).count()
+        
+        context['sla_breaches'] = Ticket.objects.filter(
+            assigned_to__in=team_members,
+            status__in=['NEW', 'TRIAGED', 'ASSIGNED', 'IN_PROGRESS']
+        ).filter(
+            Q(response_due_at__lt=timezone.now()) | Q(resolution_due_at__lt=timezone.now())
+        ).count()
+        
         context['team_members'] = team_members
+        
+        # ========== WORKLOAD DISTRIBUTION ==========
+        # Count open tickets per agent
+        agent_workload = []
+        for agent in team_members:
+            open_count = Ticket.objects.filter(
+                assigned_to=agent,
+                status__in=open_statuses
+            ).count()
+            
+            # Get agent's recent activity (last 7 days)
+            seven_days_ago = timezone.now() - timedelta(days=7)
+            recent_resolved = Ticket.objects.filter(
+                assigned_to=agent,
+                status__in=['RESOLVED', 'CLOSED'],
+                resolved_at__gte=seven_days_ago
+            ).count()
+            
+            agent_workload.append({
+                'agent': agent,
+                'open_count': open_count,
+                'recent_resolved': recent_resolved,
+                'avatar': agent.avatar,
+            })
+        
+        # Sort by workload (highest first)
+        agent_workload.sort(key=lambda x: x['open_count'], reverse=True)
+        context['agent_workload'] = agent_workload
+        
+        # ========== AGENT PERFORMANCE METRICS ==========
+        agent_performance = []
+        for agent in team_members:
+            # Total resolved by this agent
+            resolved = Ticket.objects.filter(
+                assigned_to=agent,
+                status__in=['RESOLVED', 'CLOSED']
+            )
+            total_resolved = resolved.count()
+            
+            # SLA compliance for this agent
+            compliant = 0
+            for ticket in resolved:
+                if ticket.resolved_at and ticket.created_at:
+                    try:
+                        sla = SLA.objects.get(priority=ticket.priority)
+                        resolution_time = (ticket.resolved_at - ticket.created_at).total_seconds() / 60
+                        if resolution_time <= sla.resolution_minutes:
+                            compliant += 1
+                    except SLA.DoesNotExist:
+                        # If no SLA, consider it compliant
+                        compliant += 1
+            
+            compliance_rate = round((compliant / total_resolved * 100), 1) if total_resolved > 0 else 0
+            
+            # Average response time
+            avg_response_time = 0
+            if total_resolved > 0:
+                # This is a simplified calculation - you can make it more sophisticated
+                total_time = sum(
+                    (t.resolved_at - t.created_at).total_seconds() / 3600 
+                    for t in resolved 
+                    if t.resolved_at and t.created_at
+                )
+                avg_response_time = round(total_time / total_resolved, 1) if total_resolved > 0 else 0
+            
+            agent_performance.append({
+                'agent': agent,
+                'total_resolved': total_resolved,
+                'compliance_rate': compliance_rate,
+                'avg_response_time': avg_response_time,
+            })
+        
+        # Sort by compliance rate (highest first)
+        agent_performance.sort(key=lambda x: x['compliance_rate'], reverse=True)
+        context['agent_performance'] = agent_performance
+        
+        # ========== RECENT TEAM ACTIVITY ==========
         context['recent_team_tickets'] = Ticket.objects.filter(
             assigned_to__in=team_members
         ).exclude(status__in=['RESOLVED', 'CLOSED']).order_by('-created_at')[:5]
+        
+        context['recent_unassigned'] = Ticket.objects.filter(
+            assigned_to__isnull=True
+        ).exclude(status__in=[
+            Ticket.Status.RESOLVED,
+            Ticket.Status.CLOSED,
+            Ticket.Status.PENDING_APPROVAL,
+            Ticket.Status.PENDING_MANAGER_REVIEW,
+            Ticket.Status.PENDING_FULFILLMENT,
+        ]).order_by('-created_at')[:5]
         
     # Removed APPROVER case
     
@@ -358,6 +492,7 @@ def register(request):
             return redirect('accounts:register')
         return render(request, 'registration/register_step2.html', {'form': RegistrationStep2Form()})
 
+
 def verify_email(request, uidb64, token):
     try:
         uid = force_str(urlsafe_base64_decode(uidb64))
@@ -366,12 +501,29 @@ def verify_email(request, uidb64, token):
         user = None
 
     if user is not None and default_token_generator.check_token(user, token):
-        user.is_active = True
-        user.email_verified = True
-        user.save()
-        return render(request, 'registration/verify_email_done.html')
+        # ================================================================
+        # FIX: Only activate if user was not deactivated by admin
+        # If admin deactivated the account, require admin to reactivate
+        # ================================================================
+        if user.is_active:
+            # User is already active - just verify email
+            user.email_verified = True
+            user.save()
+            return render(request, 'registration/verify_email_done.html')
+        elif not user.is_active and not user.email_verified:
+            # New user who hasn't verified email yet - activate
+            user.is_active = True
+            user.email_verified = True
+            user.save()
+            return render(request, 'registration/verify_email_done.html')
+        else:
+            # User was deactivated by admin - cannot self-activate
+            return render(request, 'registration/verify_email_failed.html', {
+                'error': 'This account has been deactivated by an administrator. Please contact support.'
+            })
     else:
         return render(request, 'registration/verify_email_failed.html')
+
 
 def resend_verification(request):
     if request.method == 'POST':

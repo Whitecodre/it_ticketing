@@ -205,18 +205,7 @@ def create_ticket(request):
                 # FIX: Save BOTH status and is_asset_request
                 ticket.save(update_fields=['status', 'is_asset_request'])
 
-                # Notify Team Leads in the requester's department
-                team_leads = User.objects.filter(
-                    department=ticket.requester.department,
-                    role=User.Role.TEAM_LEAD,
-                    is_active=True
-                )
-                for tl in team_leads:
-                    Notification.objects.create(
-                        recipient=tl,
-                        message=f'New service request {ticket.number} from {ticket.requester.get_full_name()} needs review.',
-                        url=reverse('tickets:manager_review_ticket', args=[ticket.pk])
-                    )
+                
                 messages.success(request, f'Service request {ticket.number} submitted for manager review.')
             else:
                 messages.success(request, f'Ticket {ticket.number} created successfully.')
@@ -1079,34 +1068,57 @@ def reports_dashboard(request):
 # EXTERNAL CRON TRIGGERS (SLA & CLEANUP)
 # ==========================================================================
 
-@csrf_exempt
+def is_admin(user): return user.role in ['ADMIN', 'SUPERADMIN']
+
+@login_required
+@user_passes_test(is_admin)
 def trigger_sla_processing(request):
     """
-    External endpoint (secured with a secret) to trigger the SLA processing command.
-    Used by cron‑job.org to automate SLA monitoring.
+    Admin-only endpoint to trigger SLA processing.
+    Protected by authentication and role check.
     """
-    secret = request.GET.get('secret')
-    if secret != 'jkeihwihivkgyg678448bhct36gysyvy!!gygrv':
-        return HttpResponse(status=403)
     try:
         call_command('process_sla')
-        return HttpResponse('SLA processed OK', status=200)
+        return JsonResponse({'status': 'ok', 'message': 'SLA processing triggered successfully.'})
     except Exception as e:
-        return HttpResponse(f'Error: {str(e)}', status=500)
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
-@csrf_exempt
+@login_required
+@user_passes_test(is_admin)
 def trigger_cleanup(request):
     """
-    External endpoint to trigger the cleanup of inactive users.
+    Admin-only endpoint to trigger cleanup of inactive users.
+    Protected by authentication and role check.
     """
-    secret = request.GET.get('secret')
-    if secret != 'jkeihwihivkgyg678448bhct36gysyvy!!gygrv':
-        return HttpResponse(status=403)
     try:
         call_command('cleanup_inactive_users')
-        return HttpResponse('Cleanup completed', status=200)
+        return JsonResponse({'status': 'ok', 'message': 'Cleanup triggered successfully.'})
     except Exception as e:
-        return HttpResponse(f'Error: {str(e)}', status=500)
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+# If you still need an external trigger (e.g., for cron jobs), use a secure token:
+# Option: Use a secure token stored in environment variables
+@csrf_exempt
+def trigger_sla_processing_external(request):
+    """
+    External endpoint for cron jobs. Protected by a secure token.
+    Token should be set in environment variables, not hardcoded.
+    """
+    import os
+    secret = request.GET.get('secret', '')
+    expected_secret = os.environ.get('SLA_TRIGGER_SECRET')
+    
+    if not expected_secret:
+        return JsonResponse({'error': 'SLA trigger not configured'}, status=500)
+    
+    if secret != expected_secret:
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+    
+    try:
+        call_command('process_sla')
+        return JsonResponse({'status': 'ok'})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
 
 # ==========================================================================
 # PLACEHOLDER / STATIC PAGES

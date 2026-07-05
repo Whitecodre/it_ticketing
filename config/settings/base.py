@@ -8,6 +8,17 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent  # it_ticketing/
 env = environ.Env()
 environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 
+# Session security
+SESSION_COOKIE_AGE = 86400  # 24 hours (in seconds)
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False  # Session persists after browser close
+SESSION_COOKIE_HTTPONLY = True  # Prevent JavaScript access to session cookie
+SESSION_COOKIE_SAMESITE = 'Lax'  # CSRF protection (Lax or Strict)
+
+# CSRF settings
+CSRF_COOKIE_HTTPONLY = True  # Prevent JavaScript access to CSRF cookie
+CSRF_COOKIE_SAMESITE = 'Lax'  # CSRF protection
+CSRF_TRUSTED_ORIGINS = ['https://*.yourdomain.com', 'http://localhost:8000']  # Update with your domain
+
 # SECURITY WARNING: keep the secret key secret!
 SECRET_KEY = env('SECRET_KEY')
 
@@ -31,6 +42,8 @@ INSTALLED_APPS = [
     # Third-party
     'rest_framework',
     'tailwind',
+    # Rate Limiter
+    'django_ratelimit',
 
     # Our apps (make sure these names match apps.py)
     'apps.accounts',
@@ -44,6 +57,32 @@ VAPID_PUBLIC_KEY = env('VAPID_PUBLIC_KEY', default='')
 VAPID_PRIVATE_KEY = env('VAPID_PRIVATE_KEY', default='')
 VAPID_CLAIM_EMAIL = env('VAPID_CLAIM_EMAIL', default='noreply@example.com')
 
+# Rate limiting settings
+RATELIMIT_VIEW = 'apps.common.views.ratelimit_handler'
+RATELIMIT_USE_CACHE = 'default'
+RATELIMIT_ENABLED = True  # <-- ADD THIS
+
+# ================================================================
+# CACHE CONFIGURATION (for rate limiting)
+# ================================================================
+# Use Redis cache for rate limiting (supports atomic increment)
+CACHES = {
+    'default': {
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': env('REDIS_URL', default='redis://localhost:6379'),
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+            'CONNECTION_POOL_CLASS': 'redis.BlockingConnectionPool',
+            'CONNECTION_POOL_CLASS_KWARGS': {
+                'max_connections': 50,
+                'timeout': 20,
+            },
+            'MAX_CONNECTIONS': 1000,
+            'PICKLE_VERSION': -1,
+        },
+    }
+}
+
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -52,6 +91,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'apps.common.middleware.SecurityHeadersMiddleware',  
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -81,7 +121,12 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
-    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
+    {
+        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator', 
+        'OPTIONS': {
+            'min_length': 10,
+        }
+     },
     {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
@@ -135,5 +180,5 @@ NPM_BIN_PATH = r"C:\Program Files\nodejs\npm.cmd"
 
 # Authentication Redirects
 LOGIN_URL = 'accounts:login'
-LOGIN_REDIRECT_URL = 'dashboard'   # will be changed later to dashboard
+LOGIN_REDIRECT_URL = 'dashboard'
 LOGOUT_REDIRECT_URL = 'accounts:login'
