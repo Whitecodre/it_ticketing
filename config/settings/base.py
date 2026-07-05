@@ -43,7 +43,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'tailwind',
     # Rate Limiter
-    'django_ratelimit',
+    # 'django_ratelimit',
 
     # Our apps (make sure these names match apps.py)
     'apps.accounts',
@@ -60,7 +60,6 @@ VAPID_CLAIM_EMAIL = env('VAPID_CLAIM_EMAIL', default='noreply@example.com')
 # Rate limiting settings
 RATELIMIT_VIEW = 'apps.common.views.ratelimit_handler'
 RATELIMIT_USE_CACHE = 'default'
-RATELIMIT_ENABLED = True  # <-- ADD THIS
 
 # ================================================================
 # CACHE CONFIGURATION (for rate limiting)
@@ -124,7 +123,7 @@ AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator', 
         'OPTIONS': {
-            'min_length': 10,
+            'min_length': 8,
         }
      },
     {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},

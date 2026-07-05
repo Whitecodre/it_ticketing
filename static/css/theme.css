@@ -17,7 +17,7 @@
         --color-info: #3B82F6;           /* blue-500 */
   }
   html{
-    font-size: 80%;
+    font-size: 90%;
   }
     /* Dark mode (Palette 3 – Premium Enterprise) */
     :root.dark {
@@ -62,12 +62,36 @@
       font-weight: 400;
       src: url('../fonts/poppins-regular.woff2') format('woff2'); /* Chrome 36+, Opera 23+, Firefox 39+, Safari 12+, iOS 10+ */
     }
+    /* karla-regular - latin */
+    @font-face {
+        font-display: swap; /* Check https://developer.mozilla.org/en-US/docs/Web/CSS/@font-face/font-display for other options. */
+        font-family: 'Karla';
+        font-style: normal;
+        font-weight: 400;
+        src: url('../fonts/karla-latin-regular.woff2') format('woff2'); /* Chrome 36+, Opera 23+, Firefox 39+, Safari 12+, iOS 10+ */
+    }
+    /* edu-nsw-act-cursive-regular - latin */
+    @font-face {
+        font-display: swap; /* Check https://developer.mozilla.org/en-US/docs/Web/CSS/@font-face/font-display for other options. */
+        font-family: 'Edu NSW ACT Cursive';
+        font-style: normal;
+        font-weight: 400;
+        src: url('../fonts/edu-nsw-act-cursive-latin-regular.woff2') format('woff2'); /* Chrome 36+, Opera 23+, Firefox 39+, Safari 12+, iOS 10+ */
+    }
+
+    
     /* Fix font fallback */
     .font-google {
         font-family: 'Google Sans', sans-serif;   
     }
     .font-poppins {
         font-family: 'Poppins', sans-serif;   
+    }
+    .font-karla {
+        font-family: 'Karla', sans-serif;   
+    }
+    .font-cursive {
+        font-family: 'Edu NSW ACT Cursive', cursive;   
     }
 
     body {

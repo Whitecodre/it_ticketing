@@ -2,7 +2,7 @@
 {% load static %}
 {% load lucide %}
 
-{% block title %}{% block dashboard_title %}Dashboard{% endblock %} - Gemz Ticketing{% endblock %}
+{% block title %}{% block dashboard_title %}Dashboard{% endblock %} - TicketSwipe{% endblock %}
 
 {% block navigation %}
 
@@ -20,8 +20,8 @@
         {# Logo #}
         <div class="flex items-center justify-center gap-2 py-3 border-b" style="border-color: var(--color-border);">
             <img src="{% static 'img/gemz-logo.png' %}" alt="Gemz" class="h-8 w-auto">
-            <h2 class="md:hidden text-xl font-bold tracking-wide text-primary">
-                Gemz
+            <h2 class="md:hidden text-xl font-cursive font-bold tracking-wide text-primary">
+                TicketSwipe
             </h2>
         </div>
 
@@ -110,7 +110,7 @@
                 </button>
                 {# Brand on larger screens – hidden on mobile, visible from md #}
                 <span class="hidden md:inline-flex items-center gap-2">
-                    <span class="text-xl font-semibold text-primary">Gemz.Software</span>
+                    <span class="text-xl font-cursive font-semibold text-primary">TicketSwipe</span>
                 </span>
             </div>
 

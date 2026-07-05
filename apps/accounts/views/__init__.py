@@ -23,7 +23,7 @@ from ..models import User, UserProfile
 from ..utils import validate_password_strength
 from apps.tickets.models import Ticket, TicketActivityLog, SLA, BusinessCalendar, EscalationRule, Asset, RemoteConnector 
 from apps.tickets.views import get_sidebar_template
-from django_ratelimit.decorators import ratelimit
+# from django_ratelimit.decorators import ratelimit
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
@@ -55,7 +55,7 @@ class CustomLoginView(LoginView):
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect
 
-@method_decorator(ratelimit(key='ip', rate='5/15m', method='POST', block=True), name='dispatch')
+# @method_decorator(ratelimit(key='ip', rate='5/15m', method='POST', block=True), name='dispatch')
 @method_decorator(csrf_protect, name='dispatch')
 class CustomLoginView(LoginView):
     template_name = 'registration/login.html'
