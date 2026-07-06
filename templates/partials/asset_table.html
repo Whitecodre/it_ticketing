@@ -40,7 +40,7 @@
                                 data-tooltip-html="{{ asset|format_assignment_history }}"
                                 data-has-tooltip="true"
                                 title="Click to view reassign history">
-                                <span class="text-xs font-medium" style="color: var(--color-warning);">🔄</span>
+                                <span class="text-xs font-medium" style="color: var(--color-warning);">{% lucide "rotate-cw" size=16 %}</span>
                                 <span class="text-[0.55rem] font-bold px-1 rounded-full" 
                                     style="background-color: var(--color-warning); color: white; min-width: 14px; text-align: center;">
                                     {{ asset|reassign_count }}

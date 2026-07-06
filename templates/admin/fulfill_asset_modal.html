@@ -45,60 +45,24 @@
             <div class="mb-3">
                 <div class="relative">
                     <input type="text" id="assetSearchInput" 
+                           name="search"
                            class="w-full rounded-lg border py-2 pl-8 pr-3 text-sm focus:outline-none focus:ring-2 bg-background border-border text-text-primary ring-primary"
                            placeholder="Search assets by name, tracking ID, serial..."
                            hx-get="{% url 'tickets:available_assets_for_fulfillment' %}"
                            hx-trigger="keyup changed delay:300ms"
                            hx-target="#assetListContainer"
                            hx-swap="innerHTML"
-                           hx-include="[name='search'], [name='category']">
+                           hx-include="this, [name='category']">
                     <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-secondary">
                         {% lucide "search" size=14 %}
                     </span>
                 </div>
-                {# Hidden inputs for HTMX to include #}
-                <input type="hidden" name="category" value="{{ ticket.category.name|default:'' }}">
-                <input type="hidden" name="search" id="searchHiddenInput">
+                <input type="hidden" name="category" id="categoryInput" value="{{ ticket.category.name|default:'' }}">
             </div>
             
             {# Asset List #}
             <div id="assetListContainer" class="mb-4">
-                {% if available_assets %}
-                <div class="max-h-48 overflow-y-auto space-y-1">
-                    {% for asset in available_assets %}
-                    <label class="flex items-center gap-2 p-2 rounded-lg cursor-pointer hover:bg-black/5 transition" 
-                           style="border-color: var(--color-border);">
-                        <input type="radio" name="asset_id" value="{{ asset.pk }}" class="rounded border-border text-primary focus:ring-primary" required>
-                        <div class="flex-1 min-w-0">
-                            <p class="text-xs font-medium" style="color: var(--color-text-primary);">{{ asset.name }}</p>
-                            <p class="text-[0.6rem] text-text-secondary">
-                                {{ asset.tracking_id }} · {{ asset.asset_type }}
-                                {% if asset.serial_number %}· SN: {{ asset.serial_number }}{% endif %}
-                                {% if asset.location %}· {{ asset.location }}{% endif %}
-                            </p>
-                        </div>
-                        <span class="text-[0.55rem] px-1.5 py-0.5 rounded-full 
-                            {% if asset.status == 'ACTIVE' %}bg-success/10 text-success{% else %}bg-info/10 text-info{% endif %}">
-                            {{ asset.get_status_display }}
-                        </span>
-                    </label>
-                    {% endfor %}
-                </div>
-                <p class="text-[0.6rem] text-text-secondary mt-2">
-                    Showing {{ available_assets|length }} available assets.
-                </p>
-                {% else %}
-                <div class="text-center py-6">
-                    <div class="flex justify-center mb-2">
-                        {% lucide "hard-drive" size=24 class="text-text-secondary opacity-50" %}
-                    </div>
-                    <p class="text-sm font-medium" style="color: var(--color-text-primary);">No available assets</p>
-                    <p class="text-xs text-text-secondary">All assets are currently assigned. Add a new asset or unassign one first.</p>
-                    <a href="{% url 'tickets:asset_create_page' %}" class="btn-primary text-xs mt-3 inline-flex items-center gap-1 px-4 py-1.5 rounded-lg">
-                        {% lucide "plus" size=12 %} Add New Asset
-                    </a>
-                </div>
-                {% endif %}
+                {% include "partials/available_assets_list.html" with assets=available_assets %}
             </div>
             
             {# Comment #}

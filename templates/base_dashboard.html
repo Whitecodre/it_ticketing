@@ -19,7 +19,7 @@
 
         {# Logo #}
         <div class="flex items-center justify-center gap-2 py-3 border-b" style="border-color: var(--color-border);">
-            <img src="{% static 'img/gemz-logo.png' %}" alt="Gemz" class="h-8 w-auto">
+            <img src="{% static 'img/TS-logo.png' %}" alt="TicketSwipe icon" class="h-8 w-auto">
             <h2 class="md:hidden text-xl font-cursive font-bold tracking-wide text-primary">
                 TicketSwipe
             </h2>
@@ -212,11 +212,11 @@
                 {% lucide "settings" size=14 class="h-3.5 w-3.5" style="color: var(--color-text-secondary);" %}
                 Account Settings
             </a>
-            <a href="#" class="flex items-center gap-2.5 px-4 py-2.5 text-xs transition hover:bg-black/5"
+            {% comment %} <a href="#" class="flex items-center gap-2.5 px-4 py-2.5 text-xs transition hover:bg-black/5"
                style="color: var(--color-text-primary);">
                 {% lucide "life-buoy" size=14 class="h-3.5 w-3.5" style="color: var(--color-text-secondary);" %}
                 Contact Support
-            </a>
+            </a> {% endcomment %}
             <button type="button" onclick="confirmLogout()"
                     class="flex w-full items-center gap-2.5 px-4 py-2.5 text-xs transition hover:bg-black/5"
                     style="color: var(--color-text-primary); background: none; border: none; cursor: pointer;">

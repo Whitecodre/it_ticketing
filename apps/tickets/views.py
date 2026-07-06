@@ -2637,7 +2637,7 @@ def available_assets_for_fulfillment(request):
         'Computer': ['COMPUTER', 'LAPTOP'],
     }
     
-    if category and category in type_mapping:
+    if category in type_mapping:
         assets = assets.filter(asset_type__in=type_mapping[category])
         print(f"🔍 Filtered by category '{category}': {assets.count()} assets")
     

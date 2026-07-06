@@ -132,6 +132,7 @@ document.addEventListener('click', function(event) {
 // ================================================================
 // FULFILLMENT MODAL
 // ================================================================
+
 function openFulfillModal(ticketId) {
     // Remove any existing modal
     const existing = document.getElementById('fulfillModal');
@@ -148,18 +149,19 @@ function openFulfillModal(ticketId) {
             wrapper.innerHTML = html;
             document.body.appendChild(wrapper.firstElementChild);
             
-            // Re-initialize HTMX for dynamically loaded content
+            // ================================================================
+            // KEY: Re-initialize HTMX for dynamically loaded content
+            // ================================================================
             const modal = document.getElementById('fulfillModal');
             if (modal && typeof htmx !== 'undefined') {
                 htmx.process(modal);
                 console.log('✅ HTMX processed for modal');
             }
             
-            // Ensure close function works after content is loaded
+            // Click on backdrop closes modal
             if (modal) {
-                // Click on backdrop closes modal
                 modal.addEventListener('click', function(e) {
-                    if (e.target === this) {
+                    if (e.target === this || e.target.hasAttribute('data-modal-backdrop')) {
                         closeFulfillModal();
                     }
                 });
