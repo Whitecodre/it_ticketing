@@ -11,22 +11,107 @@
     {# Mobile backdrop #}
     <div id="sidebarBackdrop" class="fixed inset-0 z-40 bg-black/50 hidden md:hidden" onclick="closeSidebar()"></div>
 
-    {# ========== LEFT SIDEBAR (icon‑only, 64px) ========== #}
-    <aside id="sidebar"
-           class="fixed inset-y-0 left-0 z-50 flex flex-col border-r transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out
-                  w-16 overflow-y-auto overflow-x-hidden"
-           style="background-color: var(--color-surface); border-color: var(--color-border);">
+    {# ========== TOP HORIZONTAL NAVBAR ========== #}
+    <header class="fixed top-0 left-0 right-0 z-50 flex h-14 items-center justify-between border-b px-4 md:px-6"
+            style="background-color: var(--color-surface); border-color: var(--color-border);">
 
-        {# Logo #}
-        <div class="flex items-center justify-center gap-2 py-3 border-b" style="border-color: var(--color-border);">
-            <img src="{% static 'img/TS-logo.png' %}" alt="TicketSwipe icon" class="h-8 w-auto">
-            <h2 class="md:hidden text-xl font-cursive font-bold tracking-wide text-primary">
-                TicketSwipe
-            </h2>
+        {# Left: Brand + Hamburger (mobile) #}
+        <div class="flex items-center gap-3 md:w-1/3">
+            <button onclick="toggleSidebar()"
+                    class="inline-flex items-center justify-center rounded-md p-1.5 text-text-secondary hover:bg-black/5 focus:outline-none md:hidden">
+                {% lucide "menu" size=20 class="h-5 w-5" %}
+            </button>
+            {# Brand on larger screens #}
+            <span class="md:inline-flex items-center gap-2">
+                <span class="text-xl font-cursive font-semibold text-primary">TicketSwipe</span>
+            </span>
         </div>
 
-        {# Navigation icons #}
-        <nav class="flex-1 py-3 space-y-4">
+        {# Center: Search (centered, wider on desktop) #}
+        {% comment %} <div class="flex-1 flex justify-center">
+            <div class="hidden md:flex items-center w-full max-w-lg">
+                <div class="relative w-full">
+                    {% lucide "search" size=16 class="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4" style="color: var(--color-text-secondary);" %}
+                    <input type="search"
+                        class="w-full rounded-md border py-1.5 pl-8 pr-4 text-xs focus:outline-none focus:ring-2"
+                        style="background-color: var(--color-background); border-color: var(--color-border); color: var(--color-text-primary); --tw-ring-color: var(--color-primary);"
+                        placeholder="Search tickets, KB, users...">
+                </div>
+            </div>
+        </div> {% endcomment %}
+
+        {# Right: Utilities #}
+        <div class="flex items-center gap-2 md:gap-3 md:w-1/3 md:justify-end">
+            {# Mobile expandable search #}
+            {% comment %} <div class="md:hidden flex items-center" id="mobileSearchContainer">
+                <button type="button" id="toggleMobileSearchBtn"
+                        class="rounded-full p-1.5 transition cursor-pointer hover:bg-black/5"
+                        style="color: var(--color-text-secondary);"
+                        onclick="toggleMobileSearch()"
+                        aria-label="Toggle search">
+                    <span id="searchIconSearch">{% lucide "search" size=18 class="h-4.5 w-4.5" %}</span>
+                    <span id="searchIconClose" class="hidden">{% lucide "search-x" size=18 class="h-4.5 w-4.5" %}</span>
+                </button>
+                <div id="mobileSearchInputWrapper"
+                    class="overflow-hidden transition-all duration-300 ease-in-out w-0 ml-0">
+                    <input type="search"
+                        class="w-40 rounded-md border py-1.5 pl-2 pr-2 text-xs focus:outline-none focus:ring-2"
+                        style="background-color: var(--color-background); border-color: var(--color-border); color: var(--color-text-primary); --tw-ring-color: var(--color-primary);"
+                        placeholder="Search tickets, KB, users...">
+                </div>
+            </div> {% endcomment %}
+
+            {# Notifications #}
+            <div class="relative">
+                <button id="notificationBell"
+                        class="relative rounded-full p-1.5 transition cursor-pointer hover:bg-black/5"
+                        style="color: var(--color-text-secondary);"
+                        onclick="toggleNotificationDropdown()">
+                    {% lucide "bell" size=18 class="h-4.5 w-4.5" %}
+                    <div id="notificationBadgeContainer"
+                        hx-get="{% url 'notifications:unread_count' %}"
+                        hx-trigger="every 30s"
+                        hx-swap="innerHTML">
+                        {% include "partials/notification_badge.html" with count=0 %}
+                    </div>
+                </button>
+                <div id="notificationDropdown"
+                    class="absolute right-0 mt-2 w-64 rounded-md shadow-lg border hidden"
+                    style="background-color: var(--color-surface); border-color: var(--color-border); z-index: 50;"
+                    onclick="event.stopPropagation()">
+                </div>
+            </div>
+
+            {# Role badge for desktop #}
+            <div class="hidden md:flex items-center">
+                <span class="text-xs font-medium px-2 py-1 rounded-full border"
+                    style="background-color: var(--color-surface); border-color: var(--color-border); color: var(--color-text-primary);">
+                    {{ user.get_role_display }}
+                </span>
+            </div>
+
+            {# Theme toggle #}
+            <div class="theme-radio-group" id="themeRadioGroup">
+                <label class="theme-radio" id="themeRadioLight">
+                    {% lucide "sun" size=14 class="w-3.5 h-3.5" %}
+                    <input type="radio" name="theme" value="light">
+                </label>
+                <label class="theme-radio" id="themeRadioDark">
+                    {% lucide "moon" size=14 class="w-3.5 h-3.5" %}
+                    <input type="radio" name="theme" value="dark">
+                </label>
+            </div>
+        </div>
+    </header>
+
+    {# ========== LEFT VERTICAL SIDEBAR (shifted down) ========== #}
+    <aside id="sidebar"
+           class="fixed inset-y-0 left-0 z-40 flex flex-col border-r transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out
+                  w-16 overflow-y-auto overflow-x-hidden"
+           style="background-color: var(--color-surface); border-color: var(--color-border); margin-top: 50px; height: calc(100% - 50px);">
+
+        {# Navigation icons - No logo at top #}
+        <nav class="flex-1 py-6 space-y-4">
             {% block sidebar_nav %}
             <div class="flex flex-col items-center space-y-2">
                 <a href="{% url 'dashboard' %}" class="sidebar-link flex items-center justify-center rounded-md p-2 transition"
@@ -93,107 +178,14 @@
     </aside>
 
     {# ========== MAIN CONTENT AREA ========== #}
-    <div class="flex flex-1 flex-col min-w-0 ml-0 md:ml-16 transition-all duration-300">
+    <div class="flex flex-1 flex-col min-w-0 ml-0 md:ml-16 transition-all duration-300 mt-14">
         {# Hidden form to ensure CSRF token is set and available for HTMX #}
         <form style="display:none;">
             {% csrf_token %}
         </form>
-        {# Top bar #}
-        <header class="sticky top-0 z-40 flex h-14 items-center justify-between border-b px-4 md:px-6"
-                style="background-color: var(--color-surface); border-color: var(--color-border);">
-
-            {# Left: hamburger (mobile) #}
-            <div class="flex items-center gap-3 md:w-1/3">
-                <button onclick="toggleSidebar()"
-                        class="inline-flex items-center justify-center rounded-md p-1.5 text-text-secondary hover:bg-black/5 focus:outline-none md:hidden">
-                    {% lucide "menu" size=20 class="h-5 w-5" %}
-                </button>
-                {# Brand on larger screens – hidden on mobile, visible from md #}
-                <span class="hidden md:inline-flex items-center gap-2">
-                    <span class="text-xl font-cursive font-semibold text-primary">TicketSwipe</span>
-                </span>
-            </div>
-
-            {# Center: search (centered, wider on desktop) #}
-            <div class="flex-1 flex justify-center">
-                {# ---- Desktop search (centered) ---- #}
-                <div class="hidden md:flex items-center w-full max-w-lg">
-                    <div class="relative w-full">
-                        {% lucide "search" size=16 class="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4" style="color: var(--color-text-secondary);" %}
-                        <input type="search"
-                            class="w-full rounded-md border py-1.5 pl-8 pr-4 text-xs focus:outline-none focus:ring-2"
-                            style="background-color: var(--color-background); border-color: var(--color-border); color: var(--color-text-primary); --tw-ring-color: var(--color-primary);"
-                            placeholder="Search tickets, KB, users...">
-                    </div>
-                </div>
-            </div>
-
-            {# Right: utilities + mobile search #}
-            <div class="flex items-center gap-2 md:gap-3 md:w-1/3 md:justify-end">
-                {# ---- Mobile expandable search ---- #}
-                <div class="md:hidden flex items-center" id="mobileSearchContainer">
-                    <button type="button" id="toggleMobileSearchBtn"
-                            class="rounded-full p-1.5 transition cursor-pointer hover:bg-black/5"
-                            style="color: var(--color-text-secondary);"
-                            onclick="toggleMobileSearch()"
-                            aria-label="Toggle search">
-                        <span id="searchIconSearch">{% lucide "search" size=18 class="h-4.5 w-4.5" %}</span>
-                        <span id="searchIconClose" class="hidden">{% lucide "search-x" size=18 class="h-4.5 w-4.5" %}</span>
-                    </button>
-                    <div id="mobileSearchInputWrapper"
-                        class="overflow-hidden transition-all duration-300 ease-in-out w-0 ml-0">
-                        <input type="search"
-                            class="w-40 rounded-md border py-1.5 pl-2 pr-2 text-xs focus:outline-none focus:ring-2"
-                            style="background-color: var(--color-background); border-color: var(--color-border); color: var(--color-text-primary); --tw-ring-color: var(--color-primary);"
-                            placeholder="Search tickets, KB, users...">
-                    </div>
-                </div>
-
-                {# Notifications #}
-                <div class="relative">
-                    <button id="notificationBell"
-                            class="relative rounded-full p-1.5 transition cursor-pointer hover:bg-black/5"
-                            style="color: var(--color-text-secondary);"
-                            onclick="toggleNotificationDropdown()">
-                        {% lucide "bell" size=18 class="h-4.5 w-4.5" %}
-                        <div id="notificationBadgeContainer"
-                            hx-get="{% url 'notifications:unread_count' %}"
-                            hx-trigger="every 30s"
-                            hx-swap="innerHTML">
-                            {% include "partials/notification_badge.html" with count=0 %}
-                        </div>
-                    </button>
-                    <div id="notificationDropdown"
-                        class="absolute right-0 mt-2 w-64 rounded-md shadow-lg border hidden"
-                        style="background-color: var(--color-surface); border-color: var(--color-border); z-index: 50;"
-                        onclick="event.stopPropagation()">
-                    </div>
-                </div>
-
-                {# Role badge for desktop #}
-                <div class="hidden md:flex items-center">
-                    <span class="text-xs font-medium px-2 py-1 rounded-full border"
-                        style="background-color: var(--color-surface); border-color: var(--color-border); color: var(--color-text-primary);">
-                        {{ user.get_role_display }}
-                    </span>
-                </div>
-
-                {# Theme toggle #}
-                <div class="theme-radio-group" id="themeRadioGroup">
-                    <label class="theme-radio" id="themeRadioLight">
-                        {% lucide "sun" size=14 class="w-3.5 h-3.5" %}
-                        <input type="radio" name="theme" value="light">
-                    </label>
-                    <label class="theme-radio" id="themeRadioDark">
-                        {% lucide "moon" size=14 class="w-3.5 h-3.5" %}
-                        <input type="radio" name="theme" value="dark">
-                    </label>
-                </div>
-            </div>
-        </header>
 
         {# Main content #}
-        <main class="flex-1 overflow-y-auto {% block main_content_class %}p-4 md:p-5{% endblock %}">
+        <main class="flex-1 overflow-y-auto pt-24{% block main_content_class %}px-4 md:px-5 pb-4 md:pb-5{% endblock %}" style="paddng-top: 7rem;">
             {% block page_title_area %}
             <h1 class="text-xl font-semibold truncate mb-4" style="color: var(--color-text-primary);">
                 {% block page_title %}Dashboard{% endblock %}
@@ -212,11 +204,6 @@
                 {% lucide "settings" size=14 class="h-3.5 w-3.5" style="color: var(--color-text-secondary);" %}
                 Account Settings
             </a>
-            {% comment %} <a href="#" class="flex items-center gap-2.5 px-4 py-2.5 text-xs transition hover:bg-black/5"
-               style="color: var(--color-text-primary);">
-                {% lucide "life-buoy" size=14 class="h-3.5 w-3.5" style="color: var(--color-text-secondary);" %}
-                Contact Support
-            </a> {% endcomment %}
             <button type="button" onclick="confirmLogout()"
                     class="flex w-full items-center gap-2.5 px-4 py-2.5 text-xs transition hover:bg-black/5"
                     style="color: var(--color-text-primary); background: none; border: none; cursor: pointer;">

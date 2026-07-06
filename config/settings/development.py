@@ -39,6 +39,8 @@ if env('EMAIL_HOST', default=None):
     EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD')   
     DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL')
     EMAIL_TIMEOUT = 10  # seconds
+    print(f"📧 Email configured with: {EMAIL_HOST}:{EMAIL_PORT} (TLS: {EMAIL_USE_TLS})")
+    print(f"📧 From: {DEFAULT_FROM_EMAIL}")
 else:
     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
