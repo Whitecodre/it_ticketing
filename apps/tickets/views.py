@@ -2287,18 +2287,18 @@ def asset_export(request):
     if location_filter:
         assets = assets.filter(location__icontains=location_filter)
     
-    # Prepare data
+    # Prepare data - Use direct field values since choices were removed
     data = []
     for asset in assets:
         data.append({
             'Tracking ID': asset.tracking_id,
             'Name': asset.name,
-            'Type': asset.get_asset_type_display(),
+            'Type': asset.asset_type,  # Direct value
             'Serial Number': asset.serial_number,
             'Model': asset.model,
             'Manufacturer': asset.manufacturer,
-            'Location': asset.location,
-            'Status': asset.get_status_display(),
+            'Location': asset.location,  # Direct value
+            'Status': asset.status,  # Direct value
             'Assigned To': asset.assigned_to.get_full_name() if asset.assigned_to else '',
             'Assigned Department': asset.assigned_to.department if asset.assigned_to else '',
             'Purchase Date': asset.purchase_date.strftime('%Y-%m-%d') if asset.purchase_date else '',
@@ -2314,9 +2314,10 @@ def asset_export(request):
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = f'attachment; filename="{filename}.csv"'
         
-        writer = csv.DictWriter(response, fieldnames=data[0].keys() if data else [])
-        writer.writeheader()
-        writer.writerows(data)
+        if data:
+            writer = csv.DictWriter(response, fieldnames=data[0].keys())
+            writer.writeheader()
+            writer.writerows(data)
         return response
     
     elif export_format == 'excel':
@@ -2407,9 +2408,6 @@ def asset_import(request):
             rows = list(reader)
         else:
             # Parse Excel
-            wb = Workbook()
-            ws = wb.active
-            # Read Excel manually since we're using openpyxl
             import openpyxl
             wb = openpyxl.load_workbook(file)
             ws = wb.active
@@ -2428,7 +2426,7 @@ def asset_import(request):
                 rows.append(row_dict)
         
         # Import each row
-        for row in rows:
+        for row_idx, row in enumerate(rows, start=2):  # Start at 2 for Excel row numbers
             try:
                 # Skip empty rows
                 if not row.get('Name') and not row.get('name'):
@@ -2436,7 +2434,7 @@ def asset_import(request):
                 
                 # Map columns (case-insensitive)
                 name = row.get('Name') or row.get('name')
-                asset_type = row.get('Type') or row.get('type')
+                asset_type = row.get('Type') or row.get('type') or 'OTHER'
                 serial_number = row.get('Serial Number') or row.get('serial_number') or row.get('Serial') or ''
                 model = row.get('Model') or row.get('model') or ''
                 manufacturer = row.get('Manufacturer') or row.get('manufacturer') or ''
@@ -2460,7 +2458,7 @@ def asset_import(request):
                 # Create asset
                 asset = Asset.objects.create(
                     name=name,
-                    asset_type=asset_type or 'OTHER',
+                    asset_type=asset_type,
                     serial_number=serial_number,
                     model=model,
                     manufacturer=manufacturer,
@@ -2476,7 +2474,7 @@ def asset_import(request):
                 imported += 1
                 
             except Exception as e:
-                errors.append(f"Row {len(rows)}: {str(e)}")
+                errors.append(f"Row {row_idx}: {str(e)}")
         
     except Exception as e:
         messages.error(request, f'Error reading file: {str(e)}')
