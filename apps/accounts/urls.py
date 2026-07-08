@@ -1,7 +1,5 @@
 from django.urls import path
 from django.contrib.auth import views as auth_views
-# from apps.accounts.forms import EmailAuthenticationForm
-from .views import CustomLoginView
 from . import views
 from .views.admin_users import (
     admin_user_list, admin_user_create, admin_user_edit, admin_user_toggle_active, admin_user_change_password
@@ -18,12 +16,7 @@ urlpatterns = [
     path('verify/<uidb64>/<token>/', views.verify_email, name='verify_email'),
     # ---- Password Reset ----
     path('password-reset/',
-        auth_views.PasswordResetView.as_view(
-            template_name='registration/password_reset.html',
-            email_template_name='registration/password_reset_email.html',
-            subject_template_name='registration/password_reset_subject.txt',
-            success_url='/accounts/password-reset/done/'
-        ),
+        views.CustomPasswordResetView.as_view(),  
         name='password_reset'),
     path('password-reset/done/',
         auth_views.PasswordResetDoneView.as_view(

@@ -1,5 +1,6 @@
 import logging
 from django.contrib import messages
+from django.contrib.auth.views import PasswordResetView
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect
@@ -23,7 +24,8 @@ from ..models import User, UserProfile
 from ..utils import validate_password_strength
 from apps.tickets.models import Ticket, TicketActivityLog, SLA, BusinessCalendar, EscalationRule, Asset, RemoteConnector 
 from apps.tickets.views import get_sidebar_template
-# from django_ratelimit.decorators import ratelimit
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_protect
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
@@ -50,10 +52,44 @@ class CustomLoginView(LoginView):
                 username=form.data.get('username', '')
             )
         )
+    
+class CustomPasswordResetView(PasswordResetView):
+    """
+    Custom password reset view that uses Brevo API instead of send_mail.
+    """
+    template_name = 'registration/password_reset.html'
+    email_template_name = 'registration/password_reset_email.html'
+    subject_template_name = 'registration/password_reset_subject.txt'
+    success_url = '/accounts/password-reset/done/'
+    token_generator = default_token_generator
+    
+    def send_mail(self, subject_template_name, email_template_name, context, from_email, to_email, html_email_template_name=None):
+        """
+        Override the default send_mail to use Brevo API.
+        """
+        subject = render_to_string(subject_template_name, context)
+        # Email subject *must not* contain newlines
+        subject = ''.join(subject.splitlines())
+        
+        body = render_to_string(email_template_name, context)
+        
+        # Send via Brevo API
+        success, result = send_email_via_brevo(
+            to_email=to_email,
+            subject=subject,
+            html_content=body,
+            from_email=from_email
+        )
+        
+        if not success:
+            print(f"❌ Failed to send password reset email to {to_email}: {result}")
+            # Log the error but don't fail silently
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Password reset email failed for {to_email}: {result}")
+        
+        return success
 
-# Also add ratelimit to the login view
-from django.utils.decorators import method_decorator
-from django.views.decorators.csrf import csrf_protect
 
 # @method_decorator(ratelimit(key='ip', rate='5/15m', method='POST', block=True), name='dispatch')
 @method_decorator(csrf_protect, name='dispatch')
