@@ -17,7 +17,7 @@ from django.utils.html import strip_tags
 from django.urls import reverse
 from django.template.loader import render_to_string
 from datetime import timedelta, datetime
-from django.core.mail import send_mail
+from apps.common.utils import send_email_via_brevo
 from django.conf import settings
 from .forms import TicketForm, CommentForm, AssetForm
 from .models import *
@@ -1621,7 +1621,8 @@ def request_remote_session(request, pk):
         type=Notification.Type.REMOTE_SESSION
     )
 
-    # Send email notification to the requester
+    # send_mail section
+
     accept_url = request.build_absolute_uri(reverse('tickets:remote_session_detail', args=[session.pk]))
     reject_url = request.build_absolute_uri(reverse('tickets:remote_session_detail', args=[session.pk])) + '?action=reject'
 
@@ -1633,14 +1634,15 @@ def request_remote_session(request, pk):
     })
     plain_message = strip_tags(html_message)
 
-    send_mail(
+    success, result = send_email_via_brevo(
+        to_email=ticket.requester.email,
         subject=f"Remote Session Request – Ticket {ticket.number}",
-        message=plain_message,
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        recipient_list=[ticket.requester.email],
-        html_message=html_message,
-        fail_silently=True,
+        html_content=html_message,
+        from_email=settings.DEFAULT_FROM_EMAIL
     )
+
+    if not success:
+        print(f"❌ Failed to send remote session email: {result}")
     
     TicketActivityLog.objects.create(
         ticket=ticket,
@@ -1732,14 +1734,16 @@ def remote_session_detail(request, session_pk):
                     })
                     plain_message = strip_tags(html_message)
 
-                    send_mail(
+                    success, result = send_email_via_brevo(
+                        to_email=session.requester.email,
                         subject=f"Remote Session Code – Ticket {session.ticket.number}",
-                        message=plain_message,
-                        from_email=settings.DEFAULT_FROM_EMAIL,
-                        recipient_list=[session.requester.email],
-                        html_message=html_message,
-                        fail_silently=True,
+                        html_content=html_message,
+                        from_email=settings.DEFAULT_FROM_EMAIL
                     )
+
+                    if not success:
+                        print(f"❌ Failed to send remote session code email: {result}")
+                        
                     TicketActivityLog.objects.create(
                         ticket=session.ticket,
                         action='remote_session_status_change',

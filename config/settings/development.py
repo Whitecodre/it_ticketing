@@ -6,9 +6,9 @@ DEBUG = True
 ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 
 # Rate limiting settings for development
-RATELIMIT_ENABLED = False  # Set to True to test, False to disable in dev
+RATELIMIT_ENABLED = False
 
-#  Add Channels Layer (Redis)
+# Channels Layer (Redis)
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels.layers.InMemoryChannelLayer",
@@ -26,11 +26,14 @@ DATABASES = {
     }
 }
 
-TEST_PUSH=True
+TEST_PUSH = True
 STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
 
+# ================================================================
+# EMAIL CONFIGURATION
+# ================================================================
+# Try SMTP first (if credentials exist)
 if env('EMAIL_HOST', default=None):
-    # ✅ Always use Gmail SMTP in development
     EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
     EMAIL_HOST = env('EMAIL_HOST')
     EMAIL_PORT = env('EMAIL_PORT', default=587)
@@ -38,18 +41,21 @@ if env('EMAIL_HOST', default=None):
     EMAIL_HOST_USER = env('EMAIL_HOST_USER')
     EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD')   
     DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL')
-    EMAIL_TIMEOUT = 10  # seconds
+    EMAIL_TIMEOUT = 10
     print(f"📧 Email configured with: {EMAIL_HOST}:{EMAIL_PORT} (TLS: {EMAIL_USE_TLS})")
     print(f"📧 From: {DEFAULT_FROM_EMAIL}")
 else:
     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+    print("📧 Email backend set to console (no emails will be sent)")
 
+# Brevo API Key (for API-based sending)
+BREVO_API_KEY = env('BREVO_API_KEY', default='')
+if BREVO_API_KEY:
+    print(f"📧 Brevo API Key configured (length: {len(BREVO_API_KEY)})")
 
 # ================================================================
-# DEVELOPMENT - Redis cache fallback (optional, for testing rate limiting)
+# CACHE
 # ================================================================
-# If you have Redis running locally, you can enable it:
-
 CACHES = {
     'default': {
         'BACKEND': 'django_redis.cache.RedisCache',

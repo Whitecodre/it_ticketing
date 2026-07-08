@@ -4,10 +4,7 @@ import os
 import dj_database_url
 from .base import *
 
-# Allow DEBUG to be controlled via environment variable
 DEBUG = env.bool('DEBUG', default=False)
-
-# ALLOWED_HOSTS must be set in environment
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=[])
 
 # ================================================================
@@ -21,11 +18,9 @@ RATELIMIT_ENABLED = True
 SECURE_HSTS_SECONDS = env.int('SECURE_HSTS_SECONDS', default=31536000)
 SECURE_HSTS_INCLUDE_SUBDOMAINS = env.bool('SECURE_HSTS_INCLUDE_SUBDOMAINS', default=True)
 SECURE_HSTS_PRELOAD = env.bool('SECURE_HSTS_PRELOAD', default=True)
-
 X_FRAME_OPTIONS = 'DENY'
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_BROWSER_XSS_FILTER = True
-
 SECURE_SSL_REDIRECT = env.bool('SECURE_SSL_REDIRECT', default=True)
 SESSION_COOKIE_SECURE = env.bool('SESSION_COOKIE_SECURE', default=True)
 CSRF_COOKIE_SECURE = env.bool('CSRF_COOKIE_SECURE', default=True)
@@ -41,13 +36,12 @@ SESSION_COOKIE_SAMESITE = 'Lax'
 SESSION_COOKIE_AGE = env.int('SESSION_COOKIE_AGE', default=86400)
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False
 
-# Database – must be set via DATABASE_URL env var
+# Database
 DATABASES = {
     'default': dj_database_url.config(
         default=env('DATABASE_URL', default=None)
     )
 }
-
 if DATABASES['default'] is None:
     raise ValueError("DATABASE_URL environment variable is required for production.")
 
@@ -56,7 +50,9 @@ MIDDLEWARE.insert(1, 'whitenoise.middleware.WhiteNoiseMiddleware')
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-# Email
+# ================================================================
+# EMAIL CONFIGURATION (Production)
+# ================================================================
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = env('EMAIL_HOST')
 EMAIL_PORT = env.int('EMAIL_PORT', default=587)
@@ -64,10 +60,13 @@ EMAIL_USE_TLS = env.bool('EMAIL_USE_TLS', default=True)
 EMAIL_HOST_USER = env('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD')
 DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL')
-EMAIL_TIMEOUT = 10
+EMAIL_TIMEOUT = 30
 
 if not EMAIL_HOST_USER or not EMAIL_HOST_PASSWORD:
     raise ValueError("EMAIL_HOST_USER and EMAIL_HOST_PASSWORD are required for production.")
+
+# Brevo API Key (for API-based sending fallback)
+BREVO_API_KEY = env('BREVO_API_KEY', default='')
 
 CHANNEL_LAYERS = {
     "default": {
@@ -78,9 +77,6 @@ CHANNEL_LAYERS = {
     },
 }
 
-# ================================================================
-# PRODUCTION - Redis cache for rate limiting
-# ================================================================
 CACHES = {
     'default': {
         'BACKEND': 'django_redis.cache.RedisCache',
@@ -92,7 +88,6 @@ CACHES = {
 }
 
 DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
-
 CLOUDINARY_STORAGE = {
     'CLOUD_NAME': env('CLOUDINARY_CLOUD_NAME'),
     'API_KEY': env('CLOUDINARY_API_KEY'),

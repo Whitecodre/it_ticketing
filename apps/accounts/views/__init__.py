@@ -8,7 +8,7 @@ from django.contrib.auth.password_validation import validate_password
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
 from django.urls import reverse
-from django.core.mail import send_mail
+from apps.common.utils import send_email_via_brevo
 from django.template.loader import render_to_string
 from django.conf import settings
 from django.contrib.auth import get_user_model, update_session_auth_hash
@@ -458,14 +458,18 @@ def register(request):
                 plain_message = strip_tags(html_message)
                 email_error = False
                 try:
-                    send_mail(
+                    # ================================================================
+                    # FIX: Use correct Brevo API signature
+                    # ================================================================
+                    success, result = send_email_via_brevo(
+                        to_email=user.email,
                         subject=subject,
-                        message=plain_message,
-                        from_email=settings.DEFAULT_FROM_EMAIL,
-                        recipient_list=[user.email],
-                        html_message=html_message,
-                        fail_silently=False,
+                        html_content=html_message,
+                        from_email=settings.DEFAULT_FROM_EMAIL
                     )
+                    if not success:
+                        email_error = True
+                        print(f"❌ Failed to send verification email to {user.email}: {result}")
                 except Exception as e:
                     logger.error(f"Failed to send verification email to {user.email}: {str(e)}")
                     email_error = True
@@ -548,16 +552,22 @@ def resend_verification(request):
                 'link': verification_link,
             })
             plain_message = strip_tags(html_message)
-            send_mail(
+            
+            # ================================================================
+            # FIX: Use correct Brevo API signature
+            # ================================================================
+            success, result = send_email_via_brevo(
+                to_email=user.email,
                 subject=subject,
-                message=plain_message,
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[user.email],
-                html_message=html_message,
-                fail_silently=False,
+                html_content=html_message,
+                from_email=settings.DEFAULT_FROM_EMAIL
             )
-            message = "Verification email sent. Please check your inbox."
-            success = True
+            if success:
+                message = "Verification email sent. Please check your inbox."
+                success = True
+            else:
+                message = f"Failed to send email: {result}"
+                success = False
         except User.DoesNotExist:
             message = "No inactive user found with that email."
             success = False
