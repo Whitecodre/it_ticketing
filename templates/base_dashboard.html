@@ -185,7 +185,7 @@
         </form>
 
         {# Main content #}
-        <main class="flex-1 overflow-y-auto pt-24{% block main_content_class %}px-4 md:px-5 pb-4 md:pb-5{% endblock %}" style="paddng-top: 7rem;">
+        <main class="flex-1 overflow-y-auto{% block main_content_class %} pt-4 px-4 sm:px-5 md:px-6 pb-6 md:pb-8{% endblock %}">
             {% block page_title_area %}
             <h1 class="text-xl font-semibold truncate mb-4" style="color: var(--color-text-primary);">
                 {% block page_title %}Dashboard{% endblock %}

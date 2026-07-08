@@ -2501,6 +2501,14 @@ input:where([type='file']):focus {
   padding-top: 1rem;
 }
 
+.pt-10 {
+  padding-top: 2.5rem;
+}
+
+.pb-6 {
+  padding-bottom: 1.5rem;
+}
+
 .text-left {
   text-align: left;
 }
@@ -3037,6 +3045,11 @@ input:where([type='file']):focus {
     padding-bottom: 0.75rem;
   }
 
+  .sm\:px-5 {
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
+  }
+
   .sm\:pb-3 {
     padding-bottom: 0.75rem;
   }
@@ -3151,6 +3164,10 @@ input:where([type='file']):focus {
 
   .md\:pb-5 {
     padding-bottom: 1.25rem;
+  }
+
+  .md\:pb-8 {
+    padding-bottom: 2rem;
   }
 }
 
