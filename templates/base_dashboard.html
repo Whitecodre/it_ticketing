@@ -9,58 +9,34 @@
 <div class="flex h-screen overflow-hidden" style="background-color: var(--color-background);">
 
     {# Mobile backdrop #}
-    <div id="sidebarBackdrop" class="fixed inset-0 z-40 bg-black/50 hidden md:hidden" onclick="closeSidebar()"></div>
+    <div id="sidebarBackdrop" class="fixed inset-0 z-40 bg-black/50 hidden" onclick="closeSidebar()"></div>
 
     {# ========== TOP HORIZONTAL NAVBAR ========== #}
-    <header class="fixed top-0 left-0 right-0 z-50 flex h-14 items-center justify-between border-b px-4 md:px-6"
-            style="background-color: var(--color-surface); border-color: var(--color-border);">
+    <header class="fixed top-0 left-0 right-0 z-50 flex items-center border-b px-4 md:px-6"
+            style="background-color: var(--color-surface); border-color: var(--color-border); height: 4.4rem;">
 
-        {# Left: Brand + Hamburger (mobile) #}
-        <div class="flex items-center gap-3 md:w-1/3">
-            <button onclick="toggleSidebar()"
-                    class="inline-flex items-center justify-center rounded-md p-1.5 text-text-secondary hover:bg-black/5 focus:outline-none md:hidden">
-                {% lucide "menu" size=20 class="h-5 w-5" %}
-            </button>
-            {# Brand on larger screens #}
-            <span class="md:inline-flex items-center gap-2">
-                <span class="text-xl font-cursive font-semibold text-primary">TicketSwipe</span>
+        {# Left: Brand + Collapse button + Hamburger #}
+        <div class="flex items-center gap-3">
+            {# Logo #}
+            <span class="inline-flex items-center gap-2">
+                <span class="text-lg font-cursive font-semibold text-primary">TicketSwipe</span>
             </span>
+            
+            {# Menu button - hamburger icon for both mobile and desktop #}
+            <button id="sidebarToggleBtn"
+                    class="inline-flex items-center justify-center rounded-md p-1.5 text-text-secondary hover:bg-black/5 focus:outline-none transition-transform duration-200"
+                    onclick="toggleSidebarMain()"
+                    title="Toggle sidebar"
+                    style="margin-left: 0.5rem;">
+                <span id="toggleIcon">{% lucide "menu" size=20 class="h-5 w-5" %}</span>
+            </button>
         </div>
 
-        {# Center: Search (centered, wider on desktop) #}
-        {% comment %} <div class="flex-1 flex justify-center">
-            <div class="hidden md:flex items-center w-full max-w-lg">
-                <div class="relative w-full">
-                    {% lucide "search" size=16 class="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4" style="color: var(--color-text-secondary);" %}
-                    <input type="search"
-                        class="w-full rounded-md border py-1.5 pl-8 pr-4 text-xs focus:outline-none focus:ring-2"
-                        style="background-color: var(--color-background); border-color: var(--color-border); color: var(--color-text-primary); --tw-ring-color: var(--color-primary);"
-                        placeholder="Search tickets, KB, users...">
-                </div>
-            </div>
-        </div> {% endcomment %}
+        {# Center: Search (hidden for now) #}
+        <div class="flex-1"></div>
 
         {# Right: Utilities #}
-        <div class="flex items-center gap-2 md:gap-3 md:w-1/3 md:justify-end">
-            {# Mobile expandable search #}
-            {% comment %} <div class="md:hidden flex items-center" id="mobileSearchContainer">
-                <button type="button" id="toggleMobileSearchBtn"
-                        class="rounded-full p-1.5 transition cursor-pointer hover:bg-black/5"
-                        style="color: var(--color-text-secondary);"
-                        onclick="toggleMobileSearch()"
-                        aria-label="Toggle search">
-                    <span id="searchIconSearch">{% lucide "search" size=18 class="h-4.5 w-4.5" %}</span>
-                    <span id="searchIconClose" class="hidden">{% lucide "search-x" size=18 class="h-4.5 w-4.5" %}</span>
-                </button>
-                <div id="mobileSearchInputWrapper"
-                    class="overflow-hidden transition-all duration-300 ease-in-out w-0 ml-0">
-                    <input type="search"
-                        class="w-40 rounded-md border py-1.5 pl-2 pr-2 text-xs focus:outline-none focus:ring-2"
-                        style="background-color: var(--color-background); border-color: var(--color-border); color: var(--color-text-primary); --tw-ring-color: var(--color-primary);"
-                        placeholder="Search tickets, KB, users...">
-                </div>
-            </div> {% endcomment %}
-
+        <div class="flex items-center gap-2 md:gap-3">
             {# Notifications #}
             <div class="relative">
                 <button id="notificationBell"
@@ -104,82 +80,78 @@
         </div>
     </header>
 
-    {# ========== LEFT VERTICAL SIDEBAR (shifted down) ========== #}
+    {# ========== LEFT VERTICAL SIDEBAR ========== #}
     <aside id="sidebar"
-           class="fixed inset-y-0 left-0 z-40 flex flex-col border-r transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out
-                  w-16 overflow-y-auto overflow-x-hidden"
-           style="background-color: var(--color-surface); border-color: var(--color-border); margin-top: 50px; height: calc(100% - 50px);">
+           class="fixed inset-y-0 left-0 z-40 flex flex-col border-r transition-all duration-300 ease-in-out
+                  w-64 overflow-y-auto overflow-x-hidden"
+           style="background-color: var(--color-surface); border-color: var(--color-border); margin-top: 4.4rem; height: calc(100% - 4.4rem);">
 
-        {# Navigation icons - No logo at top #}
-        <nav class="flex-1 py-6 space-y-4">
+        {# ========== SIDEBAR NAVIGATION ========== #}
+        <nav class="flex-1 py-4 px-3 space-y-1 overflow-y-auto" id="sidebarNav">
             {% block sidebar_nav %}
-            <div class="flex flex-col items-center space-y-2">
-                <a href="{% url 'dashboard' %}" class="sidebar-link flex items-center justify-center rounded-md p-2 transition"
-                   data-tooltip="Dashboard"
+                {# Dashboard - Standalone link #}
+                <a href="{% url 'dashboard' %}"
+                   id="dashboardLink"
+                   class="sidebar-link standalone flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition"
                    style="{% if request.path == '/' %}background-color: var(--color-primary); color: white;{% else %}color: var(--color-text-secondary);{% endif %}">
-                    {% lucide "layout-dashboard" size=20 class="h-5 w-5 shrink-0" %}
+                    <span class="shrink-0">{% lucide "layout-dashboard" size=18 class="h-5 w-5" %}</span>
+                    <span>Dashboard</span>
                 </a>
-                <a href="{% url 'tickets:my_list' %}" class="sidebar-link flex items-center justify-center rounded-md p-2 transition"
-                   data-tooltip="All Tickets"
-                   style="{% if '/tickets/my/' in request.path %}background-color: var(--color-primary); color: white;{% else %}color: var(--color-text-secondary);{% endif %}">
-                    {% lucide "inbox" size=20 class="h-5 w-5 shrink-0" %}
-                </a>
-                <a href="{% url 'tickets:my_list' %}?status=OPEN" class="sidebar-link flex items-center justify-center rounded-md p-2 transition"
-                   data-tooltip="Unsolved"
-                   style="color: var(--color-text-secondary);">
-                    {% lucide "circle-alert" size=20 class="h-5 w-5 shrink-0" %}
-                </a>
-            </div>
-            <div class="flex flex-col items-center space-y-2">
-                <a href="#" class="sidebar-link flex items-center justify-center rounded-md p-2 transition"
-                   data-tooltip="Knowledge Base"
-                   style="color: var(--color-text-secondary);">
-                    {% lucide "book-open" size=20 class="h-5 w-5 shrink-0" %}
-                </a>
-                <a href="#" class="sidebar-link flex items-center justify-center rounded-md p-2 transition"
-                   data-tooltip="Remote Session"
-                   style="color: var(--color-text-secondary);">
-                    {% lucide "monitor" size=20 class="h-5 w-5 shrink-0" %}
-                </a>
-            </div>
+
+                {# Role-specific grouped sections #}
+                {% block sidebar_groups %}
+                    {# Each role template will override this #}
+                {% endblock %}
             {% endblock %}
         </nav>
 
-        {# Sidebar footer: user menu (button only) #}
-        <div class="border-t relative" style="border-color: var(--color-border);">
-            <button id="sidebarUserMenuButton"
-                    class="w-full flex items-center gap-1 p-2 text-left hover:bg-black/5 transition md:justify-center"
-                    style="background: transparent; border: none; cursor: pointer;"
-                    onclick="toggleSidebarUserMenu()">
+        {# ========== SIDEBAR FOOTER: User + Actions ========== #}
+        <div class="border-t px-3 py-3" style="border-color: var(--color-border);">
+            <div class="flex items-center gap-3">
+                {# Avatar #}
                 <div class="shrink-0">
                     {% if user.avatar %}
-                        <img src="{{ user.avatar.url }}" alt="Avatar" class="h-7 w-7 rounded-full object-cover">
+                        <img src="{{ user.avatar.url }}" alt="Avatar" class="h-9 w-9 rounded-full object-cover">
                     {% else %}
-                        <div class="flex h-7 w-7 items-center justify-center rounded-full text-white text-xs font-medium"
+                        <div class="flex h-9 w-9 items-center justify-center rounded-full text-white text-sm font-medium"
                             style="background-color: var(--color-primary);">
                             {{ user.email.0|upper }}
                         </div>
                     {% endif %}
                 </div>
-                {# Name, role, and chevron – hidden on desktop #}
-                <div class="flex-1 min-w-0 text-left md:hidden">
-                    <p class="text-xs font-medium truncate" style="color: var(--color-text-primary);">
-                        {{ user.get_full_name_with_role|default:user.email }}
+                
+                {# User info #}
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-semibold truncate" style="color: var(--color-text-primary);">
+                        {{ user.get_full_name|default:user.email }}
                     </p>
-                    <p class="text-[0.65rem] truncate" style="color: var(--color-text-secondary);">
+                    <p class="text-xs truncate" style="color: var(--color-text-secondary);">
                         {% block role_label %}{% endblock %}
                     </p>
                 </div>
-                <div class="shrink-0 md:hidden">
-                    {% lucide "chevron-up" size=14 class="h-3.5 w-3.5 transition-transform duration-200" id="sidebarUserChevron" style="color: var(--color-text-secondary);" %}
+                
+                {# Action icons #}
+                <div class="flex items-center gap-1 shrink-0">
+                    <a href="{% url 'accounts:profile' %}"
+                       class="p-1.5 rounded-md transition hover:bg-black/5"
+                       style="color: var(--color-text-secondary);"
+                       title="Account Settings">
+                        {% lucide "settings" size=16 class="h-4 w-4" %}
+                    </a>
+                    <button onclick="confirmLogout()"
+                            class="p-1.5 rounded-md transition hover:bg-black/5"
+                            style="color: var(--color-text-secondary);"
+                            title="Logout">
+                        {% lucide "log-out" size=16 class="h-4 w-4" %}
+                    </button>
                 </div>
-            </button>
+            </div>
         </div>
     </aside>
 
     {# ========== MAIN CONTENT AREA ========== #}
-    <div class="flex flex-1 flex-col min-w-0 ml-0 md:ml-16 transition-all duration-300 mt-14">
-        {# Hidden form to ensure CSRF token is set and available for HTMX #}
+    <div id="mainContent" class="flex flex-1 flex-col min-w-0 ml-0 transition-all duration-300 mt-[4.4rem]">
+        {# Hidden form to ensure CSRF token is set #}
         <form style="display:none;">
             {% csrf_token %}
         </form>
@@ -193,29 +165,6 @@
             {% endblock page_title_area %}
             {% block dashboard_content %}{% endblock %}
         </main>
-
-        {# ========== SIDEBAR USER DROPDOWN (floats freely, outside sidebar) ========== #}
-        <div id="sidebarUserDropdown"
-             class="fixed rounded-sm shadow-md border overflow-hidden"
-             style="background-color: var(--color-surface); border-color: var(--color-border); display: none; z-index: 70; min-width: 10rem;">
-            <a href="{% url 'accounts:profile' %}"
-               class="flex items-center gap-2.5 px-4 py-2.5 text-xs transition hover:bg-black/5"
-               style="color: var(--color-text-primary);">
-                {% lucide "settings" size=14 class="h-3.5 w-3.5" style="color: var(--color-text-secondary);" %}
-                Account Settings
-            </a>
-            <button type="button" onclick="confirmLogout()"
-                    class="flex w-full items-center gap-2.5 px-4 py-2.5 text-xs transition hover:bg-black/5"
-                    style="color: var(--color-text-primary); background: none; border: none; cursor: pointer;">
-                {% lucide "log-out" size=14 class="h-3.5 w-3.5" style="color: var(--color-text-secondary);" %}
-                Log Out
-            </button>
-
-            <form id="logoutForm" action="{% url 'accounts:logout' %}" method="post" style="display:none;">
-                {% csrf_token %}
-            </form>
-
-        </div>
 
         {# ========== SLIDE-OVER PANEL (right) ========== #}
         <div id="slideoverBackdrop"
@@ -260,11 +209,16 @@
         </div>
         {% endif %}
 
-        {# Toast container for both WebSocket and Django messages #}
+        {# Toast container #}
         <div id="toastContainer" class="toast-container"></div>
 
     </div> {# end main content wrapper #}
 </div> {# end flex h-screen #}
+
+{# Hidden logout form #}
+<form id="logoutForm" action="{% url 'accounts:logout' %}" method="post" style="display:none;">
+    {% csrf_token %}
+</form>
 
 {% endblock navigation %}
 
@@ -279,6 +233,343 @@
     // ========== CONFIGURATION ==========
     window.notificationsUrl = "{% url 'notifications:list' %}";
     window.vapidPublicKey = "{{ VAPID_PUBLIC_KEY }}";
+
+    // ========== SIDEBAR STATE (Separate for Desktop & Mobile) ==========
+    let isMobile = window.innerWidth < 768;
+    
+    // Desktop: track visibility (stored in localStorage)
+    let desktopSidebarVisible = localStorage.getItem('sidebar_visible') !== 'false';
+    
+    // Mobile: track visibility (not stored, defaults to closed)
+    let mobileSidebarOpen = false;
+
+    function toggleSidebarMain() {
+        if (isMobile) {
+            // Mobile: independent toggle
+            mobileSidebarOpen = !mobileSidebarOpen;
+            updateMobileSidebar();
+        } else {
+            // Desktop: toggle visibility
+            desktopSidebarVisible = !desktopSidebarVisible;
+            localStorage.setItem('sidebar_visible', desktopSidebarVisible);
+            updateDesktopSidebar();
+        }
+    }
+
+    function updateMobileSidebar() {
+        const sidebar = document.getElementById('sidebar');
+        const backdrop = document.getElementById('sidebarBackdrop');
+        const toggleIcon = document.getElementById('toggleIcon');
+        
+        if (mobileSidebarOpen) {
+            // Open sidebar
+            sidebar.classList.remove('-translate-x-full');
+            backdrop.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+            if (toggleIcon) {
+                toggleIcon.innerHTML = `{% lucide "x" size=20 class="h-5 w-5" %}`;
+            }
+        } else {
+            // Close sidebar
+            sidebar.classList.add('-translate-x-full');
+            backdrop.classList.add('hidden');
+            document.body.style.overflow = '';
+            if (toggleIcon) {
+                toggleIcon.innerHTML = `{% lucide "menu" size=20 class="h-5 w-5" %}`;
+            }
+        }
+    }
+
+    function updateDesktopSidebar() {
+        const sidebar = document.getElementById('sidebar');
+        const mainContent = document.getElementById('mainContent');
+        const toggleIcon = document.getElementById('toggleIcon');
+        
+        if (desktopSidebarVisible) {
+            // Show sidebar
+            sidebar.classList.remove('w-0', 'overflow-hidden', 'border-r-0', 'px-0');
+            sidebar.classList.add('w-64');
+            mainContent.classList.remove('md:ml-0');
+            mainContent.classList.add('md:ml-64');
+            if (toggleIcon) {
+                toggleIcon.innerHTML = `{% lucide "menu" size=20 class="h-5 w-5" %}`;
+            }
+        } else {
+            // Hide sidebar completely
+            sidebar.classList.remove('w-64');
+            sidebar.classList.add('w-0', 'overflow-hidden', 'border-r-0', 'px-0');
+            mainContent.classList.remove('md:ml-64');
+            mainContent.classList.add('md:ml-0');
+            if (toggleIcon) {
+                toggleIcon.innerHTML = `{% lucide "menu" size=20 class="h-5 w-5" %}`;
+            }
+        }
+    }
+
+    // ========== MOBILE SIDEBAR FUNCTIONS ==========
+    function toggleSidebar() {
+        // Alias for backward compatibility
+        toggleSidebarMain();
+    }
+
+    function closeSidebar() {
+        if (isMobile) {
+            mobileSidebarOpen = false;
+            updateMobileSidebar();
+        }
+    }
+
+    // ========== SIDEBAR ACCORDION SECTIONS ==========
+    document.addEventListener('DOMContentLoaded', function() {
+        // Apply desktop sidebar state
+        updateDesktopSidebar();
+        
+        // Ensure mobile sidebar starts closed
+        if (isMobile) {
+            mobileSidebarOpen = false;
+            updateMobileSidebar();
+        }
+
+        // Get all section toggles
+        const sectionToggles = document.querySelectorAll('.sidebar-section-toggle');
+        const sectionContents = {};
+        let activeSectionId = null;
+        
+        // Check if we just came from a dashboard click
+        let dashboardClicked = localStorage.getItem('dashboard_clicked') === 'true';
+        
+        // Store references to all sections
+        sectionToggles.forEach(function(header) {
+            const sectionId = header.getAttribute('data-section');
+            const section = document.getElementById(sectionId);
+            if (section) {
+                sectionContents[sectionId] = {
+                    header: header,
+                    content: section,
+                    chevron: header.querySelector('.section-chevron')
+                };
+            }
+        });
+
+        // Function to close all sections except the one being opened
+        function closeAllSections(exceptId) {
+            Object.keys(sectionContents).forEach(function(id) {
+                if (id !== exceptId) {
+                    const section = sectionContents[id];
+                    section.content.style.maxHeight = '0';
+                    section.content.style.opacity = '0';
+                    section.content.style.paddingTop = '0';
+                    section.content.style.paddingBottom = '0';
+                    section.content.style.marginTop = '0';
+                    section.content.style.marginBottom = '0';
+                    section.content.style.overflow = 'hidden';
+                    setTimeout(function() {
+                        section.content.classList.add('hidden');
+                    }, 300);
+                    if (section.chevron) {
+                        section.chevron.style.transform = 'rotate(-90deg)';
+                    }
+                    localStorage.setItem('sidebar_section_' + id, 'collapsed');
+                }
+            });
+            activeSectionId = exceptId;
+        }
+
+        // Function to open a section with animation
+        function openSection(sectionId) {
+            const section = sectionContents[sectionId];
+            if (!section) return;
+            section.content.classList.remove('hidden');
+            section.content.style.maxHeight = section.content.scrollHeight + 'px';
+            section.content.style.opacity = '1';
+            section.content.style.paddingTop = '';
+            section.content.style.paddingBottom = '';
+            section.content.style.marginTop = '';
+            section.content.style.marginBottom = '';
+            section.content.style.overflow = '';
+            if (section.chevron) {
+                section.chevron.style.transform = 'rotate(0deg)';
+            }
+            localStorage.setItem('sidebar_section_' + sectionId, 'expanded');
+            activeSectionId = sectionId;
+        }
+
+        // Function to close a section with animation
+        function closeSection(sectionId) {
+            const section = sectionContents[sectionId];
+            if (!section) return;
+            section.content.style.maxHeight = section.content.scrollHeight + 'px';
+            // Force reflow
+            section.content.offsetHeight;
+            section.content.style.maxHeight = '0';
+            section.content.style.opacity = '0';
+            section.content.style.paddingTop = '0';
+            section.content.style.paddingBottom = '0';
+            section.content.style.marginTop = '0';
+            section.content.style.marginBottom = '0';
+            section.content.style.overflow = 'hidden';
+            setTimeout(function() {
+                section.content.classList.add('hidden');
+            }, 300);
+            if (section.chevron) {
+                section.chevron.style.transform = 'rotate(-90deg)';
+            }
+            localStorage.setItem('sidebar_section_' + sectionId, 'collapsed');
+            if (activeSectionId === sectionId) {
+                activeSectionId = null;
+            }
+        }
+
+        // ========== DASHBOARD LINK CLOSES ALL SECTIONS ==========
+        const dashboardLink = document.getElementById('dashboardLink');
+        if (dashboardLink) {
+            dashboardLink.addEventListener('click', function(e) {
+                // Close all sections
+                Object.keys(sectionContents).forEach(function(id) {
+                    const section = sectionContents[id];
+                    if (!section.content.classList.contains('hidden')) {
+                        closeSection(id);
+                    }
+                });
+                // Set flag so sections stay closed after page reload
+                localStorage.setItem('dashboard_clicked', 'true');
+                // Clear any expanded state in localStorage for all sections
+                Object.keys(sectionContents).forEach(function(id) {
+                    localStorage.setItem('sidebar_section_' + id, 'collapsed');
+                });
+                // Allow navigation to proceed
+            });
+        }
+
+        // ========== INITIALIZE SECTIONS ==========
+        // If dashboard was clicked, keep all sections closed and clear the flag
+        if (dashboardClicked) {
+            // Close all sections
+            Object.keys(sectionContents).forEach(function(id) {
+                const section = sectionContents[id];
+                section.content.classList.add('hidden');
+                section.content.style.maxHeight = '0';
+                section.content.style.opacity = '0';
+                section.content.style.overflow = 'hidden';
+                if (section.chevron) section.chevron.style.transform = 'rotate(-90deg)';
+                localStorage.setItem('sidebar_section_' + id, 'collapsed');
+            });
+            // Clear the flag so next load behaves normally
+            localStorage.removeItem('dashboard_clicked');
+        } else {
+            // Normal initialization: restore from localStorage
+            let hasExpanded = false;
+            Object.keys(sectionContents).forEach(function(id) {
+                const section = sectionContents[id];
+                const savedState = localStorage.getItem('sidebar_section_' + id);
+                if (savedState === 'expanded') {
+                    section.content.classList.remove('hidden');
+                    section.content.style.maxHeight = section.content.scrollHeight + 'px';
+                    section.content.style.opacity = '1';
+                    section.content.style.overflow = '';
+                    if (section.chevron) section.chevron.style.transform = 'rotate(0deg)';
+                    hasExpanded = true;
+                    activeSectionId = id;
+                } else {
+                    section.content.classList.add('hidden');
+                    section.content.style.maxHeight = '0';
+                    section.content.style.opacity = '0';
+                    section.content.style.overflow = 'hidden';
+                    if (section.chevron) section.chevron.style.transform = 'rotate(-90deg)';
+                    if (savedState === null) {
+                        localStorage.setItem('sidebar_section_' + id, 'collapsed');
+                    }
+                }
+            });
+
+            // If no sections are expanded, expand the first one
+            if (!hasExpanded && Object.keys(sectionContents).length > 0) {
+                const firstId = Object.keys(sectionContents)[0];
+                openSection(firstId);
+            }
+        }
+
+        // Toggle on click with accordion behavior
+        sectionToggles.forEach(function(header) {
+            header.addEventListener('click', function(e) {
+                e.preventDefault();
+                // Don't toggle if desktop sidebar is hidden
+                if (!isMobile && !desktopSidebarVisible) return;
+                // Don't toggle if mobile sidebar is closed
+                if (isMobile && !mobileSidebarOpen) return;
+                
+                const sectionId = header.getAttribute('data-section');
+                const section = sectionContents[sectionId];
+                if (!section) return;
+                
+                const isHidden = section.content.classList.contains('hidden');
+                
+                if (isHidden) {
+                    // Close all other sections first (accordion behavior)
+                    closeAllSections(sectionId);
+                    
+                    // Open this section with a small delay for smooth transition
+                    setTimeout(function() {
+                        openSection(sectionId);
+                    }, 50);
+                } else {
+                    // Close this section
+                    closeSection(sectionId);
+                }
+            });
+        });
+    });
+
+    // ========== HANDLE WINDOW RESIZE ==========
+    let resizeTimeout;
+    window.addEventListener('resize', function() {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(function() {
+            const wasMobile = isMobile;
+            isMobile = window.innerWidth < 768;
+            
+            if (window.innerWidth >= 768) {
+                // Switching to desktop
+                const sidebar = document.getElementById('sidebar');
+                const backdrop = document.getElementById('sidebarBackdrop');
+                
+                // Ensure mobile state is cleared
+                sidebar.classList.remove('-translate-x-full');
+                backdrop.classList.add('hidden');
+                document.body.style.overflow = '';
+                mobileSidebarOpen = false;
+                
+                // Restore desktop state
+                updateDesktopSidebar();
+                
+                // Reset toggle icon to menu
+                const toggleIcon = document.getElementById('toggleIcon');
+                if (toggleIcon) {
+                    toggleIcon.innerHTML = `{% lucide "menu" size=20 class="h-5 w-5" %}`;
+                }
+            } else {
+                // Switching to mobile
+                const sidebar = document.getElementById('sidebar');
+                const backdrop = document.getElementById('sidebarBackdrop');
+                
+                // Ensure mobile sidebar is closed
+                sidebar.classList.add('-translate-x-full');
+                backdrop.classList.add('hidden');
+                document.body.style.overflow = '';
+                mobileSidebarOpen = false;
+                
+                // Reset toggle icon to menu
+                const toggleIcon = document.getElementById('toggleIcon');
+                if (toggleIcon) {
+                    toggleIcon.innerHTML = `{% lucide "menu" size=20 class="h-5 w-5" %}`;
+                }
+                
+                // Remove desktop w-0 class if present (mobile uses translate-x-full)
+                sidebar.classList.remove('w-0', 'overflow-hidden', 'border-r-0', 'px-0');
+                sidebar.classList.add('w-64');
+            }
+        }, 200);
+    });
 
     // ========== CONFIRM LOGOUT ==========
     function confirmLogout() {
@@ -358,41 +649,6 @@
         }
     }
 
-    // ========== SIDEBAR USER MENU ==========
-    function toggleSidebarUserMenu() {
-        const dropdown = document.getElementById('sidebarUserDropdown');
-        const chevron = document.getElementById('sidebarUserChevron');
-        const button = document.getElementById('sidebarUserMenuButton');
-        if (!dropdown || !chevron || !button) return;
-
-        if (dropdown.style.display === 'none' || dropdown.style.display === '') {
-            const rect = button.getBoundingClientRect();
-            const sidebar = document.getElementById('sidebar');
-            const sidebarRect = sidebar.getBoundingClientRect();
-
-            dropdown.style.visibility = 'hidden';
-            dropdown.style.display = 'block';
-
-            if (window.innerWidth >= 768) {
-                dropdown.style.bottom = '10px';
-                dropdown.style.top = 'auto';
-                dropdown.style.left = (sidebarRect.right + 10) + 'px';
-                dropdown.style.right = 'auto';
-            } else {
-                dropdown.style.bottom = (window.innerHeight - rect.top + 8) + 'px';
-                dropdown.style.top = 'auto';
-                dropdown.style.left = (rect.left) + 'px';
-                dropdown.style.right = 'auto';
-            }
-
-            dropdown.style.visibility = 'visible';
-            chevron.style.transform = 'rotate(180deg)';
-        } else {
-            dropdown.style.display = 'none';
-            chevron.style.transform = 'rotate(0deg)';
-        }
-    }
-
     // ========== DJANGO MESSAGES AS TOASTS ==========
     document.addEventListener('DOMContentLoaded', function() {
         // Connect WebSocket
@@ -426,17 +682,6 @@
             } catch (e) {
                 console.error('Failed to parse messages:', e);
             }
-        }
-    });
-
-    // Close sidebar user menu when clicking outside
-    document.addEventListener('click', function(event) {
-        const button = document.getElementById('sidebarUserMenuButton');
-        const dropdown = document.getElementById('sidebarUserDropdown');
-        if (button && dropdown && !button.contains(event.target) && !dropdown.contains(event.target)) {
-            dropdown.style.display = 'none';
-            const chevron = document.getElementById('sidebarUserChevron');
-            if (chevron) chevron.style.transform = 'rotate(0deg)';
         }
     });
 </script>

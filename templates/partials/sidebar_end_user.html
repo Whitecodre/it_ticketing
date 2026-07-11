@@ -1,74 +1,98 @@
 {% load lucide %}
 
-<div class="px-3">
-    <a href="{% url 'dashboard' %}"
-        class="flex items-center justify-center p-2 rounded-sm transition sidebar-link" data-tooltip="Dashboard"
-        style="{% if request.path == '/' %}background-color: var(--color-primary); color: white;{% else %}color: var(--color-text-secondary);{% endif %}">
-        {% lucide "layout-dashboard" size=18 class="h-4.5 w-4.5" %}
-    </a>
+{# ========== DASHBOARD (standalone, not collapsible) ========== #}
+<a href="{% url 'dashboard' %}"
+   id="dashboardLink"
+   class="sidebar-link standalone flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition"
+   style="{% if request.path == '/' %}background-color: var(--color-primary); color: white;{% else %}color: var(--color-text-secondary);{% endif %}">
+    <span class="shrink-0">{% lucide "layout-dashboard" size=18 class="h-5 w-5" %}</span>
+    <span>Dashboard</span>
+</a>
+
+{# ========== SECTION: CREATE ========== #}
+<div class="mt-1">
+    <button class="sidebar-section-toggle flex w-full items-center rounded-lg px-3 py-2.5 text-xs font-semibold uppercase tracking-wider transition hover:bg-black/5"
+            data-section="create-section"
+            style="color: var(--color-text-secondary);">
+        <span class="section-icon">{% lucide "plus-circle" size=16 %}</span>
+        <span>Create</span>
+        <span class="section-chevron ml-auto">{% lucide "chevron-down" size=14 %}</span>
+    </button>
+    <div id="create-section" class="section-content pl-2 hidden" style="max-height: 0; opacity: 0; overflow: hidden;">
+        <a href="{% url 'tickets:create' %}?type=INCIDENT"
+           class="sidebar-link flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition"
+           style="{% if '/tickets/new/' in request.path and request.GET.type == 'INCIDENT' %}background-color: var(--color-primary); color: white;{% else %}color: var(--color-text-secondary);{% endif %}">
+            <span class="shrink-0">{% lucide "circle-plus" size=16 class="h-4 w-4" %}</span>
+            <span>New Incident</span>
+        </a>
+        <a href="{% url 'tickets:create' %}?type=SERVICE_REQUEST"
+           class="sidebar-link flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition"
+           style="{% if '/tickets/new/' in request.path and request.GET.type == 'SERVICE_REQUEST' %}background-color: var(--color-primary); color: white;{% else %}color: var(--color-text-secondary);{% endif %}">
+            <span class="shrink-0">{% lucide "file-text" size=16 class="h-4 w-4" %}</span>
+            <span>Service Request</span>
+        </a>
+    </div>
 </div>
 
-<div class="px-3">
-    <a href="{% url 'tickets:create' %}?type=INCIDENT"
-        class="flex items-center justify-center p-2 rounded-sm transition sidebar-link" data-tooltip="New Incident"
-        style="{% if '/tickets/new/' in request.path and request.GET.type == 'INCIDENT' %}background-color: var(--color-primary); color: white;{% else %}color: var(--color-text-secondary);{% endif %}">
-        {% lucide "circle-plus" size=18 class="h-4.5 w-4.5" %}
-    </a>
+{# ========== SECTION: MY TICKETS ========== #}
+<div class="mt-2">
+    <button class="sidebar-section-toggle flex w-full items-center rounded-lg px-3 py-2.5 text-xs font-semibold uppercase tracking-wider transition hover:bg-black/5"
+            data-section="mytickets-section"
+            style="color: var(--color-text-secondary);">
+        <span class="section-icon">{% lucide "inbox" size=16 %}</span>
+        <span>My Tickets</span>
+        <span class="section-chevron ml-auto">{% lucide "chevron-down" size=14 %}</span>
+    </button>
+    <div id="mytickets-section" class="section-content pl-2 hidden" style="max-height: 0; opacity: 0; overflow: hidden;">
+        <a href="{% url 'tickets:my_list' %}"
+           class="sidebar-link flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition"
+           style="{% if '/tickets/my/' in request.path and not request.GET.base and not request.GET.status %}background-color: var(--color-primary); color: white;{% else %}color: var(--color-text-secondary);{% endif %}">
+            <span class="shrink-0">{% lucide "inbox" size=16 class="h-4 w-4" %}</span>
+            <span>All Tickets</span>
+        </a>
+        <a href="{% url 'tickets:my_list' %}?base=OPEN&status=OPEN"
+           class="sidebar-link flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition"
+           style="{% if request.GET.base == 'OPEN' %}background-color: var(--color-primary); color: white;{% else %}color: var(--color-text-secondary);{% endif %}">
+            <span class="shrink-0">{% lucide "circle-alert" size=16 class="h-4 w-4" %}</span>
+            <span>Open Tickets</span>
+        </a>
+        <a href="{% url 'tickets:my_list' %}?base=CLOSED&status=CLOSED"
+           class="sidebar-link flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition"
+           style="{% if request.GET.base == 'CLOSED' %}background-color: var(--color-primary); color: white;{% else %}color: var(--color-text-secondary);{% endif %}">
+            <span class="shrink-0">{% lucide "circle-check" size=16 class="h-4 w-4" %}</span>
+            <span>Closed Tickets</span>
+        </a>
+    </div>
 </div>
 
-<div class="px-3">
-    <a href="{% url 'tickets:create' %}?type=SERVICE_REQUEST"
-        class="flex items-center justify-center p-2 rounded-sm transition sidebar-link" data-tooltip="New Service Request"
-        style="{% if '/tickets/new/' in request.path and request.GET.type == 'SERVICE_REQUEST' %}background-color: var(--color-primary); color: white;{% else %}color: var(--color-text-secondary);{% endif %}">
-        {% lucide "file-text" size=18 class="h-4.5 w-4.5" %}
-    </a>
-</div>
-
-<div class="border-t my-2 mx-2" style="border-color: var(--color-border);"></div>
-
-<div class="px-3">
-    <a href="{% url 'tickets:my_list' %}"
-        class="flex items-center justify-center p-2 rounded-sm transition sidebar-link" data-tooltip="My Tickets"
-        style="{% if '/tickets/my/' in request.path and not request.GET.base and not request.GET.status %}background-color: var(--color-primary); color: white;{% else %}color: var(--color-text-secondary);{% endif %}">
-        {% lucide "inbox" size=18 class="h-4.5 w-4.5" %}
-    </a>
-</div>
-
-<div class="px-3">
-    <a href="{% url 'tickets:my_list' %}?base=OPEN&status=OPEN"
-       class="flex items-center justify-center p-2 rounded-sm transition sidebar-link" data-tooltip="Open Tickets"
-       style="{% if request.GET.base == 'OPEN' %}background-color: var(--color-primary); color: white;{% else %}color: var(--color-text-secondary);{% endif %}">
-        {% lucide "circle-alert" size=18 class="h-4.5 w-4.5" %}
-    </a>
-</div>
-
-<div class="px-3">
-    <a href="{% url 'tickets:my_list' %}?base=CLOSED&status=CLOSED"
-       class="flex items-center justify-center p-2 rounded-sm transition sidebar-link" data-tooltip="Closed Tickets"
-       style="{% if request.GET.base == 'CLOSED' %}background-color: var(--color-primary); color: white;{% else %}color: var(--color-text-secondary);{% endif %}">
-        {% lucide "circle-check" size=18 class="h-4.5 w-4.5" %}
-    </a>
-</div>
-
-<div class="border-t my-2 mx-2" style="border-color: var(--color-border);"></div>
-
-<div class="px-3">
-    <a href="{% url 'kb:portal' %}"
-       class="flex items-center justify-center p-2 rounded-sm transition sidebar-link" data-tooltip="Knowledge Base"
-       style="{% if '/kb/' in request.path %}background-color: var(--color-primary); color: white;{% else %}color: var(--color-text-secondary);{% endif %}">
-        {% lucide "book-open" size=18 class="h-4.5 w-4.5" %}
-    </a>
-</div>
-
-<div class="px-3 relative">
-    <a href="{% url 'tickets:remote_sessions_list' %}"
-       class="flex items-center justify-center p-2 rounded-sm transition sidebar-link" data-tooltip="Remote Session"
-       style="{% if '/remote-sessions/' in request.path %}background-color: var(--color-primary); color: white;{% else %}color: var(--color-text-secondary);{% endif %}">
-        {% lucide "monitor" size=18 class="h-4.5 w-4.5" %}
-    </a>
-    <div id="remoteSessionBadge" class="absolute top-0 right-2"
-         hx-get="{% url 'tickets:remote_session_pending_count' %}"
-         hx-trigger="every 5s"
-         hx-swap="innerHTML">
+{# ========== SECTION: KNOWLEDGE ========== #}
+<div class="mt-2">
+    <button class="sidebar-section-toggle flex w-full items-center rounded-lg px-3 py-2.5 text-xs font-semibold uppercase tracking-wider transition hover:bg-black/5"
+            data-section="knowledge-section"
+            style="color: var(--color-text-secondary);">
+        <span class="section-icon">{% lucide "book-open" size=16 %}</span>
+        <span>Knowledge</span>
+        <span class="section-chevron ml-auto">{% lucide "chevron-down" size=14 %}</span>
+    </button>
+    <div id="knowledge-section" class="section-content pl-2 hidden" style="max-height: 0; opacity: 0; overflow: hidden;">
+        <a href="{% url 'kb:portal' %}"
+           class="sidebar-link flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition"
+           style="{% if '/kb/' in request.path %}background-color: var(--color-primary); color: white;{% else %}color: var(--color-text-secondary);{% endif %}">
+            <span class="shrink-0">{% lucide "book-open" size=16 class="h-4 w-4" %}</span>
+            <span>Browse Articles</span>
+        </a>
+        <a href="{% url 'tickets:remote_sessions_list' %}"
+           class="sidebar-link flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition"
+           style="{% if '/remote-sessions/' in request.path %}background-color: var(--color-primary); color: white;{% else %}color: var(--color-text-secondary);{% endif %}">
+            <span class="shrink-0 relative">
+                {% lucide "monitor" size=16 class="h-4 w-4" %}
+                <div id="remoteSessionBadge" class="absolute -top-1 -right-1"
+                     hx-get="{% url 'tickets:remote_session_pending_count' %}"
+                     hx-trigger="every 5s"
+                     hx-swap="innerHTML">
+                </div>
+            </span>
+            <span>Remote Sessions</span>
+        </a>
     </div>
 </div>

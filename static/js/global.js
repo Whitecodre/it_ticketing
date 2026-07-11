@@ -158,30 +158,6 @@ function closeSlideover() {
 window.openSlideover = openSlideover;
 window.closeSlideover = closeSlideover;
 
-// ----- Floating Tooltips (desktop only) -----
-(function() {
-    // If touch device, skip floating tooltips
-    if ('ontouchstart' in window || navigator.maxTouchPoints > 0) return;
-
-    // Right-aligned tooltip for sidebar
-    const tooltip = document.createElement('div');
-    tooltip.className = 'floating-tooltip';
-    document.body.appendChild(tooltip);
-    document.querySelectorAll('.sidebar-link[data-tooltip]').forEach(link => {
-        link.addEventListener('mouseenter', function(e) {
-            const rect = e.currentTarget.getBoundingClientRect();
-            tooltip.textContent = e.currentTarget.getAttribute('data-tooltip');
-            tooltip.style.opacity = '1';
-            tooltip.style.left = (rect.right + 12) + 'px';
-            tooltip.style.top = (rect.top + rect.height / 2) + 'px';
-            tooltip.style.transform = 'translateY(-50%)';
-        });
-        link.addEventListener('mouseleave', function() {
-            tooltip.style.opacity = '0';
-        });
-    });
-})();
-
 (function() {
     if ('ontouchstart' in window || navigator.maxTouchPoints > 0) return;
 

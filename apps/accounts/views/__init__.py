@@ -652,7 +652,7 @@ def profile(request):
         'END_USER': 'partials/sidebar_end_user.html',
         'AGENT': 'partials/sidebar_agent.html',
         'TEAM_LEAD': 'partials/sidebar_team_lead.html',
-        'APPROVER': 'partials/sidebar_approver.html',
+        # 'APPROVER': 'partials/sidebar_approver.html',
         'ADMIN': 'partials/sidebar_admin.html',
         'SUPERADMIN': 'partials/sidebar_superadmin.html',
     }

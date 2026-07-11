@@ -6,7 +6,11 @@ class Command(BaseCommand):
     help = 'Seed default macros'
 
     def handle(self, *args, **options):
-        creator = User.objects.filter(is_superuser=True).first()
+        if Macro.objects.exists():
+            self.stdout.write(self.style.WARNING('⚠️ Macros already exist. Skipping seeding to avoid duplicates.'))
+            self.stdout.write(self.style.WARNING(f'   Current macro count: {Macro.objects.count()}'))
+            return
+        creator = User.objects.filter(is_superuser=True).first()  # <-- ADD THIS
         if not creator:
             self.stdout.write(self.style.ERROR('No superuser found. Please create one first.'))
             return

@@ -18,6 +18,11 @@ class Command(BaseCommand):
     help = 'Seed the initial ticket categories'
 
     def handle(self, *args, **options):
+        # Check if categories already exist
+        if Category.objects.exists():
+            self.stdout.write(self.style.WARNING('⚠️ Categories already exist. Skipping seeding to avoid duplicates.'))
+            self.stdout.write(self.style.WARNING(f'   Current category count: {Category.objects.count()}'))
+            return
         for name in CATEGORIES:
             category, created = Category.objects.get_or_create(
                 name=name,

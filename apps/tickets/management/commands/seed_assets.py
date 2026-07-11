@@ -1,3 +1,4 @@
+# apps/tickets/management/commands/seed_assets.py
 import random
 from datetime import date, timedelta
 from django.core.management.base import BaseCommand
@@ -7,9 +8,15 @@ from apps.tickets.models import Asset, AssetLog
 User = get_user_model()
 
 class Command(BaseCommand):
-    help = 'Seed the asset database with realistic sample assets'
+    help = 'Seed the asset database with realistic sample assets (only if empty)'
 
     def handle(self, *args, **options):
+        # Check if assets already exist
+        if Asset.objects.exists():
+            self.stdout.write(self.style.WARNING('⚠️ Assets already exist. Skipping seeding to avoid duplicates.'))
+            self.stdout.write(self.style.WARNING(f'   Current asset count: {Asset.objects.count()}'))
+            return
+
         # Get or create a default user to act as "actor" for logs
         actor = User.objects.filter(is_superuser=True).first()
         if not actor:
@@ -277,7 +284,6 @@ class Command(BaseCommand):
                 assigned_to=assigned_to,
                 notes=data['notes'],
             )
-            # tracking_id is auto-generated in save()
 
             # Create an initial log entry
             AssetLog.objects.create(

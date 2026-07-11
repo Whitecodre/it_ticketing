@@ -5,6 +5,9 @@ class Command(BaseCommand):
     help = 'Seed default remote connectors'
 
     def handle(self, *args, **options):
+        if RemoteConnector.objects.exists():
+            self.stdout.write(self.style.WARNING('⚠️ Remote connectors already exist. Skipping seeding.'))
+            return
         connector, created = RemoteConnector.objects.get_or_create(
             name='Quick Assist',
             defaults={
